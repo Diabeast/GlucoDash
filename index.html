@@ -2,6 +2,7 @@
 <html lang="nl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>GlucoAgent - Arinelis</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -11,25 +12,26 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .dark{background:#171614;color:#cdccca}
 .dark .card{background:#1c1b19;border-color:#393836}
 .dark .sidebar{background:#1c1b19;border-color:#393836}
-.sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:#f9f8f5;border-right:1px solid #d4d1ca;padding:20px;overflow-y:auto}
+.sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:#f9f8f5;border-right:1px solid #d4d1ca;padding:20px;overflow-y:auto;z-index:100}
 .sidebar h1{font-size:18px;font-weight:700;margin-bottom:5px}
 .sidebar span{font-size:12px;color:#7a7974}
 .nav{margin-top:30px}
 .nav button{width:100%;text-align:left;padding:10px 15px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:14px;color:#7a7974;margin-bottom:5px}
 .nav button:hover,.nav button.active{background:#f3f0ec;color:#01696f;font-weight:500}
-.main{margin-left:220px;padding:30px;max-width:1400px}
-.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px}
+.main{margin-left:220px;padding:30px;max-width:1600px}
+.top{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:10px}
 .top h2{font-size:24px;font-weight:700}
+.top select{padding:8px 12px;border:1px solid #d4d1ca;border-radius:8px;font-size:13px;background:#f9f8f5}
 .status{padding:8px 15px;border-radius:20px;font-size:12px;font-weight:500}
 .status.live{background:#d4dfcc;color:#437a22}
 .status.error{background:#e0ced7;color:#a12c7b}
-.glucose{display:flex;align-items:center;gap:30px;background:#f9f8f5;padding:25px;border-radius:15px;margin-bottom:25px}
+.glucose{display:flex;align-items:center;gap:30px;background:#f9f8f5;padding:25px;border-radius:15px;margin-bottom:25px;flex-wrap:wrap}
 .glucose-nr{font-size:56px;font-weight:700;font-family:JetBrains Mono,monospace}
 .glucose-nr.red{color:#dc2626}
 .glucose-nr.orange{color:#964219}
 .glucose-nr.green{color:#437a22}
 .glucose-unit{font-size:14px;color:#7a7974}
-.glucose-meta{display:flex;gap:20px}
+.glucose-meta{display:flex;gap:20px;flex-wrap:wrap}
 .meta-item{text-align:center}
 .meta-val{font-size:18px;font-weight:600;font-family:JetBrains Mono,monospace}
 .meta-label{font-size:10px;color:#7a7974;text-transform:uppercase}
@@ -45,22 +47,35 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .tir-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;gap:2px;margin-top:15px}
 .tir-seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:white;min-width:2px}
-.legend{display:flex;gap:15px;margin-top:10px;font-size:12px;color:#7a7974}
+.legend{display:flex;gap:15px;margin-top:10px;font-size:12px;color:#7a7974;flex-wrap:wrap}
 .legend-item{display:flex;align-items:center;gap:5px}
 .legend-dot{width:10px;height:10px;border-radius:2px}
 .chart{height:250px;margin-top:15px}
 .chart-sm{height:180px;margin-top:15px}
+.chart-lg{height:350px;margin-top:15px}
 .toggle{position:fixed;bottom:20px;right:20px;padding:10px 15px;border:none;border-radius:8px;background:#f3f0ec;cursor:pointer;font-size:12px}
 .toggle:hover{background:#dcd9d5}
 .alert-card{background:#fff3cd;border-color:#ffc107}
+.alert-card.danger{background:#f8d7da;border-color:#dc2626}
+.alert-card.success{background:#d4edda;border-color:#437a22}
 .alert-list{margin-top:10px;font-size:13px}
-.alert-item{padding:8px 12px;background:#fff;margin-bottom:8px;border-radius:6px;border-left:4px solid #ffc107}
-.alert-item.danger{border-left-color:#dc2626}
+.alert-item{padding:12px 15px;background:#fff;margin-bottom:10px;border-radius:8px;border-left:4px solid #ffc107;font-size:13px;line-height:1.5}
+.alert-item.danger{border-left-color:#dc2626;background:#fff5f5}
 .alert-item.success{border-left-color:#437a22}
+.alert-item strong{display:block;margin-bottom:4px}
 .pattern-card{background:#e8f4f8;border-color:#01696f}
-.pattern-item{padding:12px;background:#fff;margin-bottom:10px;border-radius:8px;font-size:13px}
+.pattern-item{padding:12px 15px;background:#fff;margin-bottom:10px;border-radius:8px;font-size:13px;line-height:1.5}
 .pattern-item strong{display:block;margin-bottom:5px;color:#01696f}
+.rec-card{background:#e8f0fe;border-color:#4285f4}
+.rec-item{padding:12px 15px;background:#fff;margin-bottom:10px;border-radius:8px;font-size:13px;border-left:4px solid #4285f4;line-height:1.5}
+.rec-item strong{display:block;margin-bottom:5px;color:#4285f4}
+.meal-card{background:#fef3e2;border-color:#ff9800}
+.spike-detail{margin-top:10px;font-size:12px;color:#666;padding:8px;background:#fafafa;border-radius:6px}
 .toggle-info{position:fixed;bottom:20px;left:240px;padding:8px 15px;background:#01696f;color:#fff;border-radius:20px;font-size:11px}
+.time-filters{display:flex;gap:10px;margin-bottom:20px}
+.time-filters button{padding:8px 16px;border:1px solid #d4d1ca;border-radius:8px;background:#f9f8f5;cursor:pointer;font-size:13px}
+.time-filters button.active{background:#01696f;color:#fff;border-color:#01696f}
+.last-updated{font-size:11px;color:#7a7974;margin-top:5px}
 @media(max-width:1200px){.grid{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:900px){.grid,.grid-3{grid-template-columns:1fr}.two-col{grid-template-columns:1fr}.sidebar{display:none}.main{margin-left:0}.toggle-info{left:20px}}
 </style>
@@ -74,6 +89,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
     <button class="active" onclick="showView('overzicht')">Overzicht</button>
     <button onclick="showView('trends')">Trends</button>
     <button onclick="showView('uitschieters')">Uitschieters</button>
+    <button onclick="showView('maaltijden')">Maaltijden</button>
     <button onclick="showView('advies')">Advies</button>
   </div>
   <button class="toggle" onclick="toggleTheme()">🌙 Dark mode</button>
@@ -81,8 +97,17 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 
 <div class="main">
   <div class="top">
-    <h2 id="pageTitle">Overzicht - 90 Dagen</h2>
-    <span class="status live" id="statusBadge">Laden...</span>
+    <h2 id="pageTitle">Overzicht</h2>
+    <div style="display:flex;align-items:center;gap:15px">
+      <select id="periodSelect" onchange="changePeriod()">
+        <option value="14">14 dagen</option>
+        <option value="30" selected>30 dagen</option>
+        <option value="60">60 dagen</option>
+        <option value="90">90 dagen</option>
+        <option value="180">180 dagen</option>
+      </select>
+      <span class="status live" id="statusBadge">Laden...</span>
+    </div>
   </div>
 
   <!-- OVERZICHT -->
@@ -91,6 +116,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
       <div>
         <div class="glucose-nr green" id="glucose">--</div>
         <div class="glucose-unit">mmol/L</div>
+        <div class="last-updated" id="lastUpdated"></div>
       </div>
       <div class="glucose-meta">
         <div class="meta-item"><div class="meta-val" id="tirIn" style="color:#437a22">--%</div><div class="meta-label">In Doel</div></div>
@@ -105,9 +131,9 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
       <div class="card"><div class="card-label">CV</div><div class="card-val" id="cv">--</div><div class="card-sub">Doel onder 36%</div></div>
       <div class="card"><div class="card-label">Nachtelijke hypo</div><div class="card-val" id="nightHypos">--</div><div class="card-sub">00:00 - 06:00</div></div>
       <div class="card"><div class="card-label">Dagen data</div><div class="card-val" id="days">--</div><div class="card-sub">Periode</div></div>
-      <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="total">--</div><div class="card-sub">Totaal (90 dgn)</div></div>
-      <div class="card"><div class="card-label">Hyper Episodes</div><div class="card-val warn" id="hyperCount">--</div><div class="card-sub">&gt;13.9 mmol/L</div></div>
-      <div class="card"><div class="card-label">Hypo Episodes</div><div class="card-val danger" id="hypoCount">--</div><div class="card-sub">&lt;3.0 mmol/L</div></div>
+      <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="total">--</div><div class="card-sub">Totaal</div></div>
+      <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="hyperCount">--</div><div class="card-sub">Episodes</div></div>
+      <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="hypoCount">--</div><div class="card-sub">Episodes</div></div>
     </div>
 
     <div class="two-col">
@@ -133,35 +159,41 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 
   <!-- TRENDS -->
   <div id="view-trends" style="display:none">
+    <div class="time-filters">
+      <button class="active" onclick="setTrendPeriod(14)">14 dgn</button>
+      <button onclick="setTrendPeriod(30)">30 dgn</button>
+      <button onclick="setTrendPeriod(60)">60 dgn</button>
+      <button onclick="setTrendPeriod(90)">90 dgn</button>
+    </div>
     <div class="card" style="margin-bottom:20px">
-      <div class="card-label">Glucose Overzicht - Alle Dagen (90 dagen)</div>
-      <div class="chart"><canvas id="monthlyChart"></canvas></div>
+      <div class="card-label">Glucose Overzicht - Alle Dagen</div>
+      <div class="chart-lg"><canvas id="monthlyChart"></canvas></div>
     </div>
     <div class="two-col">
       <div class="card">
-        <div class="card-label">Wekelijkse TIR (13 weken)</div>
+        <div class="card-label">Wekelijkse TIR</div>
         <div class="chart"><canvas id="weeklyChart"></canvas></div>
       </div>
       <div class="card">
-        <div class="card-label">Dagelijkse Gemiddelden (laatste 14 dagen)</div>
+        <div class="card-label">Dagelijkse Gemiddelden</div>
         <div class="chart"><canvas id="dailyAvgChart"></canvas></div>
       </div>
     </div>
     <div class="grid-3" style="margin-top:20px">
       <div class="card">
-        <div class="card-label">Snelle Stijgers</div>
+        <div class="card-label">Gem. Snelle Stijgers</div>
         <div class="card-val" id="riseCount">--</div>
         <div class="card-sub">&gt;0.1 mmol/min stijging</div>
       </div>
       <div class="card">
-        <div class="card-label">Snelle Dalers</div>
+        <div class="card-label">Gem. Snelle Dalers</div>
         <div class="card-val" id="fallCount">--</div>
         <div class="card-sub">&lt;-0.1 mmol/min daling</div>
       </div>
       <div class="card">
         <div class="card-label">Standaard Deviatie</div>
         <div class="card-val" id="sdCard">--</div>
-        <div class="card-sub">Variantie in glucose</div>
+        <div class="card-sub">Variantie</div>
       </div>
     </div>
   </div>
@@ -171,18 +203,18 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
     <div class="grid">
       <div class="card"><div class="card-label">Hyper Episodes</div><div class="card-val warn" id="hyper">--</div><div class="card-sub">boven 13.9 mmol/L</div></div>
       <div class="card"><div class="card-label">Hypo Episodes</div><div class="card-val danger" id="hypo">--</div><div class="card-sub">onder 3.0 mmol/L</div></div>
-      <div class="card"><div class="card-label">Snelle Stijgers</div><div class="card-val" id="rise">--</div><div class="card-sub">boven 0.1 mmol/min</div></div>
-      <div class="card"><div class="card-label">Snelle Dalers</div><div class="card-val" id="fall">--</div><div class="card-sub">onder -0.1 mmol/min</div></div>
+      <div class="card"><div class="card-label">Snelle Stijgers</div><div class="card-val" id="rise">--</div><div class="card-sub">&gt;0.1 mmol/min</div></div>
+      <div class="card"><div class="card-label">Snelle Dalers</div><div class="card-val" id="fall">--</div><div class="card-sub">&lt;-0.1 mmol/min</div></div>
     </div>
     
     <div class="two-col">
       <div class="card pattern-card">
-        <div class="card-label">Patronen Herkend (90 dagen)</div>
+        <div class="card-label">Patronen Herkend</div>
         <div id="patterns" style="margin-top:15px">Data laden...</div>
       </div>
-      <div class="card alert-card">
-        <div class="card-label">⚠️ Alerts & Aanbevelingen</div>
-        <div class="alert-list" id="alerts" style="margin-top:15px">Data laden...</div>
+      <div class="card rec-card">
+        <div class="card-label">💡 Aanbevelingen om Uitschieters te Voorkomen</div>
+        <div id="recommendations" style="margin-top:15px">Data laden...</div>
       </div>
     </div>
     
@@ -190,12 +222,45 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
       <div class="card-label">Uitschieters per Dag (laatste 14 dagen)</div>
       <div class="chart-sm"><canvas id="spikesChart"></canvas></div>
     </div>
+    
+    <div class="two-col" style="margin-top:20px">
+      <div class="card">
+        <div class="card-label">Uitschieter Details - Hyper (laatste 5)</div>
+        <div id="hyperDetails" style="margin-top:15px;font-size:12px;color:#666">Data laden...</div>
+      </div>
+      <div class="card">
+        <div class="card-label">Uitschieter Details - Hypo (laatste 5)</div>
+        <div id="hypoDetails" style="margin-top:15px;font-size:12px;color:#666">Data laden...</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAALTIJDEN -->
+  <div id="view-maaltijden" style="display:none">
+    <div class="two-col">
+      <div class="card meal-card">
+        <div class="card-label">🍽️ Eetpatroon Analyse</div>
+        <div id="mealPatterns" style="margin-top:15px">Data laden...</div>
+      </div>
+      <div class="card">
+        <div class="card-label">⏰ Meest Voorkomende Eettijden</div>
+        <div id="mealTimes" style="margin-top:15px">Data laden...</div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-label">Glucose na Maaltijden (laatste 14 dagen)</div>
+      <div class="chart"><canvas id="mealChart"></canvas></div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-label">💡 Maaltijd Aanbevelingen</div>
+      <div id="mealAdvice" style="margin-top:15px">Data laden...</div>
+    </div>
   </div>
 
   <!-- ADVISE -->
   <div id="view-advies" style="display:none">
     <div class="card">
-      <div class="card-label">💡 Persoonlijk Glucosecoach Advies (90 dagen)</div>
+      <div class="card-label">💡 Persoonlijk Glucosecoach Advies</div>
       <div id="adviesList" style="margin-top:15px">Data laden...</div>
     </div>
   </div>
@@ -207,7 +272,9 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 var NS_URL = "https://arinelis.10be.de/";
 var NS_TOKEN = "nsread-bf4271c2d5b495b4";
 var T = { veryLow: 3.0, low: 3.9, high: 10.0, veryHigh: 13.9 };
-var DAYS = 90;
+var MAX_DAYS = 180;
+var DAYS = 30;
+var trendPeriod = 30;
 var data = [], r = {};
 var charts = {};
 
@@ -217,17 +284,7 @@ function toMmol(mgdl) {
 
 function fetchAPI(ep) {
   return fetch(NS_URL + "api/v1/" + ep + "&token=" + NS_TOKEN, { headers: { Accept: "application/json" } })
-    .then(function(res) { return res.text(); })
-    .then(function(text) {
-      try { return JSON.parse(text); }
-      catch(e) {
-        var lines = text.trim().split("\n");
-        return lines.map(function(l) {
-          var p = l.split("\t");
-          return { date: p[0], sgv: toMmol(parseInt(p[2])) };
-        });
-      }
-    })
+    .then(function(res) { return res.json(); })
     .catch(function(e) { console.log(e); return null; });
 }
 
@@ -235,7 +292,7 @@ function init() {
   document.getElementById("statusBadge").textContent = "Laden...";
   document.getElementById("statusBadge").className = "status live";
   
-  var count = DAYS * 288;
+  var count = MAX_DAYS * 288;
   fetchAPI("entries?count=" + count).then(function(entries) {
     if (!entries || entries.length === 0) {
       document.getElementById("statusBadge").textContent = "Geen data";
@@ -252,7 +309,7 @@ function init() {
     data = data.filter(function(d) { return d.date >= cutoff; });
     
     if (data.length === 0) {
-      document.getElementById("statusBadge").textContent = "Geen data (90 dgn)";
+      document.getElementById("statusBadge").textContent = "Geen data";
       document.getElementById("statusBadge").className = "status error";
       return;
     }
@@ -260,14 +317,55 @@ function init() {
     var oldest = data[0].date, newest = data[data.length - 1].date;
     var days = Math.round((newest - oldest) / 86400000) || 1;
     
-    document.getElementById("statusBadge").textContent = days + " dagen data (90 dgn)";
+    document.getElementById("statusBadge").textContent = days + " dagen data";
+    document.getElementById("lastUpdated").textContent = "Laatste meting: " + newest.toLocaleTimeString("nl-NL", {hour:"2-digit", minute:"2-digit"});
+    
     analyze();
     update();
   });
 }
 
+function changePeriod() {
+  DAYS = parseInt(document.getElementById("periodSelect").value);
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - DAYS);
+  var filteredData = data.filter(function(d) { return d.date >= cutoff; });
+  
+  if (filteredData.length === 0) {
+    document.getElementById("statusBadge").textContent = "Geen data";
+    document.getElementById("statusBadge").className = "status error";
+    return;
+  }
+  
+  var oldest = filteredData[0].date, newest = filteredData[filteredData.length - 1].date;
+  var days = Math.round((newest - oldest) / 86400000) || 1;
+  document.getElementById("statusBadge").textContent = days + " dagen data";
+  
+  analyze();
+  update();
+}
+
+function setTrendPeriod(days) {
+  trendPeriod = days;
+  document.querySelectorAll(".time-filters button").forEach(function(b) { b.classList.remove("active"); });
+  event.target.classList.add("active");
+  updateTrends();
+}
+
+function getFilteredData(days) {
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  return data.filter(function(d) { return d.date >= cutoff; });
+}
+
 function analyze() {
-  var vals = data.map(function(d) { return d.sgv; });
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - DAYS);
+  var periodData = data.filter(function(d) { return d.date >= cutoff; });
+  var vals = periodData.map(function(d) { return d.sgv; });
+  
+  if (vals.length === 0) return;
+  
   var mean = vals.reduce(function(a, b) { return a + b; }, 0) / vals.length;
   var variance = vals.reduce(function(a, v) { return a + Math.pow(v - mean, 2); }, 0) / vals.length;
   var std = Math.sqrt(variance);
@@ -281,36 +379,56 @@ function analyze() {
   var veryHigh = vals.filter(function(v) { return v > T.veryHigh; }).length;
   var total = vals.length;
   
-  var nightHypos = data.filter(function(d) { return d.date.getHours() >= 0 && d.date.getHours() < 6 && d.sgv < T.low; }).length;
-  var hyper = vals.filter(function(v) { return v > T.veryHigh; }).length;
-  var hypo = vals.filter(function(v) { return v < T.veryLow; }).length;
+  var nightHypos = periodData.filter(function(d) { return d.date.getHours() >= 0 && d.date.getHours() < 6 && d.sgv < T.low; }).length;
+  
+  var hyperEpisodes = countEpisodes(periodData, T.veryHigh, Infinity);
+  var hypoEpisodes = countEpisodes(periodData, 0, T.veryLow);
   
   var rise = 0, fall = 0;
-  for (var i = 1; i < data.length; i++) {
-    var diff = (data[i].date - data[i-1].date) / 60000;
+  for (var i = 1; i < periodData.length; i++) {
+    var diff = (periodData[i].date - periodData[i-1].date) / 60000;
     if (diff > 0 && diff < 15) {
-      var rate = (data[i].sgv - data[i-1].sgv) / diff;
+      var rate = (periodData[i].sgv - periodData[i-1].sgv) / diff;
       if (rate > 0.1) rise++;
       if (rate < -0.1) fall++;
     }
   }
   
   var hourlyAvg = new Array(24).fill(0), hourlyCount = new Array(24).fill(0);
-  data.forEach(function(d) { var h = d.date.getHours(); hourlyAvg[h] += d.sgv; hourlyCount[h]++; });
+  periodData.forEach(function(d) { var h = d.date.getHours(); hourlyAvg[h] += d.sgv; hourlyCount[h]++; });
   var hourly = hourlyAvg.map(function(s, i) { return hourlyCount[i] > 0 ? s / hourlyCount[i] : null; });
   
-  var oldest = data[0].date, newest = data[data.length - 1].date;
+  var oldest = periodData[0].date, newest = periodData[periodData.length - 1].date;
+  var periodDays = Math.round((newest - oldest) / 86400000) || 1;
   
   r = {
     mean: mean, std: std, cv: cv, gmi: gmi, total: total,
     tir: { low: ((veryLow + low) / total * 100).toFixed(1), in: (inRange / total * 100).toFixed(1), high: ((high + veryHigh) / total * 100).toFixed(1) },
-    nightHypos: nightHypos, hyper: hyper, hypo: hypo, rise: rise, fall: fall,
-    latest: data[data.length - 1], oldest: oldest, newest: newest,
-    days: Math.round((newest - oldest) / 86400000) || 1, hourly: hourly
+    nightHypos: nightHypos, hyperEpisodes: hyperEpisodes, hypoEpisodes: hypoEpisodes, hyperCount: veryHigh, hypoCount: veryLow, rise: rise, fall: fall,
+    latest: periodData[periodData.length - 1], oldest: oldest, newest: newest,
+    days: periodDays, hourly: hourly, rawData: periodData
   };
 }
 
+function countEpisodes(dataArr, minVal, maxVal) {
+  var episodes = 0;
+  var inEpisode = false;
+  for (var i = 0; i < dataArr.length; i++) {
+    var val = dataArr[i].sgv;
+    var isOutOfRange = (minVal <= maxVal) ? (val < minVal || val > maxVal) : (val < maxVal || val > minVal);
+    if (isOutOfRange && !inEpisode) {
+      episodes++;
+      inEpisode = true;
+    } else if (!isOutOfRange) {
+      inEpisode = false;
+    }
+  }
+  return episodes;
+}
+
 function update() {
+  if (!r.total) return;
+  
   var g = r.latest.sgv;
   var el = document.getElementById("glucose");
   el.textContent = g.toFixed(1);
@@ -331,17 +449,13 @@ function update() {
   document.getElementById("cv").className = "card-val " + (r.cv < 36 ? "good" : "warn");
   
   document.getElementById("nightHypos").textContent = r.nightHypos;
-  document.getElementById("nightHypos").className = "card-val " + (r.nightHypos === 0 ? "good" : "warn");
+  document.getElementById("nightHypos").className = "card-val " + (r.nightHypos === 0 ? "good" : "danger");
   
   document.getElementById("days").textContent = r.days;
   document.getElementById("total").textContent = r.total;
   
-  document.getElementById("hyperCount").textContent = r.hyper;
-  document.getElementById("hypoCount").textContent = r.hypo;
-  
-  document.getElementById("riseCount").textContent = r.rise;
-  document.getElementById("fallCount").textContent = r.fall;
-  document.getElementById("sdCard").textContent = r.std.toFixed(1);
+  document.getElementById("hyperCount").textContent = r.hyperCount;
+  document.getElementById("hypoCount").textContent = r.hypoCount;
   
   document.getElementById("tirLowBar").style.flex = parseFloat(r.tir.low);
   document.getElementById("tirInBar").style.flex = parseFloat(r.tir.in);
@@ -353,6 +467,7 @@ function update() {
   updateChart("dailyChart", r.hourly, 24);
   updateTrends();
   updateUitschieters();
+  updateMeals();
   updateAdvies();
 }
 
@@ -365,7 +480,14 @@ function updateChart(id, values, max) {
   if (!charts[id]) {
     charts[id] = new Chart(ctx, {
       type: "line",
-      data: { labels: hours, datasets: [{ data: values, borderColor: "#01696f", backgroundColor: "#01696f18", fill: true, tension: 0.4, pointRadius: 0 }, { data: new Array(max).fill(10), borderColor: "#96421940", borderDash: [4, 4], pointRadius: 0 }, { data: new Array(max).fill(3.9), borderColor: "#dc262640", borderDash: [4, 4], pointRadius: 0 }] },
+      data: { 
+        labels: hours, 
+        datasets: [
+          { data: values, borderColor: "#01696f", backgroundColor: "#01696f18", fill: true, tension: 0.4, pointRadius: 0 },
+          { data: new Array(max).fill(10), borderColor: "#96421940", borderDash: [4, 4], pointRadius: 0 },
+          { data: new Array(max).fill(3.9), borderColor: "#dc262640", borderDash: [4, 4], pointRadius: 0 }
+        ]
+      },
       options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 2, max: 15 } } }
     });
   } else {
@@ -375,8 +497,9 @@ function updateChart(id, values, max) {
 }
 
 function updateTrends() {
+  var periodData = getFilteredData(trendPeriod);
   var daily = {};
-  data.forEach(function(d) {
+  periodData.forEach(function(d) {
     var day = d.date.toISOString().split("T")[0];
     if (!daily[day]) daily[day] = [];
     daily[day].push(d.sgv);
@@ -389,79 +512,119 @@ function updateTrends() {
   var maxs = days.map(function(d) { return Math.max.apply(null, daily[d]); });
   
   var ctx = document.getElementById("monthlyChart");
-  if (ctx && !charts.monthlyChart) {
-    charts.monthlyChart = new Chart(ctx, {
-      type: "line",
-      data: { labels: labels, datasets: [{ label: "Gem", data: avgs, borderColor: "#01696f", backgroundColor: "#01696f20", fill: true, tension: 0.3, pointRadius: 0 }, { data: maxs, borderColor: "#96421960", borderDash: [3, 3], pointRadius: 0, label: "Max" }, { data: mins, borderColor: "#dc262660", borderDash: [3, 3], pointRadius: 0, label: "Min" }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { min: 2, max: 15 } } }
-    });
+  if (ctx) {
+    if (charts.monthlyChart) {
+      charts.monthlyChart.data.labels = labels;
+      charts.monthlyChart.data.datasets[0].data = avgs;
+      charts.monthlyChart.data.datasets[1].data = maxs;
+      charts.monthlyChart.data.datasets[2].data = mins;
+      charts.monthlyChart.update();
+    } else {
+      charts.monthlyChart = new Chart(ctx, {
+        type: "line",
+        data: { 
+          labels: labels, 
+          datasets: [
+            { label: "Gemiddelde", data: avgs, borderColor: "#01696f", backgroundColor: "#01696f20", fill: true, tension: 0.3, pointRadius: 0 },
+            { label: "Max", data: maxs, borderColor: "#96421960", borderDash: [3, 3], pointRadius: 0 },
+            { label: "Min", data: mins, borderColor: "#dc262660", borderDash: [3, 3], pointRadius: 0 }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { min: 2, max: 15 } } }
+      });
+    }
   }
   
-  var weeks = Math.ceil(r.days / 7);
+  var weeks = Math.ceil(trendPeriod / 7);
   var wLabels = [], wTir = [];
+  var wStart = periodData[0].date;
   for (var w = 0; w < weeks; w++) {
-    var wStart = new Date(r.oldest.getTime() + w * 7 * 86400000);
-    var wEnd = new Date(wStart.getTime() + 7 * 86400000);
-    var wData = data.filter(function(d) { return d.date >= wStart && d.date < wEnd; });
+    var weekStart = new Date(wStart.getTime() + w * 7 * 86400000);
+    var weekEnd = new Date(weekStart.getTime() + 7 * 86400000);
+    var wData = periodData.filter(function(d) { return d.date >= weekStart && d.date < weekEnd; });
     var wIn = wData.filter(function(d) { return d.sgv >= T.low && d.sgv <= T.high; }).length;
     wLabels.push("W" + (w + 1));
     wTir.push(wData.length ? (wIn / wData.length * 100).toFixed(0) : 0);
   }
   
   var ctx2 = document.getElementById("weeklyChart");
-  if (ctx2 && !charts.weeklyChart) {
-    charts.weeklyChart = new Chart(ctx2, {
-      type: "bar",
-      data: { labels: wLabels, datasets: [{ data: wTir, backgroundColor: wTir.map(function(v) { return v >= 70 ? "#437a22" : v >= 50 ? "#964219" : "#dc262680"; }) }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100, title: { display: true, text: "TIR %" } } } }
-    });
+  if (ctx2) {
+    if (charts.weeklyChart) {
+      charts.weeklyChart.data.labels = wLabels;
+      charts.weeklyChart.data.datasets[0].data = wTir;
+      charts.weeklyChart.update();
+    } else {
+      charts.weeklyChart = new Chart(ctx2, {
+        type: "bar",
+        data: { labels: wLabels, datasets: [{ data: wTir, backgroundColor: wTir.map(function(v) { return v >= 70 ? "#437a22" : v >= 50 ? "#964219" : "#dc262680"; }) }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 100 } } }
+      });
+    }
   }
   
   var ctx3 = document.getElementById("dailyAvgChart");
-  if (ctx3 && !charts.dailyAvgChart) {
-    charts.dailyAvgChart = new Chart(ctx3, {
-      type: "bar",
-      data: { labels: labels.slice(-14), datasets: [{ data: avgs.slice(-14), backgroundColor: avgs.slice(-14).map(function(v) { return v < T.low ? "#dc2626" : v > T.high ? "#964219" : "#437a2280"; }) }] },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 4, max: 12 } } }
-    });
+  if (ctx3) {
+    if (charts.dailyAvgChart) {
+      charts.dailyAvgChart.data.labels = labels.slice(-14);
+      charts.dailyAvgChart.data.datasets[0].data = avgs.slice(-14);
+      charts.dailyAvgChart.update();
+    } else {
+      charts.dailyAvgChart = new Chart(ctx3, {
+        type: "bar",
+        data: { labels: labels.slice(-14), datasets: [{ data: avgs.slice(-14), backgroundColor: avgs.slice(-14).map(function(v) { return v < T.low ? "#dc2626" : v > T.high ? "#964219" : "#437a2280"; }) }] },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 4, max: 12 } } }
+      });
+    }
   }
+  
+  document.getElementById("riseCount").textContent = Math.round(r.rise * (DAYS / trendPeriod));
+  document.getElementById("fallCount").textContent = Math.round(r.fall * (DAYS / trendPeriod));
+  document.getElementById("sdCard").textContent = r.std.toFixed(1);
 }
 
 function updateUitschieters() {
-  document.getElementById("hyper").textContent = r.hyper;
-  document.getElementById("hypo").textContent = r.hypo;
+  document.getElementById("hyper").textContent = r.hyperEpisodes;
+  document.getElementById("hypo").textContent = r.hypoEpisodes;
   document.getElementById("rise").textContent = r.rise;
   document.getElementById("fall").textContent = r.fall;
   
   var patterns = [];
-  var alerts = [];
+  var recommendations = [];
   
-  if (r.hyper > 5) {
-    patterns.push("<strong>Veel hoge waarden (" + r.hyper + ")</strong> - " + r.hyper + " metingen boven 13.9 mmol/L");
-    alerts.push({ text: "Pre-bolus 15-20 min voor maaltijden. Check ISF.", type: "warn" });
+  if (r.hyperEpisodes > 3) {
+    patterns.push("<strong>⏰ " + r.hyperEpisodes + " hyper episodes</strong> - " + r.hyperCount + " hoge metingen (&gt;13.9 mmol/L)");
+    recommendations.push({ text: "Pre-bolus 15-20 minuten voor de maaltijd. Check of je ISF correct is ingesteld.", type: "warn" });
   }
-  if (r.hypo > 0) {
-    patterns.push("<strong>" + r.hypo + " lage waarden</strong> - " + r.hypo + " metingen onder 3.0 mmol/L");
-    alerts.push({ text: "Overweeg lagere basaal of snack voor slapen.", type: "danger" });
+  
+  if (r.hypoEpisodes > 0) {
+    patterns.push("<strong>⚠️ " + r.hypoEpisodes + " hypo episodes</strong> - " + r.hypoCount + " lage metingen (&lt;3.0 mmol/L)");
+    recommendations.push({ text: "Overweeg een kleine snack voor het slapen gaan (10-15g koolhydraten).", type: "danger" });
   }
+  
   if (r.nightHypos > 0) {
-    patterns.push("<strong>" + r.nightHypos + " nachtelijke hypo\'s</strong> - Tussen 00:00 en 06:00");
-    alerts.push({ text: "Verlaging nachtbasaal (00:00-04:00) overwegen.", type: "danger" });
+    patterns.push("<strong>🌙 " + r.nightHypos + " nachtelijke hypo\'s</strong> - Tussen 00:00 en 06:00 uur");
+    recommendations.push({ text: "Verlaag je nachtbasaal (00:00-04:00) met 10-20%. Check ook je avond bolus timing.", type: "danger" });
   }
+  
   if (r.rise > 10) {
-    patterns.push("<strong>" + r.rise + " snelle stijgers</strong> - " + r.rise + "x stijging &gt;0.1 mmol/min");
-    alerts.push({ text: "Vermijd snelle koolhydraten. Check pre-bolus timing.", type: "warn" });
+    patterns.push("<strong>📈 " + r.rise + " snelle stijgers</strong> - Stijging &gt;0.1 mmol/min");
+    recommendations.push({ text: "Vermijd snelle koolhydraten (wit brood, pasta, snoep). Kies voor complexe koolhydraten.", type: "warn" });
+    recommendations.push({ text: "Overweeg een dubbele bolus: 50% direct, 50% verdeeld over 30 min.", type: "info" });
   }
+  
   if (r.fall > 10) {
-    patterns.push("<strong>" + r.fall + " snelle dalingen</strong> - " + r.fall + "x daling &gt;0.1 mmol/min");
-    alerts.push({ text: "Check basaal instellingen. Overweeg tijdelijke basaalverlaging.", type: "warn" });
+    patterns.push("<strong>📉 " + r.fall + " snelle dalingen</strong> - Daling &gt;0.1 mmol/min");
+    recommendations.push({ text: "Check je basaal instellingen. Overweeg tijdelijke basaalverlaging van 10-20%.", type: "warn" });
   }
+  
   if (r.cv > 36) {
-    patterns.push("<strong>Hoge variabiliteit (CV " + r.cv.toFixed(0) + "%)</strong> - Doel is onder 36%");
-    alerts.push({ text: "Focus op regelmatige eettijden en consistente koolhydraten.", type: "warn" });
+    patterns.push("<strong>📊 Hoge variabiliteit</strong> - CV " + r.cv.toFixed(0) + "% (doel &lt;36%)");
+    recommendations.push({ text: "Focus op regelmatige eettijden. Eet op vaste tijden met consistente koolhydraatinname.", type: "warn" });
+    recommendations.push({ text: "Vermijd sterk wisselende maaltijden in koolhydraten.", type: "info" });
   }
-  if (r.tir.in < 50) {
-    alerts.push({ text: "TIR onder 50% - Focus op stabilisatie en pre-bolus.", type: "danger" });
+  
+  if (r.mean > T.high) {
+    recommendations.push({ text: "Je gemiddelde glucose is hoog. Check je insulinetechniek en koolhydraatratio's.", type: "warn" });
   }
   
   if (patterns.length === 0) {
@@ -470,15 +633,15 @@ function updateUitschieters() {
   
   document.getElementById("patterns").innerHTML = patterns.map(function(p) { return "<div class='pattern-item'>" + p + "</div>"; }).join("");
   
-  if (alerts.length === 0) {
-    alerts.push({ text: "Alles ziet er goed uit! Geen acties nodig.", type: "success" });
+  if (recommendations.length === 0) {
+    recommendations.push({ text: "Alles ziet er goed uit! Blijf je huidige routine volhouden.", type: "success" });
   }
-  document.getElementById("alerts").innerHTML = alerts.map(function(a) { return "<div class='alert-item " + a.type + "'>" + a.text + "</div>"; }).join("");
+  document.getElementById("recommendations").innerHTML = recommendations.map(function(a) { return "<div class='rec-item'>" + a.text + "</div>"; }).join("");
   
   var spikesChart = document.getElementById("spikesChart");
-  if (spikesChart && !charts.spikesChart) {
+  if (spikesChart) {
     var dailySpikes = {};
-    var last14 = data.slice(-2016);
+    var last14 = r.rawData.slice(-2016);
     last14.forEach(function(d) {
       var day = d.date.toISOString().split("T")[0];
       if (!dailySpikes[day]) dailySpikes[day] = { high: 0, low: 0 };
@@ -486,17 +649,137 @@ function updateUitschieters() {
       if (d.sgv < T.veryLow) dailySpikes[day].low++;
     });
     var spikeDays = Object.keys(dailySpikes).sort().slice(-14);
-    charts.spikesChart = new Chart(spikesChart, {
-      type: "bar",
-      data: {
-        labels: spikeDays.map(function(d) { return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }); }),
-        datasets: [
-          { label: "Hyper", data: spikeDays.map(function(d) { return dailySpikes[d].high; }), backgroundColor: "#96421980" },
-          { label: "Hypo", data: spikeDays.map(function(d) { return dailySpikes[d].low; }), backgroundColor: "#dc262680" }
-        ]
-      },
-      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+    if (charts.spikesChart) {
+      charts.spikesChart.data.labels = spikeDays.map(function(d) { return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }); });
+      charts.spikesChart.data.datasets[0].data = spikeDays.map(function(d) { return dailySpikes[d].high; });
+      charts.spikesChart.data.datasets[1].data = spikeDays.map(function(d) { return dailySpikes[d].low; });
+      charts.spikesChart.update();
+    } else {
+      charts.spikesChart = new Chart(spikesChart, {
+        type: "bar",
+        data: {
+          labels: spikeDays.map(function(d) { return new Date(d).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }); }),
+          datasets: [
+            { label: "Hyper", data: spikeDays.map(function(d) { return dailySpikes[d].high; }), backgroundColor: "#96421980" },
+            { label: "Hypo", data: spikeDays.map(function(d) { return dailySpikes[d].low; }), backgroundColor: "#dc262680" }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { x: { stacked: true }, y: { stacked: true } } }
+      });
+    }
+  }
+  
+  var hyperDetails = r.rawData.filter(function(d) { return d.sgv > T.veryHigh; }).slice(-5);
+  var hypoDetails = r.rawData.filter(function(d) { return d.sgv < T.veryLow; }).slice(-5);
+  
+  document.getElementById("hyperDetails").innerHTML = hyperDetails.length ? 
+    hyperDetails.map(function(d) { return "<div class='spike-detail'>" + d.date.toLocaleString("nl-NL") + " - " + d.sgv.toFixed(1) + " mmol/L</div>"; }).join("") :
+    "<p>Geen hyper episodes</p>";
+  
+  document.getElementById("hypoDetails").innerHTML = hypoDetails.length ?
+    hypoDetails.map(function(d) { return "<div class='spike-detail'>" + d.date.toLocaleString("nl-NL") + " - " + d.sgv.toFixed(1) + " mmol/L</div>"; }).join("") :
+    "<p>Geen hypo episodes</p>";
+}
+
+function updateMeals() {
+  var mealPatterns = [];
+  var mealTimes = [];
+  var mealAdvice = [];
+  
+  var hourCounts = new Array(24).fill(0);
+  r.rawData.forEach(function(d) { hourCounts[d.date.getHours()]++; });
+  
+  var peakHours = hourCounts.map(function(c, i) { return { hour: i, count: c }; })
+    .sort(function(a, b) { return b.count - a.count; })
+    .slice(0, 5);
+  
+  mealTimes.push("<strong>Meest actieve uren:</strong>");
+  peakHours.forEach(function(p) {
+    mealTimes.push("<div class='spike-detail'>" + p.hour + ":00 - " + p.count + " metingen</div>");
+  });
+  
+  var postMealRise = 0, postMealTotal = 0;
+  for (var i = 3; i < r.rawData.length; i++) {
+    var hour = r.rawData[i].date.getHours();
+    if ((hour >= 7 && hour <= 9) || (hour >= 12 && hour <= 14) || (hour >= 18 && hour <= 20)) {
+      var rise = r.rawData[i].sgv - r.rawData[i-6].sgv;
+      postMealTotal++;
+      if (rise > 2) postMealRise++;
+    }
+  }
+  
+  if (postMealTotal > 0) {
+    var risePercent = (postMealRise / postMealTotal * 100).toFixed(0);
+    mealPatterns.push("<strong>Na-maaltijd stijging:</strong> " + risePercent + "% van de maaltijden veroorzaakt stijging &gt;2 mmol/L");
+    
+    if (risePercent > 50) {
+      mealAdvice.push({ text: "Je hebt vaak hoge pieken na maaltijden. Probeer pre-bolus 15-20 minuten voor de maaltijd.", type: "warn" });
+      mealAdvice.push({ text: "Overweeg een kortere insulinewerkingsduur in te stellen voor snellere werking.", type: "info" });
+    }
+  }
+  
+  var morningAvg = r.rawData.filter(function(d) { return d.date.getHours() >= 6 && d.date.getHours() < 10; })
+    .reduce(function(a, b) { return a + b.sgv; }, 0) / r.rawData.filter(function(d) { return d.date.getHours() >= 6 && d.date.getHours() < 10; }).length || 0;
+  
+  var eveningAvg = r.rawData.filter(function(d) { return d.date.getHours() >= 18 && d.date.getHours() < 22; })
+    .reduce(function(a, b) { return a + b.sgv; }, 0) / r.rawData.filter(function(d) { return d.date.getHours() >= 18 && d.date.getHours() < 22; }).length || 0;
+  
+  mealPatterns.push("<strong>Ochtend gemiddelde:</strong> " + morningAvg.toFixed(1) + " mmol/L");
+  mealPatterns.push("<strong>Avond gemiddelde:</strong> " + eveningAvg.toFixed(1) + " mmol/L");
+  
+  if (morningAvg > eveningAvg + 1) {
+    mealAdvice.push({ text: "Je ochtendwaarden zijn hoger dan avondwaarden. Dit kan wijzen op een hoger ontbijt of late avond snack.", type: "info" });
+  }
+  
+  if (mealAdvice.length === 0) {
+    mealAdvice.push({ text: "Je maaltijdpiek lijkt onder controle. Blijf pre-bolus toepassen!", type: "success" });
+  }
+  
+  document.getElementById("mealPatterns").innerHTML = mealPatterns.map(function(p) { return "<div class='pattern-item'>" + p + "</div>"; }).join("");
+  document.getElementById("mealTimes").innerHTML = mealTimes.join("");
+  document.getElementById("mealAdvice").innerHTML = mealAdvice.map(function(a) { return "<div class='rec-item'>" + a.text + "</div>"; }).join("");
+  
+  var ctx = document.getElementById("mealChart");
+  if (ctx) {
+    var dailyMealData = {};
+    r.rawData.slice(-14).forEach(function(d) {
+      var day = d.date.toISOString().split("T")[0];
+      if (!dailyMealData[day]) dailyMealData[day] = [];
+      dailyMealData[day].push(d);
     });
+    
+    var mealLabels = [], mealMaxes = [], mealMins = [];
+    Object.keys(dailyMealData).sort().forEach(function(day) {
+      var dayData = dailyMealData[day];
+      var dayMealData = dayData.filter(function(d) {
+        var h = d.date.getHours();
+        return (h >= 11 && h <= 14) || (h >= 17 && h <= 20);
+      });
+      if (dayMealData.length > 0) {
+        mealLabels.push(new Date(day).toLocaleDateString("nl-NL", { day: "numeric", month: "short" }));
+        mealMaxes.push(Math.max.apply(null, dayMealData.map(function(d) { return d.sgv; })));
+        mealMins.push(Math.min.apply(null, dayMealData.map(function(d) { return d.sgv; })));
+      }
+    });
+    
+    if (charts.mealChart) {
+      charts.mealChart.data.labels = mealLabels;
+      charts.mealChart.data.datasets[0].data = mealMaxes;
+      charts.mealChart.data.datasets[1].data = mealMins;
+      charts.mealChart.update();
+    } else {
+      charts.mealChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels: mealLabels,
+          datasets: [
+            { label: "Max na maaltijd", data: mealMaxes, backgroundColor: "#96421960" },
+            { label: "Min na maaltijd", data: mealMins, backgroundColor: "#437a2280" }
+          ]
+        },
+        options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: "bottom" } }, scales: { y: { min: 3, max: 15 } } }
+      });
+    }
   }
 }
 
@@ -504,43 +787,54 @@ function updateAdvies() {
   var list = document.getElementById("adviesList");
   var items = [];
   
-  items.push("<div class='pattern-item'><strong>📊 90 Dagen Analyse</strong></div>");
+  items.push({ text: "<strong>📊 " + DAYS + " Dagen Analyse</strong> - " + r.total + " metingen geanalyseerd", type: "info" });
   
-  if (parseFloat(r.tir.in) >= 70) {
-    items.push("<div class='alert-item success'><strong>TIR van " + r.tir.in + "%</strong> - Uitstekend! Dit is boven het streefdoel van 70%. Blijf dit volhouden.</div>");
-  } else if (parseFloat(r.tir.in) >= 50) {
-    items.push("<div class='alert-item warn'><strong>TIR van " + r.tir.in + "%</strong> - Stap richting 70% met pre-bolus 15-20 min voor maaltijden.</div>");
+  var tir = parseFloat(r.tir.in);
+  if (tir >= 70) {
+    items.push({ text: "<strong>TIR van " + r.tir.in + "%</strong> - Uitstekend! Dit is boven het streefdoel van 70%. Blijf dit volhouden.", type: "success" });
+  } else if (tir >= 50) {
+    items.push({ text: "<strong>TIR van " + r.tir.in + "%</strong> - Stap richting 70% door pre-bolus 15-20 min voor maaltijden.", type: "warn" });
   } else {
-    items.push("<div class='alert-item danger'><strong>TIR van " + r.tir.in + "%</strong> - Focus op stabilisatie. Begin met kleine aanpassingen.</div>");
+    items.push({ text: "<strong>TIR van " + r.tir.in + "%</strong> - Focus op stabilisatie. Begin met basis aanpassingen.", type: "danger" });
   }
   
   if (r.cv > 36) {
-    items.push("<div class='alert-item warn'><strong>CV van " + r.cv.toFixed(0) + "%</strong> - Hoge variabiliteit. Focus op regelmatige eettijden en consistente koolhydraatinname.</div>");
+    items.push({ text: "<strong>CV van " + r.cv.toFixed(0) + "%</strong> - Hoge variabiliteit (&gt;36%). Focus op regelmatige eettijden.", type: "warn" });
   } else {
-    items.push("<div class='alert-item success'><strong>CV van " + r.cv.toFixed(0) + "%</strong> - Variabiliteit is goed (doel &lt;36%).</div>");
+    items.push({ text: "<strong>CV van " + r.cv.toFixed(0) + "%</strong> - Variabiliteit is goed (&lt;36%).", type: "success" });
   }
   
   if (r.nightHypos > 0) {
-    items.push("<div class='alert-item danger'><strong>" + r.nightHypos + " nachtelijke hypo\'s</strong> - Overweeg lagere basaal tussen 00:00-04:00 of een kleine snack voor het slapen.</div>");
+    items.push({ text: "<strong>" + r.nightHypos + " nachtelijke hypo\'s</strong> - Verlaging nachtbasaal (00:00-04:00) met 10-20% of kleine snack voor slapen.", type: "danger" });
   }
   
-  if (r.hyper > 10) {
-    items.push("<div class='alert-item warn'><strong>" + r.hyper + " hyper episodes</strong> - Check je ISF (insuline-gevoeligheid). Overweeg iets hogere pre-bolus timing.</div>");
+  if (r.hyperEpisodes > 3) {
+    items.push({ text: "<strong>" + r.hyperEpisodes + " hyper episodes</strong> - Check ISF en pre-bolus timing. Overweeg grotere pre-bolus interval.", type: "warn" });
   }
   
   if (r.rise > 20) {
-    items.push("<div class='alert-item warn'><strong>" + r.rise + " snelle stijgers</strong> - Vermijd snelle koolhydraten. Kies voor complexere koolhydraten.</div>");
+    items.push({ text: "<strong>" + r.rise + " snelle stijgers</strong> - Vermijd snelle koolhydraten. Kies voor volkoren producten en vezelrijke maaltijden.", type: "warn" });
+  }
+  
+  if (r.fall > 20) {
+    items.push({ text: "<strong>" + r.fall + " snelle dalingen</strong> - Check basaal instellingen. Overweeg tijdelijke basaalverlaging van 10-20%.", type: "warn" });
   }
   
   if (r.gmi < 7) {
-    items.push("<div class='alert-item success'><strong>GMI van " + r.gmi.toFixed(1) + "%</strong> - Uitstekend! Dit komt overeen met een geschat HbA1c onder 53 mmol/mol.</div>");
+    items.push({ text: "<strong>GMI van " + r.gmi.toFixed(1) + "%</strong> - Uitstekend! Geschat HbA1c onder 53 mmol/mol.", type: "success" });
   }
   
-  if (items.length === 1) {
-    items.push("<div class='alert-item success'>Alles ziet er goed uit! Blijf je huidige routine volgen.</div>");
+  if (r.mean >= T.low && r.mean <= T.high) {
+    items.push({ text: "<strong>Gemiddelde glucose van " + r.mean.toFixed(1) + " mmol/L</strong> - Binnen het streefbereik!", type: "success" });
   }
   
-  list.innerHTML = items.join("");
+  if (items.length <= 1) {
+    items.push({ text: "Alles ziet er goed uit! Blijf je huidige routine volhouden.", type: "success" });
+  }
+  
+  list.innerHTML = items.map(function(a) { 
+    return "<div class='alert-item " + a.type + "'>" + a.text + "</div>"; 
+  }).join("");
 }
 
 function showView(id) {
@@ -548,7 +842,13 @@ function showView(id) {
   document.getElementById("view-" + id).style.display = "block";
   document.querySelectorAll(".nav button").forEach(function(b) { b.classList.remove("active"); });
   event.target.classList.add("active");
-  var titles = { overzicht: "Overzicht - 90 Dagen", trends: "Trends - 90 Dagen", uitschieters: "Uitschieters Analyse", advies: "Persoonlijk Advies" };
+  var titles = { 
+    overzicht: "Overzicht", 
+    trends: "Trends", 
+    uitschieters: "Uitschieters Analyse", 
+    maaltijden: "Maaltijd Analyse",
+    advies: "Persoonlijk Advies" 
+  };
   document.getElementById("pageTitle").textContent = titles[id] || id;
 }
 

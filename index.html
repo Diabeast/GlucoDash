@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GlucoAgent - Arinelis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root, [data-theme="light"] {
+  --color-bg: #f7f6f2;
+  --color-surface: #f9f8f5;
+  --color-surface-offset: #f3f0ec;
+  --color-divider: #dcd9d5;
+  --color-border: #d4d1ca;
+  --color-text: #28251d;
+  --color-text-muted: #7a7974;
+  --color-text-faint: #bab9b4;
+  --color-primary: #01696f;
+  --color-success: #437a22;
+  --color-success-highlight: #d4dfcc;
+  --color-warning: #964219;
+  --color-warning-highlight: #ddcfc6;
+  --color-error: #a12c7b;
+  --color-error-highlight: #e0ced7;
+  --color-orange: #da7101;
+  --color-orange-highlight: #e7d7c4;
+  --color-blue: #006494;
+  --color-blue-highlight: #c6d8e4;
+  --shadow-sm: 0 1px 2px oklch(0.2 0.01 80 / 0.06);
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+  --radius-full: 9999px;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.5rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --transition: 180ms cubic-bezier(0.16, 1, 0.3, 1);
+  --sidebar-width: 240px;
+}
+[data-theme="dark"] {
+  --color-bg: #171614;
+  --color-surface: #1c1b19;
+  --color-surface-offset: #1d1c1a;
+  --color-divider: #262523;
+  --color-border: #393836;
+  --color-text: #cdccca;
+  --color-text-muted: #797876;
+  --color-text-faint: #5a5957;
+  --color-primary: #4f98a3;
+  --color-success: #6daa45;
+  --color-success-highlight: #3a4435;
+  --color-warning: #bb653b;
+  --color-warning-highlight: #564942;
+  --color-error: #d163a7;
+  --color-error-highlight: #4c3d46;
+  --color-orange: #fdab43;
+  --color-orange-highlight: #564b3e;
+  --color-blue: #5591c7;
+  --color-blue-highlight: #3a4550;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { min-height: 100dvh; font-family: var(--font-body); font-size: var(--text-base); color: var(--color-text); background: var(--color-bg); display: flex; transition: background var(--transition), color var(--transition); }
+button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
+.sidebar { width: var(--sidebar-width); min-height: 100dvh; background: var(--color-surface); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; z-index: 100; }
+.sidebar-logo { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-5); border-bottom: 1px solid var(--color-divider); }
+.sidebar-logo-text { font-size: var(--text-sm); font-weight: 600; line-height: 1.2; }
+.sidebar-logo-sub { font-size: var(--text-xs); color: var(--color-text-muted); }
+.sidebar-nav { flex: 1; padding: var(--space-4) var(--space-3); display: flex; flex-direction: column; gap: var(--space-1); }
+.nav-section-label { font-size: var(--text-xs); font-weight: 600; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.06em; padding: var(--space-3) var(--space-3) var(--space-2); }
+.nav-item { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-muted); transition: background var(--transition), color var(--transition); cursor: pointer; }
+.nav-item:hover { background: var(--color-surface-offset); color: var(--color-text); }
+.nav-item.active { background: color-mix(in oklch, var(--color-primary) 10%, var(--color-surface)); color: var(--color-primary); font-weight: 500; }
+.sidebar-footer { padding: var(--space-4); border-top: 1px solid var(--color-divider); }
+.theme-toggle { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); font-size: var(--text-sm); color: var(--color-text-muted); width: 100%; transition: background var(--transition), color var(--transition); }
+.theme-toggle:hover { background: var(--color-surface-offset); color: var(--color-text); }
+.main { margin-left: var(--sidebar-width); flex: 1; display: flex; flex-direction: column; min-height: 100dvh; }
+.topbar { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-8); border-bottom: 1px solid var(--color-divider); background: var(--color-surface); position: sticky; top: 0; z-index: 50; }
+.topbar-title { font-size: var(--text-lg); font-weight: 600; }
+.topbar-right { display: flex; align-items: center; gap: var(--space-4); }
+.status-badge { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 500; }
+.status-badge.live { background: var(--color-success-highlight); color: var(--color-success); }
+.status-badge.error { background: var(--color-error-highlight); color: var(--color-error); }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.content { padding: var(--space-8); display: flex; flex-direction: column; gap: var(--space-6); }
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--space-4); }
+.kpi-card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-5); box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: var(--space-2); }
+.kpi-label { font-size: var(--text-xs); color: var(--color-text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.05em; }
+.kpi-value { font-size: var(--text-xl); font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.kpi-value.good { color: var(--color-success); }
+.kpi-value.warn { color: var(--color-warning); }
+.kpi-value.danger { color: var(--color-error); }
+.kpi-sub { font-size: var(--text-xs); color: var(--color-text-muted); }
+.panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
+.panel-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-divider); }
+.panel-title { font-size: var(--text-base); font-weight: 600; }
+.panel-subtitle { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
+.panel-body { padding: var(--space-5); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
+.chart-wrap { position: relative; height: 220px; }
+.tir-bar { display: flex; height: 24px; border-radius: var(--radius-sm); overflow: hidden; gap: 2px; }
+.tir-segment { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: white; min-width: 2px; }
+.tir-legend { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-3); }
+.tir-legend-item { display: flex; align-items: center; gap: var(--space-2); font-size: var(--text-xs); color: var(--color-text-muted); }
+.tir-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.glucose-hero { display: flex; align-items: center; justify-content: space-between; padding: var(--space-5) var(--space-6); background: color-mix(in oklch, var(--color-primary) 6%, var(--color-surface)); border-radius: var(--radius-xl); margin-bottom: var(--space-2); }
+.glucose-reading { display: flex; flex-direction: column; gap: var(--space-1); }
+.glucose-number { font-size: 3rem; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.glucose-unit { font-size: var(--text-xs); color: var(--color-text-muted); }
+.glucose-meta { display: flex; gap: var(--space-4); }
+.glucose-meta-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.glucose-meta-val { font-size: var(--text-sm); font-weight: 600; font-family: var(--font-mono); }
+.glucose-meta-label { font-size: 10px; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+.alert-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); }
+.alert-item { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); }
+.alert-item.alert-danger { background: var(--color-error-highlight); }
+.alert-item.alert-warning { background: var(--color-warning-highlight); }
+.alert-item.alert-info { background: var(--color-blue-highlight); }
+.alert-item.alert-success { background: var(--color-success-highlight); }
+.alert-icon { margin-top: 1px; flex-shrink: 0; }
+.alert-content { flex: 1; }
+.alert-title { font-weight: 600; margin-bottom: 2px; }
+.alert-title.danger { color: var(--color-error); }
+.alert-title.warning { color: var(--color-warning); }
+.alert-title.info { color: var(--color-blue); }
+.alert-title.success { color: var(--color-success); }
+.alert-desc { color: var(--color-text-muted); font-size: var(--text-xs); }
+.alert-time { font-size: var(--text-xs); color: var(--color-text-faint); flex-shrink: 0; }
+.pattern-table { width: 100%; border-collapse: collapse; }
+.pattern-table th { text-align: left; font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-divider); }
+.pattern-table td { padding: var(--space-3) var(--space-4); font-size: var(--text-sm); border-bottom: 1px solid var(--color-divider); }
+.badge { display: inline-flex; align-items: center; padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 500; }
+.badge.red { background: var(--color-error-highlight); color: var(--color-error); }
+.badge.orange { background: var(--color-orange-highlight); color: var(--color-orange); }
+.badge.green { background: var(--color-success-highlight); color: var(--color-success); }
+.badge.blue { background: var(--color-blue-highlight); color: var(--color-blue); }
+.rec-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); }
+.rec-item { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-offset); font-size: var(--text-sm); align-items: flex-start; }
+.rec-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+.rec-text { flex: 1; line-height: 1.5; }
+.rec-priority { font-size: var(--text-xs); font-weight: 600; padding: 2px var(--space-2); border-radius: var(--radius-full); flex-shrink: 0; }
+.rec-priority.high { background: var(--color-error-highlight); color: var(--color-error); }
+.rec-priority.med { background: var(--color-orange-highlight); color: var(--color-orange); }
+.rec-priority.low { background: var(--color-success-highlight); color: var(--color-success); }
+.refresh-btn { padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--color-surface-offset); font-size: var(--text-xs); transition: background var(--transition); cursor: pointer; border: 1px solid var(--color-border); }
+.refresh-btn:hover { background: var(--color-border); }
+.view { display: none; }
+.view.active { display: contents; }
+.hamburger { display: none; padding: var(--space-2); border-radius: var(--radius-md); }
+.sidebar-overlay { display: none; position: fixed; inset: 0; background: oklch(0.1 0 0 / 0.5); z-index: 99; }
+@media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .sidebar-overlay.open { display: block; } .main { margin-left: 0; } .hamburger { display: flex; } .topbar { padding: var(--space-3) var(--space-4); } .content { padding: var(--space-4); } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+</style>
+</head>
+<body>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+      <circle cx="16" cy="16" r="15" stroke="currentColor" stroke-width="1.5" opacity="0.2"/>
+      <path d="M16 6 C16 6 22 11 22 17 C22 20.3 19.3 23 16 23 C12.7 23 10 20.3 10 17 C10 11 16 6 16 6Z" fill="var(--color-primary)" opacity="0.9"/>
+      <circle cx="16" cy="17" r="3.5" fill="white" opacity="0.9"/>
+    </svg>
+    <div>
+      <div class="sidebar-logo-text">GlucoAgent</div>
+      <div class="sidebar-logo-sub">Arinelis • iAPS</div>
+    </div>
+  </div>
+
+  <div class="sidebar-nav">
+    <div class="nav-section-label">Dashboard</div>
+    <div class="nav-item active" onclick="switchView('dashboard', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      Overzicht
+    </div>
+    <div class="nav-item" onclick="switchView('patterns', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Patronen
+    </div>
+    <div class="nav-item" onclick="switchView('alerts', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      Alerts
+      <span id="alertBadge" style="margin-left:auto;background:var(--color-error);color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--radius-full);display:none;">0</span>
+    </div>
+    <div class="nav-section-label">Analyse</div>
+    <div class="nav-item" onclick="switchView('iaps', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+      iAPS Statistieken
+    </div>
+    <div class="nav-item" onclick="switchView('aanbevelingen', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+      AI Aanbevelingen
+    </div>
+  </div>
+
+  <div class="sidebar-footer">
+    <button class="theme-toggle" onclick="toggleTheme()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="themeIcon"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+      Dark mode
+    </button>
+  </div>
+</nav>
+
+<div class="main">
+  <header class="topbar">
+    <div style="display:flex;align-items:center;gap:var(--space-3);">
+      <button class="hamburger" onclick="toggleSidebar()"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></button>
+      <span class="topbar-title" id="pageTitle">Overzicht</span>
+    </div>
+    <div class="topbar-right">
+      <button class="refresh-btn" onclick="refreshData()">🔄 Verversen</button>
+      <div class="status-badge live" id="statusBadge"><div class="status-dot pulse"></div><span id="statusText">Laden...</span></div>
+      <span id="lastSync" style="font-size:var(--text-xs);color:var(--color-text-muted);">--</span>
+    </div>
+  </header>
+
+  <main class="content">
+
+    <!-- DASHBOARD VIEW -->
+    <div class="view active" id="view-dashboard">
+      <div>
+        <div class="glucose-hero">
+          <div class="glucose-reading">
+            <div class="glucose-number" id="liveGlucose" style="color:var(--color-success);">--</div>
+            <div class="glucose-unit" id="glucoseUnit">mmol/L • --</div>
+          </div>
+          <div class="glucose-meta">
+            <div class="glucose-meta-item"><div class="glucose-meta-val" id="tirInRangeHero" style="color:var(--color-success);">--</div><div class="glucose-meta-label">In Doel</div></div>
+            <div class="glucose-meta-item"><div class="glucose-meta-val" id="tirHighHero" style="color:var(--color-warning);">--</div><div class="glucose-meta-label">Hoog</div></div>
+            <div class="glucose-meta-item"><div class="glucose-meta-val" id="tirLowHero" style="color:var(--color-error);">--</div><div class="glucose-meta-label">Laag</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">GMI (Geschat HbA1c)</div><div class="kpi-value" id="gmi">--</div><div class="kpi-sub" id="gmiSub">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">Gemiddelde glucose</div><div class="kpi-value" id="avgGlucose">--</div><div class="kpi-sub" id="stdDevSub">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">CV (variabiliteit)</div><div class="kpi-value" id="cv">--</div><div class="kpi-sub" id="cvSub">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">Nachtelijke hypo</div><div class="kpi-value" id="nightHypos">--</div><div class="kpi-sub">Afgelopen 7 nachten</div></div>
+        <div class="kpi-card"><div class="kpi-label">iAPS SMBs</div><div class="kpi-value" id="smbCount">--</div><div class="kpi-sub" id="smbTotal">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">Totale Insuline</div><div class="kpi-value" id="totalInsulin">--</div><div class="kpi-sub">Afgelopen 7 dagen</div></div>
+      </div>
+
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header">
+            <div><div class="panel-title">24-uurs glucosecurve</div><div class="panel-subtitle">Gemiddeld profiel afgelopen 7 dagen</div></div>
+          </div>
+          <div class="panel-body"><div class="chart-wrap"><canvas id="glucoseChart"></canvas></div></div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">Time in Range (TIR)</div><div class="panel-subtitle">Glucoseverdeling afgelopen 7 dagen</div></div></div>
+          <div class="panel-body">
+            <div class="tir-bar" id="tirBar">
+              <div class="tir-segment" id="tirVeryLow" style="background:var(--color-error);flex:0;"></div>
+              <div class="tir-segment" id="tirLow" style="background:var(--color-error);opacity:0.7;flex:0;"></div>
+              <div class="tir-segment" id="tirInRangeSeg" style="background:var(--color-success);flex:1;">100%</div>
+              <div class="tir-segment" id="tirHigh" style="background:var(--color-orange);flex:0;"></div>
+              <div class="tir-segment" id="tirVeryHigh" style="background:var(--color-error);flex:0;"></div>
+            </div>
+            <div class="tir-legend">
+              <div class="tir-legend-item"><div class="tir-dot" style="background:var(--color-error);"></div>Laag (&lt;3.9) • <span id="lowPct">0%</span></div>
+              <div class="tir-legend-item"><div class="tir-dot" style="background:var(--color-orange);"></div>Hoog (&gt;10.0) • <span id="highPct">0%</span></div>
+              <div class="tir-legend-item"><div class="tir-dot" style="background:var(--color-success);"></div>In doel (3.9-10.0) • <span id="rangePct">100%</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PATTERNS VIEW -->
+    <div class="view" id="view-patterns">
+      <div class="panel">
+        <div class="panel-header"><div><div class="panel-title">Gedetecteerde Glucosepatronen</div><div class="panel-subtitle">AI-analyse van herhalende patronen</div></div></div>
+        <table class="pattern-table">
+          <thead><tr><th>Patroon</th><th>Frequentie</th><th>Ernst</th><th>Beschrijving</th></tr></thead>
+          <tbody id="patternTableBody"><tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Data laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ALERTS VIEW -->
+    <div class="view" id="view-alerts">
+      <div class="panel">
+        <div class="panel-header"><div><div class="panel-title">Actieve Alerts & Waarschuwingen</div><div class="panel-subtitle">Real-time meldingen op basis van patroonherkenning</div></div><span class="badge red" id="alertCount">0 actief</span></div>
+        <div class="alert-list" id="alertList"><div class="alert-item alert-info"><div class="alert-icon">⏳</div><div class="alert-content"><div class="alert-title info">Data laden...</div><div class="alert-desc">Glucose data wordt opgehaald.</div></div><div class="alert-time">Nu</div></div></div>
+      </div>
+    </div>
+
+    <!-- IAPS VIEW -->
+    <div class="view" id="view-iaps">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">SMB Events</div><div class="kpi-value" id="smbEvents">--</div><div class="kpi-sub" id="smbPerDay">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">Gem. SMB Grootte</div><div class="kpi-value" id="avgSmbSize">--</div><div class="kpi-sub">Per dosis</div></div>
+        <div class="kpi-card"><div class="kpi-label">Temp Basal Changes</div><div class="kpi-value" id="tempBasalCount">--</div><div class="kpi-sub">Laatste 7 dagen</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Recente iAPS Behandelingen</div><div class="panel-subtitle">Laatste 20 events</div></div>
+        <table class="pattern-table">
+          <thead><tr><th>Tijd</th><th>Type</th><th>Waarde</th></tr></thead>
+          <tbody id="iapsTableBody"><tr><td colspan="3" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Data laden...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- AANBEVELINGEN VIEW -->
+    <div class="view" id="view-aanbevelingen">
+      <div class="panel">
+        <div class="panel-header"><div><div class="panel-title">AI Aanbevelingen</div><div class="panel-subtitle">Gepersonaliseerde adviezen op basis van jouw glucosepatronen</div></div></div>
+        <div class="rec-list" id="recList"><div class="rec-item"><div class="rec-icon">⏳</div><div class="rec-text">Analyse wordt uitgevoerd...</div><div class="rec-priority low">Laden</div></div></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATIE
+// ============================================================
+const CONFIG = {
+  nightscoutUrl: 'https://arinelis.10be.de/',
+  token: 'nsread-bf4271c2d5b495b4',
+  thresholds: { veryLow: 3.0, low: 3.9, high: 10.0, veryHigh: 13.9 }
+};
+
+// ============================================================
+// API FUNCTIONS
+// ============================================================
+async function fetchNightscout(endpoint) {
+  try {
+    const url = CONFIG.nightscoutUrl + 'api/v1/' + endpoint + '&token=' + CONFIG.token;
+    const res = await fetch(url, {
+      headers: { 
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const text = await res.text();
+    
+    // Probeer JSON te parsen
+    try {
+      return JSON.parse(text);
+    } catch {
+      // Anders: parsee tab-separated formaat
+      const lines = text.trim().split('\n');
+      return lines.map(line => {
+        const parts = line.split('\t');
+        return {
+          date: parts[0],
+          dateString: parts[0],
+          sgv: parseInt(parts[2]),
+          direction: parts[3]?.replace(/"/g, '') || '',
+          device: parts[4]?.replace(/"/g, '') || ''
+        };
+      });
+    }
+  } catch(e) {
+    console.error('Fetch failed:', e);
+    return null;
+  }
+}
+
+// ============================================================
+// DATA & STATE
+// ============================================================
+let glucoseData = [], treatmentData = [], analysisResults = {}, glucoseChart = null;
+
+function mgToMmol(mg) { return (mg / 18).toFixed(1); }
+
+// ============================================================
+// THEME
+// ============================================================
+(function(){
+  const d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', d);
+  document.getElementById('themeIcon').innerHTML = d === 'dark' 
+    ? '<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>'
+    : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+})();
+
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebarOverlay').classList.toggle('open');
+}
+
+const titles = { dashboard: 'Overzicht', patterns: 'Patronen', alerts: 'Alerts', iaps: 'iAPS', aanbevelingen: 'Aanbevelingen' };
+function switchView(viewId, el) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + viewId).classList.add('active');
+  if (el) el.classList.add('active');
+  document.getElementById('pageTitle').textContent = titles[viewId];
+}
+
+// ============================================================
+// DATA FETCHING
+// ============================================================
+async function refreshData() {
+  document.getElementById('statusText').textContent = 'Laden...';
+  document.getElementById('statusBadge').className = 'status-badge live';
+  
+  const entries = await fetchNightscout('entries?count=1000');
+  const treatments = await fetchNightscout('treatments?count=500');
+  
+  if (!entries || entries.length === 0) {
+    document.getElementById('statusText').textContent = 'Geen data';
+    document.getElementById('statusBadge').className = 'status-badge error';
+    document.getElementById('statusBadge').querySelector('.status-dot').classList.remove('pulse');
+    return;
+  }
+  
+  glucoseData = entries.map(e => ({ 
+    sgv: e.sgv, 
+    date: new Date(e.date || e.dateString), 
+    direction: e.direction 
+  })).filter(e => e.sgv).sort((a, b) => a.date - b.date);
+  
+  treatmentData = treatments || [];
+  
+  analyzeData();
+  updateUI();
+  
+  document.getElementById('statusText').textContent = 'Actief';
+  document.getElementById('lastSync').textContent = 'Sync: ' + new Date().toLocaleTimeString('nl-NL');
+}
+
+// ============================================================
+// ANALYSIS
+// ============================================================
+function analyzeData() {
+  const values = glucoseData.map(e => e.sgv);
+  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+  const weekData = glucoseData.filter(e => e.date >= weekAgo);
+  
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const variance = values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / values.length;
+  const stdDev = Math.sqrt(variance);
+  const cv = (stdDev / mean) * 100;
+  const gmi = 3.31 + (0.02392 * mean);
+  
+  const toMmol = v => v / 18;
+  
+  const veryLow = values.filter(v => toMmol(v) < CONFIG.thresholds.veryLow).length;
+  const low = values.filter(v => toMmol(v) >= CONFIG.thresholds.veryLow && toMmol(v) < CONFIG.thresholds.low).length;
+  const inRange = values.filter(v => toMmol(v) >= CONFIG.thresholds.low && toMmol(v) <= CONFIG.thresholds.high).length;
+  const high = values.filter(v => toMmol(v) > CONFIG.thresholds.high && toMmol(v) <= CONFIG.thresholds.veryHigh).length;
+  const veryHigh = values.filter(v => toMmol(v) > CONFIG.thresholds.veryHigh).length;
+  const total = values.length;
+  
+  const nightHypos = glucoseData.filter(e => { 
+    const h = e.date.getHours(); 
+    return h >= 0 && h < 6 && toMmol(e.sgv) < CONFIG.thresholds.low; 
+  }).length;
+  
+  const smbs = treatmentData.filter(t => (t.eventType === 'SMB' || t.eventType === 'Bolus') && t.insulin);
+  const tempBasals = treatmentData.filter(t => t.eventType === 'Temp Basal');
+  
+  analysisResults = {
+    mean, stdDev, cv, gmi, total,
+    tir: { veryLow, low, inRange, high, veryHigh, total },
+    tirPct: {
+      veryLow: (veryLow/total*100).toFixed(1),
+      low: (low/total*100).toFixed(1),
+      inRange: (inRange/total*100).toFixed(1),
+      high: (high/total*100).toFixed(1),
+      veryHigh: (veryHigh/total*100).toFixed(1)
+    },
+    nightHypos,
+    latest: glucoseData[glucoseData.length - 1],
+    smbs: smbs.length,
+    totalInsulin: smbs.reduce((s, t) => s + (t.insulin || 0), 0),
+    avgSmbSize: smbs.length ? smbs.reduce((s, t) => s + (t.insulin || 0), 0) / smbs.length : 0,
+    tempBasals: tempBasals.length
+  };
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function updateUI() {
+  const r = analysisResults;
+  if (!r.latest) return;
+  
+  // Glucose hero
+  const glucoseEl = document.getElementById('liveGlucose');
+  const mmol = parseFloat(mgToMmol(r.latest.sgv));
+  glucoseEl.textContent = mmol;
+  glucoseEl.style.color = mmol < 3.9 ? 'var(--color-error)' : mmol > 10 ? 'var(--color-warning)' : 'var(--color-success)';
+  
+  const trend = { 
+    'Flat': 'stabiel →', 
+    'FortyFiveUp': 'sterk stijgend ↗', 
+    'FortyFiveDown': 'sterk dalend ↘', 
+    'SingleUp': 'stijgend ↑', 
+    'SingleDown': 'dalend ↓',
+    'DoubleUp': 'snel stijgend ⇈',
+    'DoubleDown': 'snel dalend ⇊'
+  };
+  document.getElementById('glucoseUnit').textContent = 'mmol/L • ' + (trend[r.latest.direction] || r.latest.direction || '--');
+  
+  // TIR hero
+  document.getElementById('tirInRangeHero').textContent = r.tirPct.inRange + '%';
+  document.getElementById('tirHighHero').textContent = r.tirPct.high + '%';
+  document.getElementById('tirLowHero').textContent = (parseFloat(r.tirPct.low) + parseFloat(r.tirPct.veryLow)).toFixed(1) + '%';
+  
+  // GMI
+  document.getElementById('gmi').textContent = r.gmi.toFixed(1) + '%';
+  document.getElementById('gmi').className = 'kpi-value ' + (r.gmi < 7 ? 'good' : 'warn');
+  document.getElementById('gmiSub').textContent = 'Geschat HbA1c: ' + (r.gmi * 0.3 + 3).toFixed(1) + '%';
+  
+  // Average
+  const avgMmol = mgToMmol(r.mean);
+  document.getElementById('avgGlucose').textContent = avgMmol + ' mmol/L';
+  document.getElementById('avgGlucose').className = 'kpi-value ' + (parseFloat(avgMmol) < 3.9 ? 'danger' : parseFloat(avgMmol) > 10 ? 'warn' : 'good');
+  document.getElementById('stdDevSub').textContent = 'SD: ±' + mgToMmol(r.stdDev) + ' mmol/L';
+  
+  // CV
+  document.getElementById('cv').textContent = r.cv.toFixed(0) + '%';
+  document.getElementById('cv').className = 'kpi-value ' + (r.cv < 36 ? 'good' : 'warn');
+  document.getElementById('cvSub').textContent = 'Doel <36%';
+  
+  // Night hypos
+  document.getElementById('nightHypos').textContent = r.nightHypos + 'x';
+  document.getElementById('nightHypos').className = 'kpi-value ' + (r.nightHypos === 0 ? 'good' : r.nightHypos < 3 ? 'warn' : 'danger');
+  
+  // SMBs
+  document.getElementById('smbCount').textContent = r.smbs;
+  document.getElementById('smbTotal').textContent = r.totalInsulin.toFixed(1) + ' E totaal';
+  
+  // Total insulin
+  document.getElementById('totalInsulin').textContent = r.totalInsulin.toFixed(1) + ' E';
+  
+  // TIR bar
+  document.getElementById('tirVeryLow').style.flex = r.tirPct.veryLow;
+  document.getElementById('tirLow').style.flex = r.tirPct.low;
+  document.getElementById('tirInRangeSeg').style.flex = r.tirPct.inRange;
+  document.getElementById('tirHigh').style.flex = r.tirPct.high;
+  document.getElementById('tirVeryHigh').style.flex = r.tirPct.veryHigh;
+  
+  document.getElementById('lowPct').textContent = (parseFloat(r.tirPct.low) + parseFloat(r.tirPct.veryLow)) + '%';
+  document.getElementById('highPct').textContent = r.tirPct.high + '%';
+  document.getElementById('rangePct').textContent = r.tirPct.inRange + '%';
+  
+  // Update other sections
+  updateChart();
+  updateAlerts();
+  updatePatterns();
+  updateIAPS();
+  updateRecommendations();
+}
+
+// ============================================================
+// CHART
+// ============================================================
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  return { 
+    primary: s.getPropertyValue('--color-primary').trim(), 
+    success: s.getPropertyValue('--color-success').trim(), 
+    warning: s.getPropertyValue('--color-warning').trim(), 
+    error: s.getPropertyValue('--color-error').trim(), 
+    textMuted: s.getPropertyValue('--color-text-muted').trim(), 
+    divider: s.getPropertyValue('--color-divider').trim() 
+  };
+}
+
+function updateChart() {
+  const hours = Array.from({length: 24}, (_, i) => String(i).padStart(2,'0') + ':00');
+  const hourlyAvg = Array(24).fill(0), hourlyCount = Array(24).fill(0);
+  glucoseData.forEach(e => { const h = e.date.getHours(); hourlyAvg[h] += e.sgv; hourlyCount[h]++; });
+  const glucoseHours = hourlyAvg.map((sum, i) => hourlyCount[i] > 0 ? sum / hourlyCount[i] / 18 : null);
+  
+  const c = getChartColors();
+  
+  if (!glucoseChart) {
+    const ctx = document.getElementById('glucoseChart').getContext('2d');
+    glucoseChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: hours,
+        datasets: [
+          { 
+            label: 'Glucose', 
+            data: glucoseHours, 
+            borderColor: c.primary, 
+            backgroundColor: c.primary + '18', 
+            fill: true, 
+            tension: 0.4, 
+            pointRadius: 0, 
+            borderWidth: 2, 
+            spanGaps: true 
+          },
+          { 
+            label: 'Bovengrens (10)', 
+            data: Array(24).fill(10), 
+            borderColor: c.warning + '80', 
+            borderDash: [4, 4], 
+            borderWidth: 1, 
+            pointRadius: 0, 
+            fill: false 
+          },
+          { 
+            label: 'Ondergrens (3.9)', 
+            data: Array(24).fill(3.9), 
+            borderColor: c.error + '80', 
+            borderDash: [4, 4], 
+            borderWidth: 1, 
+            pointRadius: 0, 
+            fill: false 
+          }
+        ]
+      },
+      options: { 
+        responsive: true, 
+        maintainAspectRatio: false, 
+        plugins: { legend: { display: false } }, 
+        scales: { 
+          x: { 
+            grid: { color: c.divider }, 
+            ticks: { color: c.textMuted, font: { size: 10 }, maxTicksLimit: 8 } 
+          }, 
+          y: { 
+            grid: { color: c.divider }, 
+            ticks: { color: c.textMuted, font: { size: 10 } }, 
+            min: 2, 
+            max: 15 
+          } 
+        } 
+      }
+    });
+  } else {
+    glucoseChart.data.datasets[0].data = glucoseHours;
+    glucoseChart.update();
+  }
+}
+
+// ============================================================
+// ALERTS
+// ============================================================
+function updateAlerts() {
+  const r = analysisResults;
+  const alerts = [];
+  
+  if (r.nightHypos > 0) {
+    alerts.push({ type: 'danger', icon: '🚨', title: 'Nachtelijke hypo', desc: r.nightHypos + ' hypoglycemische metingen tussen 00:00-06:00. Overweeg aanpassing nachtbasaal.', time: 'Actief' });
+  }
+  if (parseFloat(r.tirPct.high) > 20) {
+    alerts.push({ type: 'warning', icon: '⚠️', title: 'Hoge glucose frequent', desc: r.tirPct.high + '% boven 10 mmol/L. Bolus timing controleren.', time: 'Deze week' });
+  }
+  if (r.cv > 36) {
+    alerts.push({ type: 'info', icon: '📊', title: 'Hoge variabiliteit', desc: 'CV ' + r.cv.toFixed(0) + '% - boven streefwaarde van 36%.', time: 'Actief' });
+  }
+  if (parseFloat(r.tirPct.inRange) >= 70) {
+    alerts.push({ type: 'success', icon: '✅', title: 'TIR doel bereikt!', desc: r.tirPct.inRange + '% Time-in-Range!', time: 'Deze week' });
+  }
+  
+  const badge = alerts.filter(a => a.type === 'danger' || a.type === 'warning').length;
+  const alertBadge = document.getElementById('alertBadge');
+  alertBadge.textContent = badge;
+  alertBadge.style.display = badge > 0 ? 'inline' : 'none';
+  
+  document.getElementById('alertCount').textContent = badge + ' actief';
+  document.getElementById('alertList').innerHTML = alerts.length ? alerts.map(a => 
+    '<div class="alert-item alert-' + a.type + '"><div class="alert-icon">' + a.icon + '</div><div class="alert-content"><div class="alert-title ' + a.type + '">' + a.title + '</div><div class="alert-desc">' + a.desc + '</div></div><div class="alert-time">' + a.time + '</div></div>'
+  ).join('') : '<div class="alert-item alert-success"><div class="alert-icon">✅</div><div class="alert-content"><div class="alert-title success">Geen problemen</div><div class="alert-desc">Alles ziet er goed uit!</div></div></div>';
+}
+
+// ============================================================
+// PATTERNS
+// ============================================================
+function updatePatterns() {
+  const r = analysisResults;
+  const patterns = [];
+  
+  if (r.nightHypos > 0) patterns.push({ name: 'Nachtelijke hypo', severity: 'red', desc: r.nightHypos + ' episodes deze week' });
+  if (parseFloat(r.tirPct.high) > 20) patterns.push({ name: 'Hoge glucose pieken', severity: 'orange', desc: 'Post-prandiale hyperglycemie' });
+  if (r.cv > 36) patterns.push({ name: 'Hoge variabiliteit', severity: 'blue', desc: 'CV > 36%' });
+  if (parseFloat(r.tirPct.inRange) >= 70) patterns.push({ name: 'Goede TIR', severity: 'green', desc: '> 70% in bereik' });
+  
+  document.getElementById('patternTableBody').innerHTML = patterns.length ? patterns.map(p => 
+    '<tr><td><strong>' + p.name + '</strong></td><td>--</td><td><span class="badge ' + p.severity + '">' + p.severity + '</span></td><td>' + p.desc + '</td></tr>'
+  ).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);">Geen specifieke patronen gedetecteerd</td></tr>';
+}
+
+// ============================================================
+// IAPS
+// ============================================================
+function updateIAPS() {
+  const r = analysisResults;
+  
+  document.getElementById('smbEvents').textContent = r.smbs;
+  document.getElementById('smbPerDay').textContent = Math.round(r.smbs / 7) + ' SMBs/dag';
+  document.getElementById('avgSmbSize').textContent = r.avgSmbSize.toFixed(2) + ' E';
+  document.getElementById('tempBasalCount').textContent = r.tempBasals;
+  
+  const recent = treatmentData.slice(0, 20);
+  document.getElementById('iapsTableBody').innerHTML = recent.length ? recent.map(t => {
+    const time = new Date(t.created_at).toLocaleString('nl-NL');
+    let type = t.eventType, value = '';
+    if (type === 'SMB' || type === 'Bolus') { value = (t.insulin || 0).toFixed(1) + ' E'; type = 'SMB'; }
+    else if (type === 'Temp Basal') value = (t.rate || 0).toFixed(2) + ' E/u';
+    return '<tr><td style="font-family:var(--font-mono);font-size:var(--text-xs);">' + time + '</td><td><span class="badge ' + (type === 'SMB' ? 'blue' : 'green') + '">' + type + '</span></td><td>' + value + '</td></tr>';
+  }).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--color-text-muted);">Geen iAPS data beschikbaar</td></tr>';
+}
+
+// ============================================================
+// RECOMMENDATIONS
+// ============================================================
+function updateRecommendations() {
+  const r = analysisResults;
+  const recs = [];
+  
+  if (r.nightHypos > 0) {
+    recs.push({ icon: '🌙', text: 'Nachtelijke hypo\'s gedetecteerd. Overweeg verlaagde basaal 00:00-06:00 of snack voor slapen.', priority: 'high' });
+  }
+  if (parseFloat(r.tirPct.high) > 20) {
+    recs.push({ icon: '🍽️', text: r.tirPct.high + '% boven 10 mmol/L. Bolus 15 min eerder voor maaltijden.', priority: 'high' });
+  }
+  if (r.cv > 36) {
+    recs.push({ icon: '📊', text: 'Hoge variabiliteit. Focus op consistente eettijden.', priority: 'med' });
+  }
+  if (parseFloat(r.tirPct.inRange) >= 70) {
+    recs.push({ icon: '🏆', text: 'Uitstekend! TIR van ' + r.tirPct.inRange + '% - boven 70% doel!', priority: 'low' });
+  }
+  if (r.smbs > 0) {
+    recs.push({ icon: '💉', text: 'iAPS actief met ' + r.smbs + ' SMB toedieningen. Loop werkt goed!', priority: 'low' });
+  }
+  
+  document.getElementById('recList').innerHTML = recs.length ? recs.map(r => 
+    '<div class="rec-item"><div class="rec-icon">' + r.icon + '</div><div class="rec-text">' + r.text + '</div><div class="rec-priority ' + r.priority + '">' + (r.priority === 'high' ? 'Urgent' : r.priority === 'med' ? 'Middel' : 'Info') + '</div></div>'
+  ).join('') : '<div class="rec-item"><div class="rec-icon">✅</div><div class="rec-text">Geen specifieke aanbevelingen. Alles ziet er goed uit!</div><div class="rec-priority low">Info</div></div>';
+}
+
+// ============================================================
+// INIT
+// ============================================================
+window.addEventListener('DOMContentLoaded', () => { 
+  refreshData(); 
+  // Refresh every 5 minutes
+  setInterval(refreshData, 5 * 60 * 1000); 
+});
+</script>
+</body>
+</html>

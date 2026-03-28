@@ -76,7 +76,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 body { min-height: 100dvh; font-family: var(--font-body); font-size: var(--text-base); color: var(--color-text); background: var(--color-bg); display: flex; transition: background var(--transition), color var(--transition); }
 button { cursor: pointer; background: none; border: none; font: inherit; color: inherit; }
-.sidebar { width: var(--sidebar-width); min-height: 100dvh; background: var(--color-surface); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; z-index: 100; }
+.sidebar { width: var(--sidebar-width); min-height: 100dvh; background: var(--color-surface); border-right: 1px solid var(--color-border); display: flex; flex-direction: column; position: fixed; top: 0; left: 0; z-index: 100; overflow-y: auto; }
 .sidebar-logo { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-5); border-bottom: 1px solid var(--color-divider); }
 .sidebar-logo-text { font-size: var(--text-sm); font-weight: 600; line-height: 1.2; }
 .sidebar-logo-sub { font-size: var(--text-xs); color: var(--color-text-muted); }
@@ -95,6 +95,7 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 .status-badge { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 500; }
 .status-badge.live { background: var(--color-success-highlight); color: var(--color-success); }
 .status-badge.error { background: var(--color-error-highlight); color: var(--color-error); }
+.status-badge.loading { background: var(--color-blue-highlight); color: var(--color-blue); }
 .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .status-dot.pulse { animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
@@ -108,13 +109,16 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 .kpi-value.danger { color: var(--color-error); }
 .kpi-sub { font-size: var(--text-xs); color: var(--color-text-muted); }
 .panel { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); overflow: hidden; }
-.panel-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-divider); }
+.panel-header { display: flex; align-items: center; justify-content: space-between; padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--color-divider); flex-wrap: wrap; gap: var(--space-2); }
 .panel-title { font-size: var(--text-base); font-weight: 600; }
 .panel-subtitle { font-size: var(--text-xs); color: var(--color-text-muted); margin-top: 2px; }
 .panel-body { padding: var(--space-5); }
 .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
-@media (max-width: 900px) { .two-col { grid-template-columns: 1fr; } }
-.chart-wrap { position: relative; height: 220px; }
+.three-col { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-4); }
+@media (max-width: 1200px) { .three-col { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 900px) { .two-col, .three-col { grid-template-columns: 1fr; } }
+.chart-wrap { position: relative; height: 280px; }
+.chart-wrap-sm { position: relative; height: 200px; }
 .tir-bar { display: flex; height: 24px; border-radius: var(--radius-sm); overflow: hidden; gap: 2px; }
 .tir-segment { display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 600; color: white; min-width: 2px; }
 .tir-legend { display: flex; gap: var(--space-4); flex-wrap: wrap; margin-top: var(--space-3); }
@@ -122,39 +126,45 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 .tir-dot { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 .glucose-hero { display: flex; align-items: center; justify-content: space-between; padding: var(--space-5) var(--space-6); background: color-mix(in oklch, var(--color-primary) 6%, var(--color-surface)); border-radius: var(--radius-xl); margin-bottom: var(--space-2); }
 .glucose-reading { display: flex; flex-direction: column; gap: var(--space-1); }
-.glucose-number { font-size: 3rem; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
+.glucose-number { font-size: 3.5rem; font-weight: 700; font-family: var(--font-mono); line-height: 1; }
 .glucose-unit { font-size: var(--text-xs); color: var(--color-text-muted); }
 .glucose-meta { display: flex; gap: var(--space-4); }
 .glucose-meta-item { display: flex; flex-direction: column; align-items: center; gap: 2px; }
 .glucose-meta-val { font-size: var(--text-sm); font-weight: 600; font-family: var(--font-mono); }
 .glucose-meta-label { font-size: 10px; color: var(--color-text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
-.alert-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); }
+.alert-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); max-height: 500px; overflow-y: auto; }
 .alert-item { display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); font-size: var(--text-sm); }
 .alert-item.alert-danger { background: var(--color-error-highlight); }
 .alert-item.alert-warning { background: var(--color-warning-highlight); }
 .alert-item.alert-info { background: var(--color-blue-highlight); }
 .alert-item.alert-success { background: var(--color-success-highlight); }
-.alert-icon { margin-top: 1px; flex-shrink: 0; }
+.alert-icon { margin-top: 1px; flex-shrink: 0; font-size: 1.2rem; }
 .alert-content { flex: 1; }
 .alert-title { font-weight: 600; margin-bottom: 2px; }
 .alert-title.danger { color: var(--color-error); }
 .alert-title.warning { color: var(--color-warning); }
 .alert-title.info { color: var(--color-blue); }
 .alert-title.success { color: var(--color-success); }
-.alert-desc { color: var(--color-text-muted); font-size: var(--text-xs); }
+.alert-desc { color: var(--color-text-muted); font-size: var(--text-xs); line-height: 1.4; }
 .alert-time { font-size: var(--text-xs); color: var(--color-text-faint); flex-shrink: 0; }
 .pattern-table { width: 100%; border-collapse: collapse; }
 .pattern-table th { text-align: left; font-size: var(--text-xs); font-weight: 600; color: var(--color-text-muted); text-transform: uppercase; padding: var(--space-2) var(--space-4); border-bottom: 1px solid var(--color-divider); }
 .pattern-table td { padding: var(--space-3) var(--space-4); font-size: var(--text-sm); border-bottom: 1px solid var(--color-divider); }
+.pattern-table tr:hover { background: var(--color-surface-offset); }
 .badge { display: inline-flex; align-items: center; padding: 2px var(--space-2); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 500; }
 .badge.red { background: var(--color-error-highlight); color: var(--color-error); }
 .badge.orange { background: var(--color-orange-highlight); color: var(--color-orange); }
 .badge.green { background: var(--color-success-highlight); color: var(--color-success); }
 .badge.blue { background: var(--color-blue-highlight); color: var(--color-blue); }
-.rec-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); }
-.rec-item { display: flex; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-offset); font-size: var(--text-sm); align-items: flex-start; }
-.rec-icon { font-size: 1.1rem; flex-shrink: 0; margin-top: 1px; }
+.badge.purple { background: #e8dced; color: #6b3d8f; }
+.rec-list { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-5); max-height: 600px; overflow-y: auto; }
+.rec-item { display: flex; gap: var(--space-3); padding: var(--space-4); border-radius: var(--radius-md); background: var(--color-surface-offset); font-size: var(--text-sm); align-items: flex-start; border-left: 3px solid; }
+.rec-item.high { border-left-color: var(--color-error); }
+.rec-item.med { border-left-color: var(--color-orange); }
+.rec-item.low { border-left-color: var(--color-success); }
+.rec-icon { font-size: 1.3rem; flex-shrink: 0; margin-top: 1px; }
 .rec-text { flex: 1; line-height: 1.5; }
+.rec-text strong { display: block; margin-bottom: 4px; }
 .rec-priority { font-size: var(--text-xs); font-weight: 600; padding: 2px var(--space-2); border-radius: var(--radius-full); flex-shrink: 0; }
 .rec-priority.high { background: var(--color-error-highlight); color: var(--color-error); }
 .rec-priority.med { background: var(--color-orange-highlight); color: var(--color-orange); }
@@ -165,7 +175,23 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 .view.active { display: contents; }
 .hamburger { display: none; padding: var(--space-2); border-radius: var(--radius-md); }
 .sidebar-overlay { display: none; position: fixed; inset: 0; background: oklch(0.1 0 0 / 0.5); z-index: 99; }
-@media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .sidebar-overlay.open { display: block; } .main { margin-left: 0; } .hamburger { display: flex; } .topbar { padding: var(--space-3) var(--space-4); } .content { padding: var(--space-4); } .kpi-grid { grid-template-columns: repeat(2, 1fr); } }
+.time-range-btns { display: flex; gap: var(--space-2); }
+.time-range-btn { padding: var(--space-1) var(--space-3); border-radius: var(--radius-full); font-size: var(--text-xs); font-weight: 500; border: 1px solid var(--color-border); background: transparent; color: var(--color-text-muted); transition: all var(--transition); }
+.time-range-btn.active { background: var(--color-primary); color: white; border-color: var(--color-primary); }
+.time-range-btn:hover:not(.active) { background: var(--color-surface-offset); }
+.stat-row { display: flex; justify-content: space-between; align-items: center; padding: var(--space-2) 0; border-bottom: 1px solid var(--color-divider); }
+.stat-row:last-child { border-bottom: none; }
+.stat-label { font-size: var(--text-sm); color: var(--color-text-muted); }
+.stat-value { font-size: var(--text-sm); font-weight: 600; font-family: var(--font-mono); }
+.insight-box { background: var(--color-surface-offset); padding: var(--space-4); border-radius: var(--radius-md); margin-top: var(--space-3); }
+.insight-title { font-weight: 600; margin-bottom: var(--space-2); display: flex; align-items: center; gap: var(--space-2); }
+.insight-list { font-size: var(--text-sm); color: var(--color-text-muted); }
+.insight-list li { margin-bottom: var(--space-1); margin-left: var(--space-4); }
+@media (max-width: 768px) { .sidebar { transform: translateX(-100%); } .sidebar.open { transform: translateX(0); } .sidebar-overlay.open { display: block; } .main { margin-left: 0; } .hamburger { display: flex; } .topbar { padding: var(--space-3) var(--space-4); } .content { padding: var(--space-4); } .kpi-grid { grid-template-columns: repeat(2, 1fr); } .glucose-number { font-size: 2.5rem; } }
+.loading-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.loading-box { background: var(--color-surface); padding: var(--space-8); border-radius: var(--radius-lg); text-align: center; }
+.spinner { width: 40px; height: 40px; border: 3px solid var(--color-border); border-top-color: var(--color-primary); border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto var(--space-4); }
+@keyframes spin { to { transform: rotate(360deg); } }
 </style>
 </head>
 <body>
@@ -191,8 +217,12 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
       Overzicht
     </div>
-    <div class="nav-item" onclick="switchView('patterns', this)">
+    <div class="nav-item" onclick="switchView('trends', this)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+      Trends
+    </div>
+    <div class="nav-item" onclick="switchView('patterns', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
       Patronen
     </div>
     <div class="nav-item" onclick="switchView('alerts', this)">
@@ -201,13 +231,17 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
       <span id="alertBadge" style="margin-left:auto;background:var(--color-error);color:white;font-size:10px;font-weight:700;padding:1px 6px;border-radius:var(--radius-full);display:none;">0</span>
     </div>
     <div class="nav-section-label">Analyse</div>
+    <div class="nav-item" onclick="switchView('uitschieters', this)">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Uitschieters
+    </div>
     <div class="nav-item" onclick="switchView('iaps', this)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
       iAPS Statistieken
     </div>
-    <div class="nav-item" onclick="switchView('aanbevelingen', this)">
+    <div class="nav-item" onclick="switchView('advies', this)">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 1 1 7.072 0l-.548.547A3.374 3.374 0 0 0 14 18.469V19a2 2 0 1 1-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
-      AI Aanbevelingen
+      Persoonlijk Advies
     </div>
   </div>
 
@@ -226,8 +260,8 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
       <span class="topbar-title" id="pageTitle">Overzicht</span>
     </div>
     <div class="topbar-right">
-      <button class="refresh-btn" onclick="refreshData()">🔄 Verversen</button>
-      <div class="status-badge live" id="statusBadge"><div class="status-dot pulse"></div><span id="statusText">Laden...</span></div>
+      <button class="refresh-btn" onclick="refreshAllData()">🔄 Verversen</button>
+      <div class="status-badge loading" id="statusBadge"><div class="status-dot pulse"></div><span id="statusText">Data laden...</span></div>
       <span id="lastSync" style="font-size:var(--text-xs);color:var(--color-text-muted);">--</span>
     </div>
   </header>
@@ -252,23 +286,28 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 
       <div class="kpi-grid">
         <div class="kpi-card"><div class="kpi-label">GMI (Geschat HbA1c)</div><div class="kpi-value" id="gmi">--</div><div class="kpi-sub" id="gmiSub">--</div></div>
-        <div class="kpi-card"><div class="kpi-label">Gemiddelde glucose</div><div class="kpi-value" id="avgGlucose">--</div><div class="kpi-sub" id="stdDevSub">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">Gemiddelde (90d)</div><div class="kpi-value" id="avgGlucose">--</div><div class="kpi-sub" id="stdDevSub">--</div></div>
         <div class="kpi-card"><div class="kpi-label">CV (variabiliteit)</div><div class="kpi-value" id="cv">--</div><div class="kpi-sub" id="cvSub">--</div></div>
-        <div class="kpi-card"><div class="kpi-label">Nachtelijke hypo</div><div class="kpi-value" id="nightHypos">--</div><div class="kpi-sub">Afgelopen 7 nachten</div></div>
-        <div class="kpi-card"><div class="kpi-label">iAPS SMBs</div><div class="kpi-value" id="smbCount">--</div><div class="kpi-sub" id="smbTotal">--</div></div>
-        <div class="kpi-card"><div class="kpi-label">Totale Insuline</div><div class="kpi-value" id="totalInsulin">--</div><div class="kpi-sub">Afgelopen 7 dagen</div></div>
+        <div class="kpi-card"><div class="kpi-label">Nachtelijke hypo (90d)</div><div class="kpi-value" id="nightHypos">--</div><div class="kpi-sub">00:00 - 06:00</div></div>
+        <div class="kpi-card"><div class="kpi-label">Uitschieters (90d)</div><div class="kpi-value" id="spikeCount">--</div><div class="kpi-sub">Hyper & hypo events</div></div>
+        <div class="kpi-card"><div class="kpi-label">iAPS SMBs (90d)</div><div class="kpi-value" id="smbCount">--</div><div class="kpi-sub" id="smbTotal">--</div></div>
       </div>
 
       <div class="two-col">
         <div class="panel">
           <div class="panel-header">
-            <div><div class="panel-title">24-uurs glucosecurve</div><div class="panel-subtitle">Gemiddeld profiel afgelopen 7 dagen</div></div>
+            <div><div class="panel-title">24-uurs glucosecurve</div><div class="panel-subtitle">Gemiddeld profiel - 90 dagen</div></div>
+            <div class="time-range-btns">
+              <button class="time-range-btn active" onclick="setChartRange(7, this)">7d</button>
+              <button class="time-range-btn" onclick="setChartRange(14, this)">14d</button>
+              <button class="time-range-btn" onclick="setChartRange(30, this)">30d</button>
+            </div>
           </div>
           <div class="panel-body"><div class="chart-wrap"><canvas id="glucoseChart"></canvas></div></div>
         </div>
 
         <div class="panel">
-          <div class="panel-header"><div><div class="panel-title">Time in Range (TIR)</div><div class="panel-subtitle">Glucoseverdeling afgelopen 7 dagen</div></div></div>
+          <div class="panel-header">            <div><div class="panel-title">Time in Range (TIR)</div><div class="panel-subtitle">Laatste 90 dagen</div></div></div>
           <div class="panel-body">
             <div class="tir-bar" id="tirBar">
               <div class="tir-segment" id="tirVeryLow" style="background:var(--color-error);flex:0;"></div>
@@ -282,55 +321,156 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
               <div class="tir-legend-item"><div class="tir-dot" style="background:var(--color-orange);"></div>Hoog (&gt;10.0) • <span id="highPct">0%</span></div>
               <div class="tir-legend-item"><div class="tir-dot" style="background:var(--color-success);"></div>In doel (3.9-10.0) • <span id="rangePct">100%</span></div>
             </div>
+            <div class="insight-box" style="margin-top: var(--space-4);">
+              <div class="insight-title">📈 Trend Analyse</div>
+              <div id="trendInsight" style="font-size: var(--text-sm); color: var(--color-text-muted);">Analyse laden...</div>
+            </div>
           </div>
         </div>
       </div>
     </div>
 
+    <!-- TRENDS VIEW -->
+    <div class="view" id="view-trends">
+      <div class="three-col">
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Dagvergelijking</div></div>
+          <div class="panel-body">
+            <div class="chart-wrap-sm"><canvas id="dayComparisonChart"></canvas></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Wekelijkse TIR</div></div>
+          <div class="panel-body">
+            <div class="chart-wrap-sm"><canvas id="weeklyTirChart"></canvas></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div class="panel-title">Glucose Variabiliteit</div></div>
+          <div class="panel-body">
+            <div class="chart-wrap-sm"><canvas id="cvTrendChart"></canvas></div>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div class="panel-title">Laatste 90 dagen - Glucose Verloop</div></div>
+        <div class="panel-body"><div class="chart-wrap"><canvas id="monthlyChart"></canvas></div></div>
+      </div>
+    </div>
+
     <!-- PATTERNS VIEW -->
     <div class="view" id="view-patterns">
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">Gedetecteerde Patronen</div><div class="panel-subtitle">Op basis van 90 dagen data</div></div></div>
+          <table class="pattern-table">
+            <thead><tr><th>Patroon</th><th>Frequentie</th><th>Ernst</th><th>Beschrijving</th></tr></thead>
+            <tbody id="patternTableBody"><tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Data laden...</td></tr></tbody>
+          </table>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">Patroon Details</div><div class="panel-subtitle">Tijdstippen en triggers</div></div></div>
+          <div class="panel-body" id="patternDetails">
+            <p style="color:var(--color-text-muted);">Selecteer een patroon om details te zien.</p>
+          </div>
+        </div>
+      </div>
       <div class="panel">
-        <div class="panel-header"><div><div class="panel-title">Gedetecteerde Glucosepatronen</div><div class="panel-subtitle">AI-analyse van herhalende patronen</div></div></div>
-        <table class="pattern-table">
-          <thead><tr><th>Patroon</th><th>Frequentie</th><th>Ernst</th><th>Beschrijving</th></tr></thead>
-          <tbody id="patternTableBody"><tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Data laden...</td></tr></tbody>
-        </table>
+        <div class="panel-header"><div><div class="panel-title">Patroon Herhaling</div><div class="panel-subtitle">Wanneer komen patronen voor?</div></div></div>
+        <div class="panel-body"><div class="chart-wrap"><canvas id="patternTimeChart"></canvas></div></div>
       </div>
     </div>
 
     <!-- ALERTS VIEW -->
     <div class="view" id="view-alerts">
       <div class="panel">
-        <div class="panel-header"><div><div class="panel-title">Actieve Alerts & Waarschuwingen</div><div class="panel-subtitle">Real-time meldingen op basis van patroonherkenning</div></div><span class="badge red" id="alertCount">0 actief</span></div>
+        <div class="panel-header"><div><div class="panel-title">Actieve Alerts & Waarschuwingen</div><div class="panel-subtitle">Gebaseerd op jouw glucosehistorie</div></div><span class="badge red" id="alertCount">0 actief</span></div>
         <div class="alert-list" id="alertList"><div class="alert-item alert-info"><div class="alert-icon">⏳</div><div class="alert-content"><div class="alert-title info">Data laden...</div><div class="alert-desc">Glucose data wordt opgehaald.</div></div><div class="alert-time">Nu</div></div></div>
+      </div>
+    </div>
+
+    <!-- UITSCHETERS VIEW -->
+    <div class="view" id="view-uitschieters">
+      <div class="kpi-grid">
+        <div class="kpi-card"><div class="kpi-label">Hyper Episodes</div><div class="kpi-value warn" id="hyperCount">--</div><div class="kpi-sub">&gt;13.9 mmol/L</div></div>
+        <div class="kpi-card"><div class="kpi-label">Hypo Episodes</div><div class="kpi-value danger" id="hypoCount">--</div><div class="kpi-sub">&lt;3.0 mmol/L</div></div>
+        <div class="kpi-card"><div class="kpi-label">Snelle Stijgers</div><div class="kpi-value" id="rapidRiseCount">--</div><div class="kpi-sub">&gt;0.1 mmol/min stijging</div></div>
+        <div class="kpi-card"><div class="kpi-label">Snelle Dalers</div><div class="kpi-value" id="rapidFallCount">--</div><div class="kpi-sub">&gt;0.1 mmol/min daling</div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">Hyper Analyse</div><div class="panel-subtitle">Wanneer en waarom?</div></div></div>
+          <div class="panel-body" id="hyperAnalysis">
+            <p style="color:var(--color-text-muted);">Data laden...</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">Hypo Analyse</div><div class="panel-subtitle">Wanneer en waarom?</div></div></div>
+          <div class="panel-body" id="hypoAnalysis">
+            <p style="color:var(--color-text-muted);">Data laden...</p>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-header"><div><div class="panel-title">Specifieke Uitschieter Aanbevelingen</div><div class="panel-subtitle">Persoonlijk advies om uitschieters te voorkomen</div></div></div>
+        <div class="rec-list" id="spikeRecommendations">
+          <div class="rec-item"><div class="rec-icon">⏳</div><div class="rec-text">Analyse wordt uitgevoerd...</div><div class="rec-priority low">Laden</div></div>
+        </div>
       </div>
     </div>
 
     <!-- IAPS VIEW -->
     <div class="view" id="view-iaps">
       <div class="kpi-grid">
-        <div class="kpi-card"><div class="kpi-label">SMB Events</div><div class="kpi-value" id="smbEvents">--</div><div class="kpi-sub" id="smbPerDay">--</div></div>
+        <div class="kpi-card"><div class="kpi-label">SMB Events (90d)</div><div class="kpi-value" id="smbEvents">--</div><div class="kpi-sub" id="smbPerDay">--</div></div>
         <div class="kpi-card"><div class="kpi-label">Gem. SMB Grootte</div><div class="kpi-value" id="avgSmbSize">--</div><div class="kpi-sub">Per dosis</div></div>
-        <div class="kpi-card"><div class="kpi-label">Temp Basal Changes</div><div class="kpi-value" id="tempBasalCount">--</div><div class="kpi-sub">Laatste 7 dagen</div></div>
+        <div class="kpi-card"><div class="kpi-label">Temp Basal Changes</div><div class="kpi-value" id="tempBasalCount">--</div><div class="kpi-sub">90 dagen</div></div>
+        <div class="kpi-card"><div class="kpi-label">Totale Insuline</div><div class="kpi-value" id="totalInsulin">--</div><div class="kpi-sub">30 dagen totaal</div></div>
+        <div class="kpi-card"><div class="kpi-label">Autonomie</div><div class="kpi-value good" id="autonomyScore">--</div><div class="kpi-sub">% SMB vs handmatig</div></div>
+        <div class="kpi-card"><div class="kpi-label">Gem. Glucose</div><div class="kpi-value" id="iapsAvgGlucose">--</div><div class="kpi-sub">Met iAPS actief</div></div>
       </div>
       <div class="panel">
-        <div class="panel-header"><div class="panel-title">Recente iAPS Behandelingen</div><div class="panel-subtitle">Laatste 20 events</div></div>
+        <div class="panel-header"><div class="panel-title">Recente iAPS Behandelingen</div><div class="panel-subtitle">Laatste 30 events</div></div>
         <table class="pattern-table">
-          <thead><tr><th>Tijd</th><th>Type</th><th>Waarde</th></tr></thead>
-          <tbody id="iapsTableBody"><tr><td colspan="3" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Data laden...</td></tr></tbody>
+          <thead><tr><th>Tijd</th><th>Type</th><th>Waarde</th><th>BG Err.</th></tr></thead>
+          <tbody id="iapsTableBody"><tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Data laden...</td></tr></tbody>
         </table>
       </div>
     </div>
 
-    <!-- AANBEVELINGEN VIEW -->
-    <div class="view" id="view-aanbevelingen">
+    <!-- ADVICES VIEW -->
+    <div class="view" id="view-advies">
       <div class="panel">
-        <div class="panel-header"><div><div class="panel-title">AI Aanbevelingen</div><div class="panel-subtitle">Gepersonaliseerde adviezen op basis van jouw glucosepatronen</div></div></div>
-        <div class="rec-list" id="recList"><div class="rec-item"><div class="rec-icon">⏳</div><div class="rec-text">Analyse wordt uitgevoerd...</div><div class="rec-priority low">Laden</div></div></div>
+        <div class="panel-header"><div><div class="panel-title">🤖 Persoonlijk Glucosecoach Advies</div><div class="panel-subtitle">Gebaseerd op 30 dagen analyse van jouw patronen</div></div></div>
+        <div class="rec-list" id="adviesList"><div class="rec-item"><div class="rec-icon">⏳</div><div class="rec-text">Analyse wordt uitgevoerd...</div><div class="rec-priority low">Laden</div></div></div>
+      </div>
+      <div class="two-col">
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">🎯 Concrete Doelen</div><div class="panel-subtitle">Meetbare verbeterpunten</div></div></div>
+          <div class="panel-body" id="goalsPanel">
+            <p style="color:var(--color-text-muted);">Data laden...</p>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="panel-header"><div><div class="panel-title">📚 Uitleg</div><div class="panel-subtitle">Begrippen en wat ze betekenen</div></div></div>
+          <div class="panel-body">
+            <div class="stat-row"><span class="stat-label">TIR (Time in Range)</span><span class="stat-value" style="color:var(--color-success);">70%+ is doel</span></div>
+            <div class="stat-row"><span class="stat-label">CV (Coefficient of Variation)</span><span class="stat-value">&lt;36% is stabiel</span></div>
+            <div class="stat-row"><span class="stat-label">GMI (Glucose Management Indicator)</span><span class="stat-value">&lt;7% is ideaal</span></div>
+            <div class="stat-row"><span class="stat-label">Gemiddelde glucose</span><span class="stat-value">5.5-8.5 mmol/L</span></div>
+          </div>
+        </div>
       </div>
     </div>
 
   </main>
+</div>
+
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+  <div class="loading-box">
+    <div class="spinner"></div>
+    <div id="loadingText">Data ophalen...</div>
+  </div>
 </div>
 
 <script>
@@ -340,8 +480,22 @@ button { cursor: pointer; background: none; border: none; font: inherit; color: 
 const CONFIG = {
   nightscoutUrl: 'https://arinelis.10be.de/',
   token: 'nsread-bf4271c2d5b495b4',
-  thresholds: { veryLow: 3.0, low: 3.9, high: 10.0, veryHigh: 13.9 }
+  thresholds: { veryLow: 3.0, low: 3.9, high: 10.0, veryHigh: 13.9 },
+  chartDays: 7  // Default voor grafiek
 };
+
+// ============================================================
+// GLOBALE VARIABELEN
+// ============================================================
+let allGlucoseData = [];
+let allTreatmentData = [];
+let analysisResults = {};
+let glucoseChart = null;
+let dayComparisonChart = null;
+let weeklyTirChart = null;
+let cvTrendChart = null;
+let monthlyChart = null;
+let patternTimeChart = null;
 
 // ============================================================
 // API FUNCTIONS
@@ -350,25 +504,18 @@ async function fetchNightscout(endpoint) {
   try {
     const url = CONFIG.nightscoutUrl + 'api/v1/' + endpoint + '&token=' + CONFIG.token;
     const res = await fetch(url, {
-      headers: { 
-        'Accept': 'application/json',
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' }
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const text = await res.text();
-    
-    // Probeer JSON te parsen
     try {
       return JSON.parse(text);
     } catch {
-      // Anders: parsee tab-separated formaat
       const lines = text.trim().split('\n');
       return lines.map(line => {
         const parts = line.split('\t');
         return {
-          date: parts[0],
-          dateString: parts[0],
+          date: parts[0], dateString: parts[0],
           sgv: parseInt(parts[2]),
           direction: parts[3]?.replace(/"/g, '') || '',
           device: parts[4]?.replace(/"/g, '') || ''
@@ -382,15 +529,778 @@ async function fetchNightscout(endpoint) {
 }
 
 // ============================================================
-// DATA & STATE
+// DATA LADEN - 30 DAGEN
 // ============================================================
-let glucoseData = [], treatmentData = [], analysisResults = {}, glucoseChart = null;
+async function refreshAllData() {
+  showLoading('Data ophalen van Nightscout...');
+  
+  // Bereken datum 90 dagen geleden
+  const ninetyDaysAgo = new Date();
+  ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+  const dateStr = ninetyDaysAgo.toISOString().split('T')[0];
+  
+  // Haal entries op - Count 30000 voor ~90 dagen (elke 5 min = 288/dag = 25920)
+  const entries = await fetchNightscout('entries?find[dateString][$gte]=' + dateStr + '&count=30000');
+  const treatments = await fetchNightscout('treatments?find[created_at][$gte]=' + dateStr + '&count=10000');
+  
+  if (!entries || entries.length === 0) {
+    hideLoading();
+    document.getElementById('statusText').textContent = 'Geen data';
+    document.getElementById('statusBadge').className = 'status-badge error';
+    return;
+  }
+  
+  // Verwerk glucose data
+  allGlucoseData = entries
+    .map(e => ({ sgv: e.sgv, date: new Date(e.date || e.dateString), direction: e.direction, device: e.device }))
+    .filter(e => e.sgv && e.date && !isNaN(e.date.getTime()))
+    .sort((a, b) => a.date - b.date);
+  
+  allTreatmentData = treatments || [];
+  
+  hideLoading();
+  
+  // Analyseer en update UI
+  analyzeAllData();
+  updateDashboard();
+  updateTrends();
+  updatePatterns();
+  updateAlerts();
+  updateUitschieters();
+  updateIAPS();
+  updateAdvies();
+  
+  document.getElementById('statusText').textContent = 'Actief';
+  document.getElementById('statusBadge').className = 'status-badge live';
+  document.getElementById('lastSync').textContent = 'Sync: ' + new Date().toLocaleTimeString('nl-NL');
+}
 
+function showLoading(text) {
+  document.getElementById('loadingOverlay').style.display = 'flex';
+  document.getElementById('loadingText').textContent = text || 'Laden...';
+}
+
+function hideLoading() {
+  document.getElementById('loadingOverlay').style.display = 'none';
+}
+
+// ============================================================
+// ANALYSE FUNCTIONS
+// ============================================================
+function analyzeAllData() {
+  const now = new Date();
+  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  
+  // Filter data op timeframe
+  const allValues = allGlucoseData.map(e => e.sgv);
+  const ninetyDayData = allGlucoseData.filter(e => e.date >= ninetyDaysAgo);
+  const thirtyDayData = allGlucoseData.filter(e => e.date >= thirtyDaysAgo);
+  const sevenDayData = allGlucoseData.filter(e => e.date >= sevenDaysAgo);
+  
+  const ninetyValues = ninetyDayData.map(e => e.sgv);
+  const thirtyValues = thirtyDayData.map(e => e.sgv);
+  const sevenValues = sevenDayData.map(e => e.sgv);
+  
+  // Bereken statistieken
+  const calcStats = (values) => {
+    if (!values || values.length === 0) return { mean: 0, stdDev: 0, cv: 0, gmi: 0 };
+    const mean = values.reduce((a, b) => a + b, 0) / values.length;
+    const variance = values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / values.length;
+    const stdDev = Math.sqrt(variance);
+    const cv = (stdDev / mean) * 100;
+    const gmi = 3.31 + (0.02392 * mean);
+    return { mean, stdDev, cv, gmi };
+  };
+  
+  const stats90 = calcStats(ninetyValues);
+  const stats30 = calcStats(thirtyValues);
+  const stats7 = calcStats(sevenValues);
+  
+  // TIR berekening
+  const toMmol = v => v / 18;
+  const calcTir = (values) => {
+    if (!values || values.length === 0) return { veryLow: 0, low: 0, inRange: 0, high: 0, veryHigh: 0, total: 0, pct: {} };
+    const veryLow = values.filter(v => toMmol(v) < CONFIG.thresholds.veryLow).length;
+    const low = values.filter(v => toMmol(v) >= CONFIG.thresholds.veryLow && toMmol(v) < CONFIG.thresholds.low).length;
+    const inRange = values.filter(v => toMmol(v) >= CONFIG.thresholds.low && toMmol(v) <= CONFIG.thresholds.high).length;
+    const high = values.filter(v => toMmol(v) > CONFIG.thresholds.high && toMmol(v) <= CONFIG.thresholds.veryHigh).length;
+    const veryHigh = values.filter(v => toMmol(v) > CONFIG.thresholds.veryHigh).length;
+    const total = values.length;
+    return {
+      veryLow, low, inRange, high, veryHigh, total,
+      pct: {
+        veryLow: (veryLow/total*100).toFixed(1),
+        low: (low/total*100).toFixed(1),
+        inRange: (inRange/total*100).toFixed(1),
+        high: (high/total*100).toFixed(1),
+        veryHigh: (veryHigh/total*100).toFixed(1)
+      }
+    };
+  };
+  
+  const tir90 = calcTir(ninetyValues);
+  const tir30 = calcTir(thirtyValues);
+  const tir7 = calcTir(sevenValues);
+  
+  // Nachtelijke hypo's (00:00 - 06:00) - 90 dagen
+  const nightHypos90 = ninetyDayData.filter(e => {
+    const h = e.date.getHours();
+    return h >= 0 && h < 6 && toMmol(e.sgv) < CONFIG.thresholds.low;
+  }).length;
+  const nightHypos30 = thirtyDayData.filter(e => {
+    const h = e.date.getHours();
+    return h >= 0 && h < 6 && toMmol(e.sgv) < CONFIG.thresholds.low;
+  }).length;
+  
+  // Uitschieters tellen - 90 dagen
+  const hyper90 = ninetyValues.filter(v => toMmol(v) > CONFIG.thresholds.veryHigh).length;
+  const hypo90 = ninetyValues.filter(v => toMmol(v) < CONFIG.thresholds.veryLow).length;
+  const rapidRise90 = 0, rapidFall90 = 0;
+  
+  // Snelle stijgers/dalers (rate of change)
+  let rapidRise = 0, rapidFall = 0;
+  for (let i = 1; i < allGlucoseData.length; i++) {
+    const timeDiff = (allGlucoseData[i].date - allGlucoseData[i-1].date) / 60000; // minuten
+    if (timeDiff > 0 && timeDiff < 15) {
+      const rate = (allGlucoseData[i].sgv - allGlucoseData[i-1].sgv) / timeDiff / 18; // mmol/min
+      if (rate > 0.1) rapidRise++;
+      if (rate < -0.1) rapidFall++;
+    }
+  }
+  
+  // SMBs en treatments
+  const smbs = allTreatmentData.filter(t => (t.eventType === 'SMB' || t.eventType === 'Bolus') && t.insulin);
+  const tempBasals = allTreatmentData.filter(t => t.eventType === 'Temp Basal');
+  const totalInsulin = smbs.reduce((s, t) => s + (t.insulin || 0), 0);
+  const avgSmbSize = smbs.length ? totalInsulin / smbs.length : 0;
+  
+  // Patronen analyseren
+  const patterns = detectPatterns(thirtyDayData, allTreatmentData);
+  
+  // Trend berekenen (laatste 7 dagen vs vorige 7 dagen)
+  const weekBeforeStart = new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000);
+  const weekBeforeEnd = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const lastWeek = allGlucoseData.filter(e => e.date >= weekBeforeEnd);
+  const prevWeek = allGlucoseData.filter(e => e.date >= weekBeforeStart && e.date < weekBeforeEnd);
+  
+  const lastWeekAvg = lastWeek.length ? lastWeek.reduce((s, e) => s + e.sgv, 0) / lastWeek.length / 18 : 0;
+  const prevWeekAvg = prevWeek.length ? prevWeek.reduce((s, e) => s + e.sgv, 0) / prevWeek.length / 18 : 0;
+  const trend = lastWeekAvg - prevWeekAvg;
+  
+  analysisResults = {
+    stats90, stats30, stats7, tir90, tir30, tir7, tirAll: calcTir(allValues),
+    nightHypos90, nightHypos30, hyper90, hyper30, hypo90, hypo30, rapidRise, rapidFall,
+    smbs: smbs.length, tempBasals: tempBasals.length, totalInsulin, avgSmbSize,
+    latest: allGlucoseData[allGlucoseData.length - 1],
+    patterns, trend, weekBeforeAvg: prevWeekAvg
+  };
+}
+
+// ============================================================
+// PATROON DETECTIE
+// ============================================================
+function detectPatterns(data, treatments) {
+  const patterns = [];
+  const toMmol = v => v / 18;
+  const r = analysisResults;
+  
+  // Ochtend spikes (06:00 - 10:00)
+  const morningSpikes = data.filter(e => {
+    const h = e.date.getHours();
+    return h >= 6 && h < 10 && toMmol(e.sgv) > CONFIG.thresholds.high;
+  });
+  if (morningSpikes.length > 5) {
+    patterns.push({ name: 'Ochtendspits', type: 'morning', severity: 'orange', count: morningSpikes.length, desc: 'Hoge glucose in ochtenduren (06:00-10:00)' });
+  }
+  
+  // Nachtelijke hypo's
+  const nightHypos = data.filter(e => {
+    const h = e.date.getHours();
+    return h >= 0 && h < 6 && toMmol(e.sgv) < CONFIG.thresholds.low;
+  });
+  if (nightHypos.length > 0) {
+    patterns.push({ name: 'Nachtelijke hypo\'s', type: 'night', severity: 'red', count: nightHypos.length, desc: 'Lage glucose \'s nachts (00:00-06:00)' });
+  }
+  
+  // Post-diner spikes (18:00 - 22:00)
+  const eveningSpikes = data.filter(e => {
+    const h = e.date.getHours();
+    return h >= 18 && h < 22 && toMmol(e.sgv) > CONFIG.thresholds.high;
+  });
+  if (eveningSpikes.length > 5) {
+    patterns.push({ name: 'Avondspits', type: 'evening', count: eveningSpikes.length, severity: 'orange', desc: 'Hoge glucose na het avondeten (18:00-22:00)' });
+  }
+  
+  // Hoge variabiliteit
+  if (analysisResults.stats30 && analysisResults.stats30.cv > 36) {
+    patterns.push({ name: 'Hoge variabiliteit', type: 'cv', count: 1, severity: 'blue', desc: 'CV > 36% - glucose wisselt sterk' });
+  }
+  
+  // Lage TIR
+  if (analysisResults.tir30 && parseFloat(analysisResults.tir30.pct.inRange) < 70) {
+    patterns.push({ name: 'Lage TIR', type: 'tir', count: 1, severity: 'red', desc: 'Minder dan 70% in doelbereik' });
+  }
+  
+  // Snelle stijgers
+  if (analysisResults.rapidRise > 10) {
+    patterns.push({ name: 'Snelle stijgers', type: 'rise', count: analysisResults.rapidRise, severity: 'orange', desc: 'Veelvuldig snelle glucosesstijging' });
+  }
+  
+  // Snelle dalers
+  if (analysisResults.rapidFall > 10) {
+    patterns.push({ name: 'Snelle dalers', type: 'fall', count: analysisResults.rapidFall, severity: 'purple', desc: 'Veelvuldig snelle glucosedaling' });
+  }
+  
+  return patterns;
+}
+
+// ============================================================
+// UI UPDATES
+// ============================================================
+function updateDashboard() {
+  const r = analysisResults;
+  if (!r.latest) return;
+  
+  // Glucose hero
+  const glucoseEl = document.getElementById('liveGlucose');
+  const mmol = parseFloat(mgToMmol(r.latest.sgv));
+  glucoseEl.textContent = mmol.toFixed(1);
+  glucoseEl.style.color = mmol < 3.9 ? 'var(--color-error)' : mmol > 10 ? 'var(--color-warning)' : 'var(--color-success)';
+  
+  const trend = { 'Flat': 'stabiel →', 'FortyFiveUp': 'stijgend ↗', 'FortyFiveDown': 'dalend ↘', 'SingleUp': 'stijgend ↑', 'SingleDown': 'dalend ↓', 'DoubleUp': 'snel ↑', 'DoubleDown': 'snel ↓' };
+  document.getElementById('glucoseUnit').textContent = 'mmol/L • ' + (trend[r.latest.direction] || r.latest.direction || '--');
+  
+  // TIR hero
+  document.getElementById('tirInRangeHero').textContent = r.tir30.pct.inRange + '%';
+  document.getElementById('tirHighHero').textContent = r.tir30.pct.high + '%';
+  document.getElementById('tirLowHero').textContent = (parseFloat(r.tir30.pct.low) + parseFloat(r.tir30.pct.veryLow)).toFixed(1) + '%';
+  
+  // KPI kaarten
+  document.getElementById('gmi').textContent = r.stats30.gmi.toFixed(1) + '%';
+  document.getElementById('gmi').className = 'kpi-value ' + (r.stats30.gmi < 7 ? 'good' : 'warn');
+  document.getElementById('gmiSub').textContent = 'Geschat HbA1c: ' + (r.stats30.gmi * 0.3 + 3).toFixed(1) + '%';
+  
+  document.getElementById('avgGlucose').textContent = (r.stats30.mean / 18).toFixed(1) + ' mmol/L';
+  document.getElementById('avgGlucose').className = 'kpi-value ' + (r.stats30.mean / 18 < 3.9 ? 'danger' : r.stats30.mean / 18 > 10 ? 'warn' : 'good');
+  document.getElementById('stdDevSub').textContent = 'SD: ±' + (r.stats30.stdDev / 18).toFixed(1) + ' mmol/L';
+  
+  document.getElementById('cv').textContent = r.stats30.cv.toFixed(0) + '%';
+  document.getElementById('cv').className = 'kpi-value ' + (r.stats30.cv < 36 ? 'good' : 'warn');
+  document.getElementById('cvSub').textContent = 'Doel <36%';
+  
+  document.getElementById('nightHypos').textContent = r.nightHypos30 + 'x';
+  document.getElementById('nightHypos').className = 'kpi-value ' + (r.nightHypos30 === 0 ? 'good' : r.nightHypos30 < 5 ? 'warn' : 'danger');
+  
+  document.getElementById('spikeCount').textContent = r.hyper30 + r.hypo30;
+  document.getElementById('spikeCount').className = 'kpi-value ' + (r.hyper30 + r.hypo30 === 0 ? 'good' : 'warn');
+  
+  document.getElementById('smbCount').textContent = r.smbs;
+  document.getElementById('smbTotal').textContent = r.totalInsulin.toFixed(0) + ' E totaal';
+  
+  // TIR bar
+  document.getElementById('tirVeryLow').style.flex = r.tir30.pct.veryLow;
+  document.getElementById('tirLow').style.flex = r.tir30.pct.low;
+  document.getElementById('tirInRangeSeg').style.flex = r.tir30.pct.inRange;
+  document.getElementById('tirHigh').style.flex = r.tir30.pct.high;
+  document.getElementById('tirVeryHigh').style.flex = r.tir30.pct.veryHigh;
+  
+  document.getElementById('lowPct').textContent = (parseFloat(r.tir30.pct.low) + parseFloat(r.tir30.pct.veryLow)) + '%';
+  document.getElementById('highPct').textContent = r.tir30.pct.high + '%';
+  document.getElementById('rangePct').textContent = r.tir30.pct.inRange + '%';
+  
+  // Trend insight
+  const trendInsight = document.getElementById('trendInsight');
+  if (r.trend > 0.5) {
+    trendInsight.innerHTML = '📈 Glucose stijgt licht (+' + r.trend.toFixed(1) + ' mmol/L vs vorige week)';
+    trendInsight.style.color = 'var(--color-warning)';
+  } else if (r.trend < -0.5) {
+    trendInsight.innerHTML = '📉 Glucose daalt licht (' + r.trend.toFixed(1) + ' mmol/L vs vorige week)';
+    trendInsight.style.color = 'var(--color-success)';
+  } else {
+    trendInsight.innerHTML = '➡️ Glucose stabiel (weining verandering vs vorige week)';
+    trendInsight.style.color = 'var(--color-success)';
+  }
+  
+  updateMainChart();
+}
+
+function updateMainChart() {
+  const days = CONFIG.chartDays;
+  const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  const data = allGlucoseData.filter(e => e.date >= cutoff);
+  
+  const hours = Array.from({length: 24}, (_, i) => String(i).padStart(2,'0') + ':00');
+  const hourlyAvg = Array(24).fill(0), hourlyCount = Array(24).fill(0);
+  data.forEach(e => { const h = e.date.getHours(); hourlyAvg[h] += e.sgv; hourlyCount[h]++; });
+  const glucoseHours = hourlyAvg.map((sum, i) => hourlyCount[i] > 0 ? sum / hourlyCount[i] / 18 : null);
+  
+  const c = getChartColors();
+  
+  if (!glucoseChart) {
+    const ctx = document.getElementById('glucoseChart').getContext('2d');
+    glucoseChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: hours,
+        datasets: [
+          { label: 'Glucose', data: glucoseHours, borderColor: c.primary, backgroundColor: c.primary + '18', fill: true, tension: 0.4, pointRadius: 0, borderWidth: 2, spanGaps: true },
+          { label: 'Bovengrens (10)', data: Array(24).fill(10), borderColor: c.warning + '80', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false },
+          { label: 'Ondergrens (3.9)', data: Array(24).fill(3.9), borderColor: c.error + '80', borderDash: [4, 4], borderWidth: 1, pointRadius: 0, fill: false }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { color: c.divider }, ticks: { color: c.textMuted, font: { size: 10 }, maxTicksLimit: 8 } }, y: { grid: { color: c.divider }, ticks: { color: c.textMuted, font: { size: 10 } }, min: 2, max: 15 } } }
+    });
+  } else {
+    glucoseChart.data.datasets[0].data = glucoseHours;
+    glucoseChart.update();
+  }
+}
+
+function setChartRange(days, btn) {
+  CONFIG.chartDays = days;
+  document.querySelectorAll('.time-range-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  updateMainChart();
+}
+
+// ============================================================
+// TRENDS
+// ============================================================
+function updateTrends() {
+  const r = analysisResults;
+  const c = getChartColors();
+  
+  // Dag vergelijking
+  const dayLabels = ['Ma', 'Di', 'Wo', 'Do', 'Vr', 'Za', 'Zo'];
+  const today = new Date();
+  const dayData = dayLabels.map((_, i) => {
+    const dayStart = new Date(today);
+    dayStart.setDate(dayStart.getDate() - (6 - i));
+    dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart);
+    dayEnd.setHours(23, 59, 59, 999);
+    const dayGlucose = allGlucoseData.filter(e => e.date >= dayStart && e.date <= dayEnd);
+    return dayGlucose.length ? dayGlucose.reduce((s, e) => s + e.sgv, 0) / dayGlucose.length / 18 : null;
+  });
+  
+  if (!dayComparisonChart) {
+    const ctx = document.getElementById('dayComparisonChart').getContext('2d');
+    dayComparisonChart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: dayLabels, datasets: [{ data: dayData, backgroundColor: c.primary + '80', borderColor: c.primary, borderWidth: 1 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 4, max: 12 } } }
+    });
+  } else {
+    dayComparisonChart.data.datasets[0].data = dayData;
+    dayComparisonChart.update();
+  }
+  
+  // Wekelijkse TIR - 12 weken voor 90 dagen
+  const weekLabels = [], weekTir = [];
+  for (let w = 12; w >= 0; w--) {
+    const weekStart = new Date(Date.now() - (w + 1) * 7 * 24 * 60 * 60 * 1000);
+    const weekEnd = new Date(Date.now() - w * 7 * 24 * 60 * 60 * 1000);
+    const weekData = allGlucoseData.filter(e => e.date >= weekStart && e.date < weekEnd);
+    const inRange = weekData.filter(e => { const m = e.sgv / 18; return m >= 3.9 && m <= 10; }).length;
+    weekLabels.push('W' + (13 - w));
+    weekTir.push(weekData.length ? (inRange / weekData.length * 100).toFixed(0) : 0);
+  }
+  
+  if (!weeklyTirChart) {
+    const ctx = document.getElementById('weeklyTirChart').getContext('2d');
+    weeklyTirChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: weekLabels, datasets: [{ data: weekTir, borderColor: c.success, backgroundColor: c.success + '20', fill: true, tension: 0.4 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxTicksLimit: 13 } }, y: { min: 0, max: 100 } } }
+    });
+  } else {
+    weeklyTirChart.data.datasets[0].data = weekTir;
+    weeklyTirChart.update();
+  }
+  
+  // CV Trend
+  const cvLabels = [], cvData = [];
+  for (let d = 29; d >= 0; d--) {
+    const dayStart = new Date(Date.now() - (d + 1) * 24 * 60 * 60 * 1000);
+    const dayEnd = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+    const dayGlucose = allGlucoseData.filter(e => e.date >= dayStart && e.date < dayEnd);
+    if (dayGlucose.length > 10) {
+      const mean = dayGlucose.reduce((s, e) => s + e.sgv, 0) / dayGlucose.length;
+      const variance = dayGlucose.reduce((s, e) => s + Math.pow(e.sgv - mean, 2), 0) / dayGlucose.length;
+      const std = Math.sqrt(variance);
+      cvData.push((std / mean * 100).toFixed(0));
+      cvLabels.push(d === 0 ? 'Vandaag' : d === 1 ? 'Gisteren' : d + ' dgn');
+    }
+  }
+  
+  if (!cvTrendChart) {
+    const ctx = document.getElementById('cvTrendChart').getContext('2d');
+    cvTrendChart = new Chart(ctx, {
+      type: 'line',
+      data: { labels: cvLabels, datasets: [{ data: cvData, borderColor: c.warning, backgroundColor: c.warning + '20', fill: true, tension: 0.3 }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 20, max: 60 } } }
+    });
+  } else {
+    cvTrendChart.data.datasets[0].data = cvData;
+    cvTrendChart.update();
+  }
+  
+  // 90 dagen overzicht
+  const monthlyLabels = [], monthlyAvg = [], monthlyMin = [], monthlyMax = [];
+  for (let d = 89; d >= 0; d--) {
+    const dayStart = new Date(Date.now() - (d + 1) * 24 * 60 * 60 * 1000);
+    const dayEnd = new Date(Date.now() - d * 24 * 60 * 60 * 1000);
+    const dayGlucose = allGlucoseData.filter(e => e.date >= dayStart && e.date < dayEnd);
+    if (dayGlucose.length > 5) {
+      const vals = dayGlucose.map(e => e.sgv / 18);
+      monthlyLabels.push(dayEnd.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric' }));
+      monthlyAvg.push((vals.reduce((s, v) => s + v, 0) / vals.length).toFixed(1));
+      monthlyMin.push(Math.min(...vals).toFixed(1));
+      monthlyMax.push(Math.max(...vals).toFixed(1));
+    }
+  }
+  
+  if (!monthlyChart) {
+    const ctx = document.getElementById('monthlyChart').getContext('2d');
+    monthlyChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels: monthlyLabels,
+        datasets: [
+          { label: 'Gemiddeld', data: monthlyAvg, borderColor: c.primary, backgroundColor: c.primary + '20', fill: true, tension: 0.3, pointRadius: 2 },
+          { label: 'Max', data: monthlyMax, borderColor: c.warning + '60', borderDash: [2, 2], pointRadius: 0, fill: false },
+          { label: 'Min', data: monthlyMin, borderColor: c.error + '60', borderDash: [2, 2], pointRadius: 0, fill: false }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: true, position: 'bottom' } }, scales: { y: { min: 2, max: 15 } } }
+    });
+  } else {
+    monthlyChart.data.datasets[0].data = monthlyAvg;
+    monthlyChart.data.datasets[1].data = monthlyMax;
+    monthlyChart.data.datasets[2].data = monthlyMin;
+    monthlyChart.update();
+  }
+}
+
+// ============================================================
+// PATTERNS
+// ============================================================
+function updatePatterns() {
+  const r = analysisResults;
+  const tbody = document.getElementById('patternTableBody');
+  
+  if (r.patterns.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);padding:var(--space-8);">Geen significante patronen gedetecteerd</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = r.patterns.map(p => 
+    '<tr onclick="showPatternDetails(\'' + p.type + '\')" style="cursor:pointer;"><td><strong>' + p.name + '</strong></td><td>' + (p.count || 1) + 'x</td><td><span class="badge ' + (p.severity === 'red' ? 'red' : p.severity === 'orange' ? 'orange' : p.severity === 'blue' ? 'blue' : 'green') + '">' + p.severity + '</span></td><td>' + p.desc + '</td></tr>'
+  ).join('');
+  
+  // Update pattern time chart
+  updatePatternTimeChart();
+}
+
+function showPatternDetails(type) {
+  const details = document.getElementById('patternDetails');
+  let html = '';
+  
+  switch(type) {
+    case 'morning':
+      html = '<div class="insight-box"><div class="insight-title">🌅 Ochtendspits Analyse</div><p style="margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);">Je glucose is vaak hoog tussen 06:00-10:00. Dit kan komen door:</p><ul class="insight-list"><li><strong>Dawn fenomeen:</strong> Hormonen die 's ochtends vrijkomen</li><li><strong>Overbleven basaal:</strong> Misschien te hoog 's nachts</li><li><strong>Eerste maaltijd:</strong> Bolus timing kan aangepast</li></ul></div>';
+      break;
+    case 'night':
+      html = '<div class="insight-box"><div class="insight-title">🌙 Nachtelijke Hypo Analyse</div><p style="margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);">Je hebt ' + analysisResults.nightHypos30 + ' nachtelijke hypo\'s gehad. Mogelijke oorzaken:</p><ul class="insight-list"><li><strong>Basaal te hoog:</strong> Overweeg verlaging 00:00-04:00</li><li><strong>Avondeten bolus:</strong> Te laat of te groot</li><li><strong>Beweging:</strong> Sport gehad die dag?</li><li><strong>Alcohol:</strong> Kan glucose laten dalen uren later</li></ul></div>';
+      break;
+    case 'evening':
+      html = '<div class="insight-box"><div class="insight-title">🌆 Avondspits Analyse</div><p style="margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);">Hoge glucose na het avondeten. Tips:</p><ul class="insight-list"><li><strong>Bolus timing:</strong> Geef 15-20 min voor het eten</li><li><strong>Koolhydraten:</strong> Let op portiegrootte</li><li><strong>Vetten/eiwitten:</strong> Vertragen opname</li><li><strong>ISF check:</strong> Klopt je insulinegevoeligheid?</li></ul></div>';
+      break;
+    case 'rise':
+      html = '<div class="insight-box"><div class="insight-title">📈 Snelle Stijgers Analyse</div><p style="margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);">Je glucose stijgt soms heel snel. Dit kan komen door:</p><ul class="insight-list"><li><strong>Snelle koolhydraten:</strong> Witte brood, fruit, sap</li><li><strong>Te weinig basaal:</strong> Vooral voor maaltijden</li><li><strong>Missed bolus:</strong> Eerder gegeten zonder insuline</li><li><strong>Stress/cortisol:</strong> Emotionele stress kan glucose laten stijgen</li></ul></div>';
+      break;
+    case 'fall':
+      html = '<div class="insight-box"><div class="insight-title">📉 Snelle Dalers Analyse</div><p style="margin-top:var(--space-2);font-size:var(--text-sm);color:var(--color-text-muted);">Je glucose daalt soms heel snel. Oorzaken:</p><ul class="insight-list"><li><strong>Te veel insuline:</strong> Bolus of basaal te hoog</li><li><strong>运动:</strong> Beweging zonder aanpassing</li><li><strong>Maaltijd timing:</strong> Insuline werkt sneller dan eten</li><li><strong>Hot shower/bad:</strong> Verhoogt insuline absorptie</li></ul></div>';
+      break;
+    default:
+      html = '<p style="color:var(--color-text-muted);">Selecteer een patroon voor meer details.</p>';
+  }
+  
+  details.innerHTML = html;
+}
+
+function updatePatternTimeChart() {
+  const c = getChartColors();
+  const hourlyCounts = Array(24).fill(0);
+  
+  allGlucoseData.forEach(e => {
+    const m = e.sgv / 18;
+    if (m > CONFIG.thresholds.high || m < CONFIG.thresholds.low) {
+      hourlyCounts[e.date.getHours()]++;
+    }
+  });
+  
+  const hours = Array.from({length: 24}, (_, i) => String(i).padStart(2,'0'));
+  
+  if (!patternTimeChart) {
+    const ctx = document.getElementById('patternTimeChart').getContext('2d');
+    patternTimeChart = new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: hours,
+        datasets: [{
+          label: 'Uitschieters',
+          data: hourlyCounts,
+          backgroundColor: hourlyCounts.map(v => v > 10 ? c.error : v > 5 ? c.warning : c.primary + '80')
+        }]
+      },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { min: 0 } } }
+    });
+  } else {
+    patternTimeChart.data.datasets[0].data = hourlyCounts;
+    patternTimeChart.update();
+  }
+}
+
+// ============================================================
+// ALERTS
+// ============================================================
+function updateAlerts() {
+  const r = analysisResults;
+  const alerts = [];
+  
+  // Nachtelijke hypo
+  if (r.nightHypos90 > 0) {
+    alerts.push({ type: 'danger', icon: '🚨', title: 'Nachtelijke hypo\'s', desc: r.nightHypos90 + ' hypoglycemische episodes tussen 00:00-06:00 in de afgelopen 90 dagen (' + (r.nightHypos90 / 3).toFixed(0) + ' per maand). Overweeg aanpassing nachtbasaal.', time: '90 dagen' });
+  }
+  
+  // Hoge glucose frequent
+  if (parseFloat(r.tir90.pct.high) > 20) {
+    alerts.push({ type: 'warning', icon: '⚠️', title: 'Hoge glucose frequent', desc: r.tir90.pct.high + '% boven 10 mmol/L. Bolus timing en ISF controleren.', time: '90 dagen' });
+  }
+  
+  // Lage TIR
+  if (parseFloat(r.tir90.pct.inRange) < 70) {
+    alerts.push({ type: 'warning', icon: '📊', title: 'TIR onder doel', desc: 'Time in Range van ' + r.tir90.pct.inRange + '% - onder 70% doel. Focus op stabilisatie.', time: '90 dagen' });
+  }
+  
+  // Hoge variabiliteit
+  if (r.stats90.cv > 36) {
+    alerts.push({ type: 'info', icon: '📈', title: 'Hoge variabiliteit', desc: 'CV van ' + r.stats90.cv.toFixed(0) + '% - boven streefwaarde. Focus op consistente eettijden.', time: 'Actief' });
+  }
+  
+  // Hypo's
+  if (r.hypo90 > 0) {
+    alerts.push({ type: 'danger', icon: '⚡', title: 'Ernstige hypo\'s', desc: r.hypo90 + ' metingen onder 3.0 mmol/L. Veiligheid eerst - basaal verlagen.', time: '90 dagen' });
+  }
+  
+  // Snelle stijgers
+  if (r.rapidRise > 20) {
+    alerts.push({ type: 'warning', icon: '📈', title: 'Snelle stijgers', desc: r.rapidRise + ' snelle glucoserises gedetecteerd. Let op carb intake en bolus timing.', time: '90 dagen' });
+  }
+  
+  // Snelle dalers
+  if (r.rapidFall > 20) {
+    alerts.push({ type: 'info', icon: '📉', title: 'Snelle dalers', desc: r.rapidFall + ' snelle glucosedalingen. Check basaal instellingen.', time: '90 dagen' });
+  }
+  
+  // Positief
+  if (parseFloat(r.tir90.pct.inRange) >= 70 && r.nightHypos90 === 0) {
+    alerts.push({ type: 'success', icon: '✅', title: 'Goede glucose controle!', desc: 'TIR van ' + r.tir90.pct.inRange + '% met weinig hypo\'s. Goed bezig!', time: '90 dagen' });
+  }
+  
+  const badge = alerts.filter(a => a.type === 'danger' || a.type === 'warning').length;
+  const alertBadge = document.getElementById('alertBadge');
+  alertBadge.textContent = badge;
+  alertBadge.style.display = badge > 0 ? 'inline' : 'none';
+  
+  document.getElementById('alertCount').textContent = badge + ' actief';
+  document.getElementById('alertList').innerHTML = alerts.length ? alerts.map(a => 
+    '<div class="alert-item alert-' + a.type + '"><div class="alert-icon">' + a.icon + '</div><div class="alert-content"><div class="alert-title ' + a.type + '">' + a.title + '</div><div class="alert-desc">' + a.desc + '</div></div><div class="alert-time">' + a.time + '</div></div>'
+  ).join('') : '<div class="alert-item alert-success"><div class="alert-icon">✅</div><div class="alert-content"><div class="alert-title success">Geen problemen</div><div class="alert-desc">Alles ziet er goed uit!</div></div></div>';
+}
+
+// ============================================================
+// UITSCHETERS
+// ============================================================
+function updateUitschieters() {
+  const r = analysisResults;
+  
+  document.getElementById('hyperCount').textContent = r.hyper30;
+  document.getElementById('hypoCount').textContent = r.hypo30;
+  document.getElementById('rapidRiseCount').textContent = r.rapidRise;
+  document.getElementById('rapidFallCount').textContent = r.rapidFall;
+  
+  // Hyper analyse - 90 dagen
+  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const hyperData = allGlucoseData.filter(e => e.date >= ninetyDaysAgo && e.sgv / 18 > CONFIG.thresholds.veryHigh);
+  const hypoData = allGlucoseData.filter(e => e.date >= ninetyDaysAgo && e.sgv / 18 < CONFIG.thresholds.veryLow);
+  
+  const hyperByHour = Array(24).fill(0);
+  const hypoByHour = Array(24).fill(0);
+  hyperData.forEach(e => hyperByHour[e.date.getHours()]++);
+  hypoData.forEach(e => hypoByHour[e.date.getHours()]++);
+  
+  const hyperPeak = hyperByHour.indexOf(Math.max(...hyperByHour));
+  const hypoPeak = hypoByHour.indexOf(Math.max(...hypoByHour));
+  
+  document.getElementById('hyperAnalysis').innerHTML = `
+    <div class="stat-row"><span class="stat-label">Aantal hyper episodes</span><span class="stat-value warn">${r.hyper30}</span></div>
+    <div class="stat-row"><span class="stat-label">Piektijd</span><span class="stat-value">${hyperPeak}:00 - ${hyperPeak + 1}:00</span></div>
+    <div class="insight-box">
+      <div class="insight-title">💡 Hoe voorkomen?</div>
+      <ul class="insight-list">
+        <li><strong>Voor de maaltijd:</strong> Bolus 15-20 min van tevoren</li>
+        <li><strong>ISF controleren:</strong> Klopt je insulinegevoeligheid?</li>
+        <li><strong>Koolhydraten tellen:</strong> Weet hoeveel KH je eet</li>
+        <li><strong>Prebolus:</strong> Geef extra vroeg bij hoge glycemische index</li>
+      </ul>
+    </div>
+  `;
+  
+  document.getElementById('hypoAnalysis').innerHTML = `
+    <div class="stat-row"><span class="stat-label">Aantal hypo episodes</span><span class="stat-value danger">${r.hypo30}</span></div>
+    <div class="stat-row"><span class="stat-label">Piektijd</span><span class="stat-value">${hypoPeak > 0 ? hypoPeak + ':00' : 'Geen duidelijke piek'}</span></div>
+    <div class="insight-box">
+      <div class="insight-title">💡 Hoe voorkomen?</div>
+      <ul class="insight-list">
+        <li><strong>Basaal verlagen:</strong> Vooral 00:00-04:00</li>
+        <li><strong>Snack voor sport:</strong> 15-30g koolhydraten</li>
+        <li><strong>Bolus timing:</strong> Na het eten i.p.v. voor?</li>
+        <li><strong>ISF verhogen:</strong> Minder insuline per eenheid</li>
+      </ul>
+    </div>
+  `;
+  
+  // Specifieke aanbevelingen voor uitschieters
+  const spikeRecs = [];
+  if (r.hyper30 > 5) spikeRecs.push({ icon: '📈', text: '<strong>Hoge glucose voorkomen:</strong> Gebruik pre-bolus (15-20 min voor maaltijd). Check of je ISF klopt - als je vaak hoog eindigt na maaltijden, is je ISF misschien te laag.', priority: 'high' });
+  if (r.hypo30 > 0) spikeRecs.push({ icon: '⚡', text: '<strong>Hypo\'s voorkomen:</strong> Overweeg 10-20% basaalverlaging rond de tijd van je hypo\'s. Houd altijd dextro/glucotabs bij de hand.', priority: 'high' });
+  if (r.rapidRise > 10) spikeRecs.push({ icon: '🚀', text: '<strong>Snelle stijgers:</strong> Vermijd snelle koolhydraten (sap, witbrood). Kies volkoren, vezelrijke opties. Overweeg een smallere bolus (dual/combo bolus in iAPS).', priority: 'med' });
+  if (r.rapidFall > 10) spikeRecs.push({ icon: '💨', text: '<strong>Snelle dalers:</strong> Verdeel insuline of gebruik extended bolus. Eet eiwit/vet met koolhydraten. Check of je activafrond correct is ingesteld.', priority: 'med' });
+  if (r.nightHypos30 > 0) spikeRecs.push({ icon: '🌙', text: '<strong>Nachtelijke hypo\'s:</strong> Stel een lagere basaal in voor 00:00-04:00. Overweeg een snack van 10-15g voor het slapen, of verminder avondbolus.', priority: 'high' });
+  if (spikeRecs.length === 0) spikeRecs.push({ icon: '✅', text: '<strong>Goed bezig!</strong> Geen significante uitschieters. Blijf je huidige routine volgen.', priority: 'low' });
+  
+  document.getElementById('spikeRecommendations').innerHTML = spikeRecs.map(r => 
+    '<div class="rec-item ' + r.priority + '"><div class="rec-icon">' + r.icon + '</div><div class="rec-text">' + r.text + '</div><div class="rec-priority ' + r.priority + '">' + (r.priority === 'high' ? 'Urgent' : r.priority === 'med' ? 'Advies' : 'Info') + '</div></div>'
+  ).join('');
+}
+
+// ============================================================
+// IAPS
+// ============================================================
+function updateIAPS() {
+  const r = analysisResults;
+  
+  document.getElementById('smbEvents').textContent = r.smbs;
+  document.getElementById('smbPerDay').textContent = (r.smbs / 30).toFixed(1) + ' SMBs/dag';
+  document.getElementById('avgSmbSize').textContent = r.avgSmbSize.toFixed(2) + ' E';
+  document.getElementById('tempBasalCount').textContent = r.tempBasals;
+  document.getElementById('totalInsulin').textContent = r.totalInsulin.toFixed(0) + ' E';
+  document.getElementById('autonomyScore').textContent = (r.smbs > 0 ? 100 : 0) + '%';
+  document.getElementById('iapsAvgGlucose').textContent = (r.stats30.mean / 18).toFixed(1) + ' mmol/L';
+  
+  const recent = allTreatmentData.filter(t => t.eventType === 'SMB' || t.eventType === 'Bolus' || t.eventType === 'Temp Basal').slice(0, 30);
+  document.getElementById('iapsTableBody').innerHTML = recent.length ? recent.map(t => {
+    const time = new Date(t.created_at).toLocaleString('nl-NL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+    let type = t.eventType, value = '', bg = '';
+    if (type === 'SMB' || type === 'Bolus') { value = (t.insulin || 0).toFixed(2) + ' E'; type = 'SMB'; bg = t.notes ? '<td style="font-size:var(--text-xs);">' + (t.notes.includes('BG:') ? t.notes.split('BG:')[1].trim().split(' ')[0] : '-') + '</td>' : '<td>-</td>'; }
+    else if (type === 'Temp Basal') { value = (t.rate || 0).toFixed(2) + ' E/u'; bg = '<td>-</td>'; }
+    return '<tr><td style="font-family:var(--font-mono);font-size:var(--text-xs);">' + time + '</td><td><span class="badge ' + (type === 'SMB' ? 'blue' : 'green') + '">' + type + '</span></td><td>' + value + '</td>' + bg + '</tr>';
+  }).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);">Geen iAPS data beschikbaar</td></tr>';
+}
+
+// ============================================================
+// ADVISE
+// ============================================================
+function updateAdvies() {
+  const r = analysisResults;
+  const recs = [];
+  
+  // Altijd relevante adviezen
+  if (r.nightHypos90 > 0) {
+    recs.push({ icon: '🌙', text: '<strong>Nachtelijke hypo\'s aanpakken</strong>Je had ' + r.nightHypos90 + ' hypo\'s tussen 00:00-06:00 in 90 dagen. Overweeg je nachtbasaal 10-20% te verlagen, of een kleine snack (10-15g KH) voor het slapen.', priority: 'high' });
+  }
+  
+  if (parseFloat(r.tir90.pct.high) > 20) {
+    recs.push({ icon: '📈', text: '<strong>Hoge glucose na maaltijden</strong>' + r.tir90.pct.high + '% boven 10 mmol/L. Probeer 15-20 minuten pre-bolus voor maaltijden. Check of je ISF (insulinegevoeligheid) nog klopt.', priority: 'high' });
+  }
+  
+  if (r.stats90.cv > 36) {
+    recs.push({ icon: '📊', text: '<strong>Glucose stabiliseren</strong>Je CV is ' + r.stats90.cv.toFixed(0) + '% (doel &lt;36%). Focus op consistente eettijden, regelmatige beweging, en vermijd sterke schommelingen in koolhydraatinname.', priority: 'med' });
+  }
+  
+  if (r.rapidRise > 20) {
+    recs.push({ icon: '🚀', text: '<strong>Snelle glucose stijgingen</strong>' + r.rapidRise + ' snelle stijgers gedetecteerd. Kies langzamer opnemende koolhydraten (volkoren, vezelrijk). Overweeg dual/combo bolus in iAPS.', priority: 'med' });
+  }
+  
+  if (r.rapidFall > 20) {
+    recs.push({ icon: '💨', text: '<strong>Snelle glucose dalingen</strong>' + r.rapidFall + ' snelle dalingen. Misschien is je basaal iets te hoog, of eet je te weinig voor je insuline. Check je activafrond instellingen.', priority: 'med' });
+  }
+  
+  if (parseFloat(r.tir90.pct.inRange) >= 70 && r.nightHypos90 === 0) {
+    recs.push({ icon: '🏆', text: '<strong>Uitstekend!</strong>Je TIR van ' + r.tir90.pct.inRange + '% en 0 nachtelijke hypo\'s. Blijf wat je doet! overweeg kleine experimenten om het nog beter te maken.', priority: 'low' });
+  }
+  
+  if (parseFloat(r.tir30.pct.high) > 20) {
+    recs.push({ icon: '📈', text: '<strong>Hoge glucose na maaltijden</strong>' + r.tir30.pct.high + '% boven 10 mmol/L. Probeer 15-20 minuten pre-bolus voor maaltijden. Check of je ISF (insulinegevoeligheid) nog klopt.', priority: 'high' });
+  }
+  
+  if (r.stats30.cv > 36) {
+    recs.push({ icon: '📊', text: '<strong>Glucose stabiliseren</strong>Je CV is ' + r.stats30.cv.toFixed(0) + '% (doel &lt;36%). Focus op consistente eettijden, regelmatige beweging, en vermijd sterke schommelingen in koolhydraatinname.', priority: 'med' });
+  }
+  
+  if (r.rapidRise > 10) {
+    recs.push({ icon: '🚀', text: '<strong>Snelle glucose stijgingen</strong>' + r.rapidRise + ' snelle stijgers gedetecteerd. Kies langzamer opnemende koolhydraten (volkoren, vezelrijk). Overweeg dual/combo bolus in iAPS.', priority: 'med' });
+  }
+  
+  if (r.rapidFall > 10) {
+    recs.push({ icon: '💨', text: '<strong>Snelle glucose dalingen</strong>' + r.rapidFall + ' snelle dalingen. Misschien is je basaal iets te hoog, of eet je te weinig voor je insuline. Check je activafrond instellingen.', priority: 'med' });
+  }
+  
+  if (parseFloat(r.tir30.pct.inRange) >= 70 && r.nightHypos30 === 0) {
+    recs.push({ icon: '🏆', text: '<strong>Uitstekend!</strong>Je TIR van ' + r.tir30.pct.inRange + '% en 0 nachtelijke hypo\'s. Blijf wat je doet! Overweeg kleine experimenten om het nog beter te maken.', priority: 'low' });
+  }
+  
+  // ISF analyse
+  const hyperByHour = Array(24).fill(0);
+  allGlucoseData.filter(e => e.sgv / 18 > CONFIG.thresholds.high).forEach(e => hyperByHour[e.date.getHours()]++);
+  const peakHyperHour = hyperByHour.indexOf(Math.max(...hyperByHour));
+  if (peakHyperHour >= 6 && peakHyperHour <= 10) {
+    recs.push({ icon: '🌅', text: '<strong>Ochtendspits specifiek</strong>Je hoogste hyper piek is rond ' + peakHyperHour + ':00. Dit is klassiek "dawn phenomenon". Overweeg tijdelijke basaalverhoging 05:00-08:00 of vroege pre-bolus.', priority: 'med' });
+  }
+  
+  if (recs.length === 0) {
+    recs.push({ icon: '✅', text: '<strong>Geen urgente problemen</strong>Je glucosewaarden zien er stabiel uit. Blijf je huidige routine volgen en monitor regelmatig.', priority: 'low' });
+  }
+  
+  document.getElementById('adviesList').innerHTML = recs.map(r => 
+    '<div class="rec-item ' + r.priority + '"><div class="rec-icon">' + r.icon + '</div><div class="rec-text">' + r.text + '</div><div class="rec-priority ' + r.priority + '">' + (r.priority === 'high' ? 'Prioriteit' : r.priority === 'med' ? 'Advies' : 'Info') + '</div></div>'
+  ).join('');
+  
+  // Goals
+  const goals = [];
+  if (parseFloat(r.tir90.pct.inRange) < 70) goals.push('TIR verbeteren naar 70%+ (nu: ' + r.tir90.pct.inRange + '%)');
+  if (r.stats90.cv > 36) goals.push('CV verlagen naar onder 36% (nu: ' + r.stats90.cv.toFixed(0) + '%)');
+  if (r.nightHypos90 > 0) goals.push('Nachtelijke hypo\'s naar 0 (nu: ' + r.nightHypos90 + ')');
+  if (parseFloat(r.tir90.pct.inRange) >= 70 && r.nightHypos90 === 0) goals.push('TIR behouden boven 70%');
+  
+  document.getElementById('goalsPanel').innerHTML = goals.length ? '<ul style="list-style:none;padding:0;">' + goals.map(g => '<li class="stat-row"><span class="stat-label">' + g + '</span><span class="badge green">Doel</span></li>').join('') + '</ul>' : '<p style="color:var(--color-success);">Alle doelen behaald!</p>';
+}
+
+// ============================================================
+// HULPFUNCTIONS
+// ============================================================
 function mgToMmol(mg) { return (mg / 18).toFixed(1); }
 
-// ============================================================
-// THEME
-// ============================================================
+function getChartColors() {
+  const s = getComputedStyle(document.documentElement);
+  return { primary: s.getPropertyValue('--color-primary').trim(), success: s.getPropertyValue('--color-success').trim(), warning: s.getPropertyValue('--color-warning').trim(), error: s.getPropertyValue('--color-error').trim(), textMuted: s.getPropertyValue('--color-text-muted').trim(), divider: s.getPropertyValue('--color-divider').trim() };
+}
+
+// Theme
 (function(){
   const d = matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', d);
@@ -410,7 +1320,7 @@ function toggleSidebar() {
   document.getElementById('sidebarOverlay').classList.toggle('open');
 }
 
-const titles = { dashboard: 'Overzicht', patterns: 'Patronen', alerts: 'Alerts', iaps: 'iAPS', aanbevelingen: 'Aanbevelingen' };
+const titles = { dashboard: 'Overzicht', trends: 'Trends', patterns: 'Patronen', alerts: 'Alerts', uitschieters: 'Uitschieters', iaps: 'iAPS', advies: 'Persoonlijk Advies' };
 function switchView(viewId, el) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -419,353 +1329,8 @@ function switchView(viewId, el) {
   document.getElementById('pageTitle').textContent = titles[viewId];
 }
 
-// ============================================================
-// DATA FETCHING
-// ============================================================
-async function refreshData() {
-  document.getElementById('statusText').textContent = 'Laden...';
-  document.getElementById('statusBadge').className = 'status-badge live';
-  
-  const entries = await fetchNightscout('entries?count=1000');
-  const treatments = await fetchNightscout('treatments?count=500');
-  
-  if (!entries || entries.length === 0) {
-    document.getElementById('statusText').textContent = 'Geen data';
-    document.getElementById('statusBadge').className = 'status-badge error';
-    document.getElementById('statusBadge').querySelector('.status-dot').classList.remove('pulse');
-    return;
-  }
-  
-  glucoseData = entries.map(e => ({ 
-    sgv: e.sgv, 
-    date: new Date(e.date || e.dateString), 
-    direction: e.direction 
-  })).filter(e => e.sgv).sort((a, b) => a.date - b.date);
-  
-  treatmentData = treatments || [];
-  
-  analyzeData();
-  updateUI();
-  
-  document.getElementById('statusText').textContent = 'Actief';
-  document.getElementById('lastSync').textContent = 'Sync: ' + new Date().toLocaleTimeString('nl-NL');
-}
-
-// ============================================================
-// ANALYSIS
-// ============================================================
-function analyzeData() {
-  const values = glucoseData.map(e => e.sgv);
-  const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-  const weekData = glucoseData.filter(e => e.date >= weekAgo);
-  
-  const mean = values.reduce((a, b) => a + b, 0) / values.length;
-  const variance = values.reduce((a, v) => a + Math.pow(v - mean, 2), 0) / values.length;
-  const stdDev = Math.sqrt(variance);
-  const cv = (stdDev / mean) * 100;
-  const gmi = 3.31 + (0.02392 * mean);
-  
-  const toMmol = v => v / 18;
-  
-  const veryLow = values.filter(v => toMmol(v) < CONFIG.thresholds.veryLow).length;
-  const low = values.filter(v => toMmol(v) >= CONFIG.thresholds.veryLow && toMmol(v) < CONFIG.thresholds.low).length;
-  const inRange = values.filter(v => toMmol(v) >= CONFIG.thresholds.low && toMmol(v) <= CONFIG.thresholds.high).length;
-  const high = values.filter(v => toMmol(v) > CONFIG.thresholds.high && toMmol(v) <= CONFIG.thresholds.veryHigh).length;
-  const veryHigh = values.filter(v => toMmol(v) > CONFIG.thresholds.veryHigh).length;
-  const total = values.length;
-  
-  const nightHypos = glucoseData.filter(e => { 
-    const h = e.date.getHours(); 
-    return h >= 0 && h < 6 && toMmol(e.sgv) < CONFIG.thresholds.low; 
-  }).length;
-  
-  const smbs = treatmentData.filter(t => (t.eventType === 'SMB' || t.eventType === 'Bolus') && t.insulin);
-  const tempBasals = treatmentData.filter(t => t.eventType === 'Temp Basal');
-  
-  analysisResults = {
-    mean, stdDev, cv, gmi, total,
-    tir: { veryLow, low, inRange, high, veryHigh, total },
-    tirPct: {
-      veryLow: (veryLow/total*100).toFixed(1),
-      low: (low/total*100).toFixed(1),
-      inRange: (inRange/total*100).toFixed(1),
-      high: (high/total*100).toFixed(1),
-      veryHigh: (veryHigh/total*100).toFixed(1)
-    },
-    nightHypos,
-    latest: glucoseData[glucoseData.length - 1],
-    smbs: smbs.length,
-    totalInsulin: smbs.reduce((s, t) => s + (t.insulin || 0), 0),
-    avgSmbSize: smbs.length ? smbs.reduce((s, t) => s + (t.insulin || 0), 0) / smbs.length : 0,
-    tempBasals: tempBasals.length
-  };
-}
-
-// ============================================================
-// UI UPDATES
-// ============================================================
-function updateUI() {
-  const r = analysisResults;
-  if (!r.latest) return;
-  
-  // Glucose hero
-  const glucoseEl = document.getElementById('liveGlucose');
-  const mmol = parseFloat(mgToMmol(r.latest.sgv));
-  glucoseEl.textContent = mmol;
-  glucoseEl.style.color = mmol < 3.9 ? 'var(--color-error)' : mmol > 10 ? 'var(--color-warning)' : 'var(--color-success)';
-  
-  const trend = { 
-    'Flat': 'stabiel →', 
-    'FortyFiveUp': 'sterk stijgend ↗', 
-    'FortyFiveDown': 'sterk dalend ↘', 
-    'SingleUp': 'stijgend ↑', 
-    'SingleDown': 'dalend ↓',
-    'DoubleUp': 'snel stijgend ⇈',
-    'DoubleDown': 'snel dalend ⇊'
-  };
-  document.getElementById('glucoseUnit').textContent = 'mmol/L • ' + (trend[r.latest.direction] || r.latest.direction || '--');
-  
-  // TIR hero
-  document.getElementById('tirInRangeHero').textContent = r.tirPct.inRange + '%';
-  document.getElementById('tirHighHero').textContent = r.tirPct.high + '%';
-  document.getElementById('tirLowHero').textContent = (parseFloat(r.tirPct.low) + parseFloat(r.tirPct.veryLow)).toFixed(1) + '%';
-  
-  // GMI
-  document.getElementById('gmi').textContent = r.gmi.toFixed(1) + '%';
-  document.getElementById('gmi').className = 'kpi-value ' + (r.gmi < 7 ? 'good' : 'warn');
-  document.getElementById('gmiSub').textContent = 'Geschat HbA1c: ' + (r.gmi * 0.3 + 3).toFixed(1) + '%';
-  
-  // Average
-  const avgMmol = mgToMmol(r.mean);
-  document.getElementById('avgGlucose').textContent = avgMmol + ' mmol/L';
-  document.getElementById('avgGlucose').className = 'kpi-value ' + (parseFloat(avgMmol) < 3.9 ? 'danger' : parseFloat(avgMmol) > 10 ? 'warn' : 'good');
-  document.getElementById('stdDevSub').textContent = 'SD: ±' + mgToMmol(r.stdDev) + ' mmol/L';
-  
-  // CV
-  document.getElementById('cv').textContent = r.cv.toFixed(0) + '%';
-  document.getElementById('cv').className = 'kpi-value ' + (r.cv < 36 ? 'good' : 'warn');
-  document.getElementById('cvSub').textContent = 'Doel <36%';
-  
-  // Night hypos
-  document.getElementById('nightHypos').textContent = r.nightHypos + 'x';
-  document.getElementById('nightHypos').className = 'kpi-value ' + (r.nightHypos === 0 ? 'good' : r.nightHypos < 3 ? 'warn' : 'danger');
-  
-  // SMBs
-  document.getElementById('smbCount').textContent = r.smbs;
-  document.getElementById('smbTotal').textContent = r.totalInsulin.toFixed(1) + ' E totaal';
-  
-  // Total insulin
-  document.getElementById('totalInsulin').textContent = r.totalInsulin.toFixed(1) + ' E';
-  
-  // TIR bar
-  document.getElementById('tirVeryLow').style.flex = r.tirPct.veryLow;
-  document.getElementById('tirLow').style.flex = r.tirPct.low;
-  document.getElementById('tirInRangeSeg').style.flex = r.tirPct.inRange;
-  document.getElementById('tirHigh').style.flex = r.tirPct.high;
-  document.getElementById('tirVeryHigh').style.flex = r.tirPct.veryHigh;
-  
-  document.getElementById('lowPct').textContent = (parseFloat(r.tirPct.low) + parseFloat(r.tirPct.veryLow)) + '%';
-  document.getElementById('highPct').textContent = r.tirPct.high + '%';
-  document.getElementById('rangePct').textContent = r.tirPct.inRange + '%';
-  
-  // Update other sections
-  updateChart();
-  updateAlerts();
-  updatePatterns();
-  updateIAPS();
-  updateRecommendations();
-}
-
-// ============================================================
-// CHART
-// ============================================================
-function getChartColors() {
-  const s = getComputedStyle(document.documentElement);
-  return { 
-    primary: s.getPropertyValue('--color-primary').trim(), 
-    success: s.getPropertyValue('--color-success').trim(), 
-    warning: s.getPropertyValue('--color-warning').trim(), 
-    error: s.getPropertyValue('--color-error').trim(), 
-    textMuted: s.getPropertyValue('--color-text-muted').trim(), 
-    divider: s.getPropertyValue('--color-divider').trim() 
-  };
-}
-
-function updateChart() {
-  const hours = Array.from({length: 24}, (_, i) => String(i).padStart(2,'0') + ':00');
-  const hourlyAvg = Array(24).fill(0), hourlyCount = Array(24).fill(0);
-  glucoseData.forEach(e => { const h = e.date.getHours(); hourlyAvg[h] += e.sgv; hourlyCount[h]++; });
-  const glucoseHours = hourlyAvg.map((sum, i) => hourlyCount[i] > 0 ? sum / hourlyCount[i] / 18 : null);
-  
-  const c = getChartColors();
-  
-  if (!glucoseChart) {
-    const ctx = document.getElementById('glucoseChart').getContext('2d');
-    glucoseChart = new Chart(ctx, {
-      type: 'line',
-      data: {
-        labels: hours,
-        datasets: [
-          { 
-            label: 'Glucose', 
-            data: glucoseHours, 
-            borderColor: c.primary, 
-            backgroundColor: c.primary + '18', 
-            fill: true, 
-            tension: 0.4, 
-            pointRadius: 0, 
-            borderWidth: 2, 
-            spanGaps: true 
-          },
-          { 
-            label: 'Bovengrens (10)', 
-            data: Array(24).fill(10), 
-            borderColor: c.warning + '80', 
-            borderDash: [4, 4], 
-            borderWidth: 1, 
-            pointRadius: 0, 
-            fill: false 
-          },
-          { 
-            label: 'Ondergrens (3.9)', 
-            data: Array(24).fill(3.9), 
-            borderColor: c.error + '80', 
-            borderDash: [4, 4], 
-            borderWidth: 1, 
-            pointRadius: 0, 
-            fill: false 
-          }
-        ]
-      },
-      options: { 
-        responsive: true, 
-        maintainAspectRatio: false, 
-        plugins: { legend: { display: false } }, 
-        scales: { 
-          x: { 
-            grid: { color: c.divider }, 
-            ticks: { color: c.textMuted, font: { size: 10 }, maxTicksLimit: 8 } 
-          }, 
-          y: { 
-            grid: { color: c.divider }, 
-            ticks: { color: c.textMuted, font: { size: 10 } }, 
-            min: 2, 
-            max: 15 
-          } 
-        } 
-      }
-    });
-  } else {
-    glucoseChart.data.datasets[0].data = glucoseHours;
-    glucoseChart.update();
-  }
-}
-
-// ============================================================
-// ALERTS
-// ============================================================
-function updateAlerts() {
-  const r = analysisResults;
-  const alerts = [];
-  
-  if (r.nightHypos > 0) {
-    alerts.push({ type: 'danger', icon: '🚨', title: 'Nachtelijke hypo', desc: r.nightHypos + ' hypoglycemische metingen tussen 00:00-06:00. Overweeg aanpassing nachtbasaal.', time: 'Actief' });
-  }
-  if (parseFloat(r.tirPct.high) > 20) {
-    alerts.push({ type: 'warning', icon: '⚠️', title: 'Hoge glucose frequent', desc: r.tirPct.high + '% boven 10 mmol/L. Bolus timing controleren.', time: 'Deze week' });
-  }
-  if (r.cv > 36) {
-    alerts.push({ type: 'info', icon: '📊', title: 'Hoge variabiliteit', desc: 'CV ' + r.cv.toFixed(0) + '% - boven streefwaarde van 36%.', time: 'Actief' });
-  }
-  if (parseFloat(r.tirPct.inRange) >= 70) {
-    alerts.push({ type: 'success', icon: '✅', title: 'TIR doel bereikt!', desc: r.tirPct.inRange + '% Time-in-Range!', time: 'Deze week' });
-  }
-  
-  const badge = alerts.filter(a => a.type === 'danger' || a.type === 'warning').length;
-  const alertBadge = document.getElementById('alertBadge');
-  alertBadge.textContent = badge;
-  alertBadge.style.display = badge > 0 ? 'inline' : 'none';
-  
-  document.getElementById('alertCount').textContent = badge + ' actief';
-  document.getElementById('alertList').innerHTML = alerts.length ? alerts.map(a => 
-    '<div class="alert-item alert-' + a.type + '"><div class="alert-icon">' + a.icon + '</div><div class="alert-content"><div class="alert-title ' + a.type + '">' + a.title + '</div><div class="alert-desc">' + a.desc + '</div></div><div class="alert-time">' + a.time + '</div></div>'
-  ).join('') : '<div class="alert-item alert-success"><div class="alert-icon">✅</div><div class="alert-content"><div class="alert-title success">Geen problemen</div><div class="alert-desc">Alles ziet er goed uit!</div></div></div>';
-}
-
-// ============================================================
-// PATTERNS
-// ============================================================
-function updatePatterns() {
-  const r = analysisResults;
-  const patterns = [];
-  
-  if (r.nightHypos > 0) patterns.push({ name: 'Nachtelijke hypo', severity: 'red', desc: r.nightHypos + ' episodes deze week' });
-  if (parseFloat(r.tirPct.high) > 20) patterns.push({ name: 'Hoge glucose pieken', severity: 'orange', desc: 'Post-prandiale hyperglycemie' });
-  if (r.cv > 36) patterns.push({ name: 'Hoge variabiliteit', severity: 'blue', desc: 'CV > 36%' });
-  if (parseFloat(r.tirPct.inRange) >= 70) patterns.push({ name: 'Goede TIR', severity: 'green', desc: '> 70% in bereik' });
-  
-  document.getElementById('patternTableBody').innerHTML = patterns.length ? patterns.map(p => 
-    '<tr><td><strong>' + p.name + '</strong></td><td>--</td><td><span class="badge ' + p.severity + '">' + p.severity + '</span></td><td>' + p.desc + '</td></tr>'
-  ).join('') : '<tr><td colspan="4" style="text-align:center;color:var(--color-text-muted);">Geen specifieke patronen gedetecteerd</td></tr>';
-}
-
-// ============================================================
-// IAPS
-// ============================================================
-function updateIAPS() {
-  const r = analysisResults;
-  
-  document.getElementById('smbEvents').textContent = r.smbs;
-  document.getElementById('smbPerDay').textContent = Math.round(r.smbs / 7) + ' SMBs/dag';
-  document.getElementById('avgSmbSize').textContent = r.avgSmbSize.toFixed(2) + ' E';
-  document.getElementById('tempBasalCount').textContent = r.tempBasals;
-  
-  const recent = treatmentData.slice(0, 20);
-  document.getElementById('iapsTableBody').innerHTML = recent.length ? recent.map(t => {
-    const time = new Date(t.created_at).toLocaleString('nl-NL');
-    let type = t.eventType, value = '';
-    if (type === 'SMB' || type === 'Bolus') { value = (t.insulin || 0).toFixed(1) + ' E'; type = 'SMB'; }
-    else if (type === 'Temp Basal') value = (t.rate || 0).toFixed(2) + ' E/u';
-    return '<tr><td style="font-family:var(--font-mono);font-size:var(--text-xs);">' + time + '</td><td><span class="badge ' + (type === 'SMB' ? 'blue' : 'green') + '">' + type + '</span></td><td>' + value + '</td></tr>';
-  }).join('') : '<tr><td colspan="3" style="text-align:center;color:var(--color-text-muted);">Geen iAPS data beschikbaar</td></tr>';
-}
-
-// ============================================================
-// RECOMMENDATIONS
-// ============================================================
-function updateRecommendations() {
-  const r = analysisResults;
-  const recs = [];
-  
-  if (r.nightHypos > 0) {
-    recs.push({ icon: '🌙', text: 'Nachtelijke hypo\'s gedetecteerd. Overweeg verlaagde basaal 00:00-06:00 of snack voor slapen.', priority: 'high' });
-  }
-  if (parseFloat(r.tirPct.high) > 20) {
-    recs.push({ icon: '🍽️', text: r.tirPct.high + '% boven 10 mmol/L. Bolus 15 min eerder voor maaltijden.', priority: 'high' });
-  }
-  if (r.cv > 36) {
-    recs.push({ icon: '📊', text: 'Hoge variabiliteit. Focus op consistente eettijden.', priority: 'med' });
-  }
-  if (parseFloat(r.tirPct.inRange) >= 70) {
-    recs.push({ icon: '🏆', text: 'Uitstekend! TIR van ' + r.tirPct.inRange + '% - boven 70% doel!', priority: 'low' });
-  }
-  if (r.smbs > 0) {
-    recs.push({ icon: '💉', text: 'iAPS actief met ' + r.smbs + ' SMB toedieningen. Loop werkt goed!', priority: 'low' });
-  }
-  
-  document.getElementById('recList').innerHTML = recs.length ? recs.map(r => 
-    '<div class="rec-item"><div class="rec-icon">' + r.icon + '</div><div class="rec-text">' + r.text + '</div><div class="rec-priority ' + r.priority + '">' + (r.priority === 'high' ? 'Urgent' : r.priority === 'med' ? 'Middel' : 'Info') + '</div></div>'
-  ).join('') : '<div class="rec-item"><div class="rec-icon">✅</div><div class="rec-text">Geen specifieke aanbevelingen. Alles ziet er goed uit!</div><div class="rec-priority low">Info</div></div>';
-}
-
-// ============================================================
-// INIT
-// ============================================================
-window.addEventListener('DOMContentLoaded', () => { 
-  refreshData(); 
-  // Refresh every 5 minutes
-  setInterval(refreshData, 5 * 60 * 1000); 
-});
+// Init
+window.addEventListener('DOMContentLoaded', () => { refreshAllData(); });
 </script>
 </body>
 </html>

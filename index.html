@@ -128,7 +128,8 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .card-val{cursor:pointer;-webkit-tap-highlight-color:transparent;min-height:40px;display:flex;align-items:center;justify-content:center}
 .card-val:hover{opacity:0.8}
 .card-val:active{background:rgba(0,0,0,0.05);border-radius:8px}
-.info-icon{cursor:pointer;font-size:12px;margin-left:5px;color:#01696f}
+.info-icon{display:inline-flex;align-items:center;justify-content:center;cursor:pointer;width:16px;height:16px}
+.info-icon svg{width:100%;height:100%}
 .info-icon:hover{opacity:0.7}
 .page-title{display:none;text-align:center;font-size:24px;font-weight:700;margin-bottom:25px}
 
@@ -240,10 +241,10 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 
     <div class="grid stats-grid">
       <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="gmi" onclick="showInfo('gmi')">--</div><div class="card-sub">Streef &lt;53</div></div>
-      <div class="card"><div class="card-label">GMI <span class="info-icon" onclick="showInfo('gmiPct')">ℹ️</span></div><div class="card-val" id="gmiPct" onclick="showInfo('gmiPct')">--</div><div class="card-sub">Streef &lt;6.5%</div></div>
+      <div class="card"><div class="card-label">GMI <span class="info-icon" onclick="showInfo('gmiPct')"><svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span></div><div class="card-val" id="gmiPct" onclick="showInfo('gmiPct')">--</div><div class="card-sub">Streef &lt;6.5%</div></div>
       <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="avg" onclick="showInfo('avg')">--</div><div class="card-sub" id="sdSub">SD: --</div></div>
-      <div class="card"><div class="card-label">SD <span class="info-icon" onclick="showInfo('sdVal')">ℹ️</span></div><div class="card-val" id="sdVal" onclick="showInfo('sdVal')">--</div><div class="card-sub">mmol/L</div></div>
-      <div class="card"><div class="card-label">CV <span class="info-icon" onclick="showInfo('cv')">ℹ️</span></div><div class="card-val" id="cv" onclick="showInfo('cv')">--</div><div class="card-sub">Doel &lt;36%</div></div>
+      <div class="card"><div class="card-label">SD <span class="info-icon" onclick="showInfo('sdVal')"><svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span></div><div class="card-val" id="sdVal" onclick="showInfo('sdVal')">--</div><div class="card-sub">mmol/L</div></div>
+      <div class="card"><div class="card-label">CV <span class="info-icon" onclick="showInfo('cv')"><svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span></div><div class="card-val" id="cv" onclick="showInfo('cv')">--</div><div class="card-sub">Doel &lt;36%</div></div>
       <div class="card"><div class="card-label">Nacht hypo</div><div class="card-val" id="nightHypos">--</div><div class="card-sub">00-06u</div></div>
       <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="hyperCount">--</div><div class="card-sub">Episodes</div></div>
       <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="hypoCount">--</div><div class="card-sub">Episodes</div></div>
@@ -271,10 +272,10 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
     </div>
     <div class="stats-grid" style="margin-top:15px">
       <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="histGmi" onclick="showInfo('gmi')">--</div><div class="card-sub">Streef &lt;53</div></div>
-      <div class="card"><div class="card-label">GMI <span class="info-icon" onclick="showInfo('gmiPct')">ℹ️</span></div><div class="card-val" id="histGmiPct" onclick="showInfo('gmiPct')">--</div><div class="card-sub">Streef &lt;6.5%</div></div>
+      <div class="card"><div class="card-label">GMI <span class="info-icon" onclick="showInfo('gmiPct')"><svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span></div><div class="card-val" id="histGmiPct" onclick="showInfo('gmiPct')">--</div><div class="card-sub">Streef &lt;6.5%</div></div>
       <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="histAvg" onclick="showInfo('avg')">--</div><div class="card-sub">mmol/L</div></div>
-      <div class="card"><div class="card-label">SD <span class="info-icon" onclick="showInfo('sdVal')">ℹ️</span></div><div class="card-val" id="histSd" onclick="showInfo('sdVal')">--</div><div class="card-sub">Streef &lt;2.2</div></div>
-      <div class="card"><div class="card-label">CV <span class="info-icon" onclick="showInfo('cv')">ℹ️</span></div><div class="card-val" id="histCv" onclick="showInfo('cv')">--</div><div class="card-sub">Streef &lt;36%</div></div>
+      <div class="card"><div class="card-label">SD <span class="info-icon" onclick="showInfo('sdVal')"><svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span></div><div class="card-val" id="histSd" onclick="showInfo('sdVal')">--</div><div class="card-sub">Streef &lt;2.2</div></div>
+      <div class="card"><div class="card-label">CV <span class="info-icon" onclick="showInfo('cv')"><svg viewBox="0 0 24 24" fill="none" stroke="#999" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="8"/></svg></span></div><div class="card-val" id="histCv" onclick="showInfo('cv')">--</div><div class="card-sub">Streef &lt;36%</div></div>
       <div class="card"><div class="card-label">Nacht hypo</div><div class="card-val" id="histNightHypos">--</div><div class="card-sub">00-06u</div></div>
       <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="histHyper">--</div><div class="card-sub">Episodes</div></div>
       <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="histHypo">--</div><div class="card-sub">Episodes</div></div>

@@ -16,7 +16,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .dark .card{background:#1c1b19;border-color:#393836}
 .dark .sidebar{background:#1c1b19;border-color:#393836}
 .sidebar{position:fixed;left:0;top:0;width:220px;height:100vh;background:#f9f8f5;border-right:1px solid #d4d1ca;padding:20px;overflow-y:auto;z-index:100}
-.sidebar h1{font-size:18px;font-weight:700;margin-bottom:5px}
+.sidebar h1{font-size:18px;font-weight:700;margin-bottom:5px;cursor:pointer}
 .sidebar span{font-size:12px;color:#7a7974}
 .nav{margin-top:30px}
 .nav button{width:100%;text-align:left;padding:10px 15px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:14px;color:#7a7974;margin-bottom:5px}
@@ -24,6 +24,13 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .menu-period{margin-top:20px;padding-top:15px;border-top:1px solid #d4d1ca}
 .menu-period label{font-size:12px;color:#7a7974;display:block;margin-bottom:5px}
 .menu-period select{width:100%;padding:8px 12px;border:1px solid #d4d1ca;border-radius:8px;font-size:13px;background:#fff}
+.historie-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;gap:15px}
+.historie-header h3{font-size:20px;font-weight:600;margin:0}
+.historie-header select{padding:8px 12px;border:1px solid #d4d1ca;border-radius:8px;font-size:14px;background:#f9f8f5}
+@media(max-width:600px){
+  .historie-header{flex-direction:column;align-items:stretch}
+  .historie-header h3{text-align:center;margin-bottom:10px}
+}
 .main{margin-left:220px;padding:30px;max-width:1600px}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:10px}
 .top h2{font-size:24px;font-weight:700}
@@ -43,6 +50,9 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:25px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:25px}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+@media(min-width:900px){
+  .stats-grid{grid-template-columns:repeat(4,1fr)}
+}
 .tir-card{margin-bottom:20px}
 
 /* Desktop centered layout */
@@ -60,7 +70,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .card-val.good{color:#437a22}
 .card-val.warn{color:#2563eb}
 .card-val.danger{color:#dc2626}
-.card-sub{font-size:11px;color:#7a7974}
+.card-sub{font-size:11px;color:#7a7974;min-height:14px;display:block}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
 .glucose{display:flex;align-items:center;gap:30px;background:#f9f8f5;padding:25px;border-radius:15px;margin-bottom:25px;flex-wrap:wrap}
 @media(min-width:901px){
@@ -112,7 +122,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
   .toggle-info{left:20px;bottom:90px}
   .mobile-header{display:flex;align-items:center;gap:12px;margin-bottom:15px}
   .menu-toggle{display:flex;align-items:center;justify-content:center;flex-shrink:0;width:40px;height:40px;border-radius:8px;border:none;background:#e0e0e0;color:#555;font-size:18px;cursor:pointer}
-  .mobile-header h2{font-size:18px;font-weight:600;color:#28251d;margin:0}
+  .mobile-header h2{font-size:18px;font-weight:600;color:#28251d;margin:0;cursor:pointer}
   .close-sidebar{display:block;position:absolute;top:15px;right:15px;width:36px;height:36px;border-radius:50%;border:none;background:#d0d0d0;font-size:18px;cursor:pointer}
   .glucose{flex-direction:column;text-align:center;gap:15px;padding:20px}
   .glucose-nr{font-size:48px}
@@ -141,7 +151,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 
 <div class="sidebar" id="sidebar">
   <button class="close-sidebar" onclick="toggleSidebar()">✕</button>
-  <h1>GlucoDash</h1>
+  <h1 onclick="showView('overzicht')" style="cursor:pointer">GlucoDash</h1>
   <span>Arinelis - iAPS</span>
   <div class="nav">
     <button class="active" onclick="showView('overzicht')">Vandaag</button>
@@ -163,16 +173,15 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
       <option value="180">180 dagen</option>
     </select>
   </div>
-  <span class="status live" id="statusBadge">Laden...</span>
   <button class="toggle" onclick="toggleTheme()">🌙 Dark mode</button>
 </div>
 
 <div class="main">
   <div class="mobile-header">
     <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-    <h2 id="pageTitle">GlucoDash</h2>
+    <h2 id="pageTitle" onclick="showView('overzicht')" style="cursor:pointer">Vandaag</h2>
   </div>
-  <div class="page-title" id="desktopTitle">GlucoDash</div>
+  <div class="page-title" id="desktopTitle" onclick="showView('overzicht')" style="cursor:pointer">GlucoDash</div>
 
   <!-- OVERZICHT -->
   <div id="view-overzicht">
@@ -219,20 +228,27 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 
   <!-- HISTORIE -->
   <div id="view-historie" style="display:none">
-    <div class="card" style="margin-bottom:20px">
-      <div class="card-label">Statistieken - <span id="historiePeriod">30 dagen</span></div>
-      <div class="stats-grid" style="margin-top:15px">
-        <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="histGmi">--</div><div class="card-sub">mmol/mol</div></div>
-        <div class="card"><div class="card-label">GMI</div><div class="card-val" id="histGmiPct">--</div><div class="card-sub">%</div></div>
-        <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="histAvg">--</div><div class="card-sub">mmol/L</div></div>
-        <div class="card"><div class="card-label">SD</div><div class="card-val" id="histSd">--</div><div class="card-sub">Streef &lt;2.2</div></div>
-        <div class="card"><div class="card-label">CV</div><div class="card-val" id="histCv">--</div><div class="card-sub">Streef &lt;36%</div></div>
-        <div class="card"><div class="card-label">Nacht hypo</div><div class="card-val" id="histNightHypos">--</div><div class="card-sub">00-06u</div></div>
-        <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="histHyper">--</div><div class="card-sub">Episodes</div></div>
-        <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="histHypo">--</div><div class="card-sub">Episodes</div></div>
-        <div class="card"><div class="card-label">Dagen data</div><div class="card-val" id="histDays">--</div><div class="card-sub">Periode</div></div>
-        <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="histTotal">--</div><div class="card-sub">Totaal</div></div>
-      </div>
+    <div class="historie-header">
+      <h3>Historie</h3>
+      <select id="historieSelect" onchange="changeHistoriePeriod()">
+        <option value="7">7 dagen</option>
+        <option value="14">14 dagen</option>
+        <option value="30" selected>30 dagen</option>
+        <option value="60">60 dagen</option>
+        <option value="90">90 dagen</option>
+      </select>
+    </div>
+    <div class="stats-grid" style="margin-top:15px">
+      <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="histGmi">--</div><div class="card-sub">Streef &lt;53</div></div>
+      <div class="card"><div class="card-label">GMI</div><div class="card-val" id="histGmiPct">--</div><div class="card-sub">Streef &lt;6.5%</div></div>
+      <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="histAvg">--</div><div class="card-sub">mmol/L</div></div>
+      <div class="card"><div class="card-label">SD</div><div class="card-val" id="histSd">--</div><div class="card-sub">Streef &lt;2.2</div></div>
+      <div class="card"><div class="card-label">CV</div><div class="card-val" id="histCv">--</div><div class="card-sub">Streef &lt;36%</div></div>
+      <div class="card"><div class="card-label">Nacht hypo</div><div class="card-val" id="histNightHypos">--</div><div class="card-sub">00-06u</div></div>
+      <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="histHyper">--</div><div class="card-sub">Episodes</div></div>
+      <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="histHypo">--</div><div class="card-sub">Episodes</div></div>
+      <div class="card"><div class="card-label">Dagen</div><div class="card-val" id="histDays">--</div><div class="card-sub">Periode</div></div>
+      <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="histTotal">--</div><div class="card-sub">Totaal</div></div>
     </div>
   </div>
 
@@ -949,9 +965,18 @@ function showView(id) {
   document.querySelectorAll("[id^='view-']").forEach(function(v) { v.style.display = "none"; });
   document.getElementById("view-" + id).style.display = "block";
   document.querySelectorAll(".nav button").forEach(function(b) { b.classList.remove("active"); });
-  event.target.classList.add("active");
+  
+  // Find and activate the correct nav button
+  var navButtons = document.querySelectorAll(".nav button");
+  var buttonMap = { overzicht: 0, historie: 1, trends: 2, uitschieters: 3, maaltijden: 4, advies: 5 };
+  if (buttonMap[id] !== undefined && navButtons[buttonMap[id]]) {
+    navButtons[buttonMap[id]].classList.add("active");
+  } else if (event && event.target) {
+    event.target.classList.add("active");
+  }
+  
   var titles = { 
-    overzicht: "Vandaag", 
+    overzicht: "GlucoDash", 
     historie: "Historie", 
     trends: "Trends", 
     uitschieters: "Uitschieters Analyse", 
@@ -969,30 +994,89 @@ function toggleTheme() {
   document.body.classList.toggle("dark");
 }
 
+function calculateHistorieStats(days) {
+  var cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - days);
+  var histData = data.filter(function(d) { return d.date >= cutoff; });
+  
+  if (histData.length === 0) return null;
+  
+  var vals = histData.map(function(d) { return d.sgv; });
+  var mean = vals.reduce(function(a, b) { return a + b; }, 0) / vals.length;
+  var variance = vals.reduce(function(a, v) { return a + Math.pow(v - mean, 2); }, 0) / vals.length;
+  var std = Math.sqrt(variance);
+  var cv = (std / mean) * 100;
+  var gmi = 3.31 + (0.43 * mean);
+  var hba1cMmol = Math.round((gmi - 2.15) * 10.929);
+  
+  var veryLow = vals.filter(function(v) { return v < T.veryLow; }).length;
+  var inRange = vals.filter(function(v) { return v >= T.low && v <= T.high; }).length;
+  var veryHigh = vals.filter(function(v) { return v > T.veryHigh; }).length;
+  
+  var nightHypos = histData.filter(function(d) { return d.date.getHours() >= 0 && d.date.getHours() < 6 && d.sgv < T.low; }).length;
+  
+  var oldest = histData[0].date, newest = histData[histData.length - 1].date;
+  var histDays = Math.round((newest - oldest) / 86400000) || 1;
+  
+  return {
+    mean: mean,
+    std: std,
+    cv: cv,
+    gmi: gmi,
+    hba1cMmol: hba1cMmol,
+    nightHypos: nightHypos,
+    hyperEpisodes: countEpisodes(histData, T.veryHigh, Infinity),
+    hypoEpisodes: countEpisodes(histData, 0, T.veryLow),
+    hyperCount: veryHigh,
+    hypoCount: veryLow,
+    days: histDays,
+    total: vals.length
+  };
+}
+
 function updateHistorie() {
-  document.getElementById("historiePeriod").textContent = DAYS + " dagen";
+  var histDays = parseInt(document.getElementById("historieSelect").value);
+  var stats = calculateHistorieStats(histDays);
   
-  document.getElementById("histGmi").textContent = r.hba1cMmol || "--";
-  document.getElementById("histGmi").className = "card-val " + (r.hba1cMmol < 53 ? "good" : r.hba1cMmol > 64 ? "danger" : "warn");
+  if (!stats) {
+    document.getElementById("histGmi").textContent = "--";
+    document.getElementById("histGmiPct").textContent = "--";
+    document.getElementById("histAvg").textContent = "--";
+    document.getElementById("histSd").textContent = "--";
+    document.getElementById("histCv").textContent = "--";
+    document.getElementById("histNightHypos").textContent = "--";
+    document.getElementById("histHyper").textContent = "--";
+    document.getElementById("histHypo").textContent = "--";
+    document.getElementById("histDays").textContent = "--";
+    document.getElementById("histTotal").textContent = "--";
+    return;
+  }
   
-  document.getElementById("histGmiPct").textContent = r.gmi ? r.gmi.toFixed(1) : "--";
+  document.getElementById("histGmi").textContent = stats.hba1cMmol;
+  document.getElementById("histGmi").className = "card-val " + (stats.hba1cMmol < 53 ? "good" : stats.hba1cMmol > 64 ? "danger" : "warn");
   
-  document.getElementById("histAvg").textContent = r.mean ? r.mean.toFixed(1) : "--";
-  document.getElementById("histAvg").className = "card-val " + (r.mean < 3.9 ? "danger" : r.mean > 10 ? "warn" : "good");
+  document.getElementById("histGmiPct").textContent = stats.gmi.toFixed(1);
   
-  document.getElementById("histSd").textContent = r.std ? r.std.toFixed(1) : "--";
-  document.getElementById("histSd").className = "card-val " + (r.std < 2.2 ? "good" : "warn");
+  document.getElementById("histAvg").textContent = stats.mean.toFixed(1);
+  document.getElementById("histAvg").className = "card-val " + (stats.mean < 3.9 ? "danger" : stats.mean > 10 ? "warn" : "good");
   
-  document.getElementById("histCv").textContent = r.cv ? r.cv.toFixed(0) + "%" : "--";
-  document.getElementById("histCv").className = "card-val " + (r.cv < 36 ? "good" : "warn");
+  document.getElementById("histSd").textContent = stats.std.toFixed(1);
+  document.getElementById("histSd").className = "card-val " + (stats.std < 2.2 ? "good" : "warn");
   
-  document.getElementById("histNightHypos").textContent = r.nightHypos || "0";
-  document.getElementById("histNightHypos").className = "card-val " + (r.nightHypos === 0 ? "good" : "danger");
+  document.getElementById("histCv").textContent = stats.cv.toFixed(0) + "%";
+  document.getElementById("histCv").className = "card-val " + (stats.cv < 36 ? "good" : "warn");
   
-  document.getElementById("histHyper").textContent = r.hyperEpisodes || "0";
-  document.getElementById("histHypo").textContent = r.hypoEpisodes || "0";
-  document.getElementById("histDays").textContent = r.days || "--";
-  document.getElementById("histTotal").textContent = r.total || "--";
+  document.getElementById("histNightHypos").textContent = stats.nightHypos;
+  document.getElementById("histNightHypos").className = "card-val " + (stats.nightHypos === 0 ? "good" : "danger");
+  
+  document.getElementById("histHyper").textContent = stats.hyperEpisodes;
+  document.getElementById("histHypo").textContent = stats.hypoEpisodes;
+  document.getElementById("histDays").textContent = stats.days;
+  document.getElementById("histTotal").textContent = stats.total;
+}
+
+function changeHistoriePeriod() {
+  updateHistorie();
 }
 
 function toggleSidebar() {

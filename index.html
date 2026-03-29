@@ -88,16 +88,18 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
   .two-col{grid-template-columns:1fr}
   .sidebar{display:none;position:fixed;top:0;left:0;width:100%;height:100vh;z-index:1000;background:#f9f8f5}
   .sidebar.open{display:block}
-  .main{margin-left:0;padding:15px;padding-top:70px}
+  .main{margin-left:0;padding:15px;padding-top:80px}
   .toggle-info{left:20px;bottom:90px}
-  .menu-toggle{display:block;position:fixed;top:15px;left:15px;z-index:1001;width:44px;height:44px;border-radius:10px;border:none;background:#01696f;color:#fff;font-size:20px;cursor:pointer}
-  .close-sidebar{display:block;position:absolute;top:15px;right:15px;width:36px;height:36px;border-radius:50%;border:none;background:#e0e0e0;font-size:18px;cursor:pointer}
+  .menu-toggle{display:flex;align-items:center;justify-content:center;position:fixed;top:15px;left:15px;z-index:1001;width:44px;height:44px;border-radius:10px;border:none;background:#6b6b6b;color:#fff;font-size:20px;cursor:pointer}
+  .close-sidebar{display:block;position:absolute;top:15px;right:15px;width:36px;height:36px;border-radius:50%;border:none;background:#d0d0d0;font-size:18px;cursor:pointer}
   .glucose{flex-direction:column;text-align:center;gap:15px;padding:20px}
   .glucose-nr{font-size:48px}
   .glucose-meta{justify-content:center}
   .top{flex-direction:column;align-items:flex-start;gap:10px}
-  .top h2{font-size:20px}
-  .top select{width:100%}
+  .top h2{font-size:20px;padding-left:60px;width:100%}
+  .mobile-controls{display:flex;flex-direction:column;gap:10px;width:100%}
+  .mobile-controls select{width:100%;padding:12px 15px;border:1px solid #d4d1ca;border-radius:8px;font-size:14px;background:#fff}
+  .mobile-controls .status{text-align:center;padding:10px}
   .card{padding:15px}
   .card-val{font-size:20px}
   .chart{height:200px}
@@ -119,7 +121,6 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 <div class="sidebar" id="sidebar">
   <button class="close-sidebar" onclick="toggleSidebar()">✕</button>
   <h1>GlucoDash</h1>
-  <h1>GlucoDash</h1>
   <span>Arinelis - iAPS</span>
   <div class="nav">
     <button class="active" onclick="showView('overzicht')">Overzicht</button>
@@ -132,9 +133,9 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 </div>
 
 <div class="main">
-  <div class="top">
+  <div class="top mobile-top">
     <h2 id="pageTitle">Overzicht</h2>
-    <div style="display:flex;align-items:center;gap:15px">
+    <div class="mobile-controls">
       <select id="periodSelect" onchange="changePeriod()">
         <option value="14">14 dagen</option>
         <option value="30" selected>30 dagen</option>
@@ -181,7 +182,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
         <div class="card-label">Time in Range</div>
         <div class="tir-bar">
           <div class="tir-seg" id="tirLowBar" style="background:#dc2626;flex:0"></div>
-          <div class="tir-seg" id="tirInBar" style="background:#437a22;flex:1">100%</div>
+          <div class="tir-seg" id="tirInBar" style="background:#437a22;flex:1"></div>
           <div class="tir-seg" id="tirHighBar" style="background:#964219;flex:0"></div>
         </div>
         <div class="legend">
@@ -302,7 +303,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
   </div>
 </div>
 
-<div class="toggle-info">Data vernieuwt om 5 min</div>
+
 
 <script>
 var NS_URL = "https://arinelis.10be.de/";
@@ -494,8 +495,11 @@ function update() {
   document.getElementById("hypoCount").textContent = r.hypoCount;
   
   document.getElementById("tirLowBar").style.flex = parseFloat(r.tir.low);
+  document.getElementById("tirLowBar").textContent = r.tir.low + "%";
   document.getElementById("tirInBar").style.flex = parseFloat(r.tir.in);
+  document.getElementById("tirInBar").textContent = r.tir.in + "%";
   document.getElementById("tirHighBar").style.flex = parseFloat(r.tir.high);
+  document.getElementById("tirHighBar").textContent = r.tir.high + "%";
   document.getElementById("lowPct").textContent = r.tir.low + "%";
   document.getElementById("inPct").textContent = r.tir.in + "%";
   document.getElementById("highPct").textContent = r.tir.high + "%";

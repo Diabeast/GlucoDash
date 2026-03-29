@@ -40,6 +40,8 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .meta-label{font-size:10px;color:#7a7974;text-transform:uppercase}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:25px}
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:25px}
+.stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
+.tir-card{margin-bottom:20px}
 .card{background:#f9f8f5;border:1px solid #d4d1ca;border-radius:12px;padding:20px}
 .card-label{font-size:11px;color:#7a7974;text-transform:uppercase;letter-spacing:0.5px}
 .card-val{font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace;margin:5px 0}
@@ -104,6 +106,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
   .mobile-controls .status{text-align:center;padding:10px;background:#f5f5f5;border-radius:8px}
   .card{padding:15px}
   .card-val{font-size:20px}
+  .stats-grid{grid-template-columns:repeat(2,1fr);gap:10px}
   .chart{height:200px}
   .chart-sm{height:160px}
   .chart-lg{height:280px}
@@ -158,42 +161,38 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
         <div class="glucose-unit">mmol/L</div>
         <div class="last-updated" id="lastUpdated"></div>
       </div>
-      <div class="glucose-meta">
-        <div class="meta-item"><div class="meta-val" id="tirIn" style="color:#437a22">--%</div><div class="meta-label">In Doel</div></div>
-        <div class="meta-item"><div class="meta-val" id="tirHigh" style="color:#964219">--%</div><div class="meta-label">Hoog</div></div>
-        <div class="meta-item"><div class="meta-val" id="tirLow" style="color:#dc2626">--%</div><div class="meta-label">Laag</div></div>
+    </div>
+
+    <div class="card tir-card">
+      <div class="card-label">Time in Range</div>
+      <div class="tir-bar">
+        <div class="tir-seg" id="tirLowBar" style="background:#dc2626;flex:0"></div>
+        <div class="tir-seg" id="tirInBar" style="background:#437a22;flex:1"></div>
+        <div class="tir-seg" id="tirHighBar" style="background:#964219;flex:0"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:13px">
+        <span style="color:#dc2626">Laag (&lt;3.9): <strong id="lowPct">0%</strong></span>
+        <span style="color:#437a22">In doel: <strong id="inPct">100%</strong></span>
+        <span style="color:#964219">Hoog (&gt;10): <strong id="highPct">0%</strong></span>
       </div>
     </div>
 
-    <div class="grid">
-      <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="gmi">--</div><div class="card-sub">Geschat (mmol/mol)</div></div>
-      <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="avg">--</div><div class="card-sub" id="sd">SD: --</div></div>
-      <div class="card"><div class="card-label">CV</div><div class="card-val" id="cv">--</div><div class="card-sub">Doel onder 36%</div></div>
-      <div class="card"><div class="card-label">Nachtelijke hypo</div><div class="card-val" id="nightHypos">--</div><div class="card-sub">00:00 - 06:00</div></div>
-      <div class="card"><div class="card-label">Dagen data</div><div class="card-val" id="days">--</div><div class="card-sub">Periode</div></div>
-      <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="total">--</div><div class="card-sub">Totaal</div></div>
+    <div class="grid stats-grid">
+      <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="gmi">--</div><div class="card-sub">mmol/mol</div></div>
+      <div class="card"><div class="card-label">GMI</div><div class="card-val" id="gmiPct">--</div><div class="card-sub">%</div></div>
+      <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="avg">--</div><div class="card-sub" id="sdSub">SD: --</div></div>
+      <div class="card"><div class="card-label">SD</div><div class="card-val" id="sdVal">--</div><div class="card-sub">mmol/L</div></div>
+      <div class="card"><div class="card-label">CV</div><div class="card-val" id="cv">--</div><div class="card-sub">Doel &lt;36%</div></div>
+      <div class="card"><div class="card-label">Nacht hypo</div><div class="card-val" id="nightHypos">--</div><div class="card-sub">00-06u</div></div>
       <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="hyperCount">--</div><div class="card-sub">Episodes</div></div>
       <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="hypoCount">--</div><div class="card-sub">Episodes</div></div>
+      <div class="card"><div class="card-label">Dagen data</div><div class="card-val" id="days">--</div><div class="card-sub">Periode</div></div>
+      <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="total">--</div><div class="card-sub">Totaal</div></div>
     </div>
 
-    <div class="two-col">
-      <div class="card">
-        <div class="card-label">24-uurs Curve (gemiddelde)</div>
-        <div class="chart"><canvas id="dailyChart"></canvas></div>
-      </div>
-      <div class="card">
-        <div class="card-label">Time in Range</div>
-        <div class="tir-bar">
-          <div class="tir-seg" id="tirLowBar" style="background:#dc2626;flex:0"></div>
-          <div class="tir-seg" id="tirInBar" style="background:#437a22;flex:1"></div>
-          <div class="tir-seg" id="tirHighBar" style="background:#964219;flex:0"></div>
-        </div>
-        <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:#dc2626"></div>Laag (&lt;3.9): <span id="lowPct">0%</span></div>
-          <div class="legend-item"><div class="legend-dot" style="background:#437a22"></div>In doel: <span id="inPct">100%</span></div>
-          <div class="legend-item"><div class="legend-dot" style="background:#964219"></div>Hoog (&gt;10): <span id="highPct">0%</span></div>
-        </div>
-      </div>
+    <div class="card">
+      <div class="card-label">24-uurs Curve (gemiddelde)</div>
+      <div class="chart"><canvas id="dailyChart"></canvas></div>
     </div>
   </div>
 
@@ -479,36 +478,44 @@ function update() {
   var el = document.getElementById("glucose");
   el.textContent = g.toFixed(1);
   el.className = "glucose-nr " + (g < T.low ? "red" : g > T.high ? "orange" : "green");
+   
+  // TIR percentages
+  document.getElementById("lowPct").textContent = r.tir.low + "%";
+  document.getElementById("inPct").textContent = r.tir.in + "%";
+  document.getElementById("highPct").textContent = r.tir.high + "%";
   
-  document.getElementById("tirIn").textContent = r.tir.in + "%";
-  document.getElementById("tirHigh").textContent = r.tir.high + "%";
-  document.getElementById("tirLow").textContent = r.tir.low + "%";
+  // TIR bar
+  document.getElementById("tirLowBar").style.flex = parseFloat(r.tir.low);
+  document.getElementById("tirInBar").style.flex = parseFloat(r.tir.in);
+  document.getElementById("tirHighBar").style.flex = parseFloat(r.tir.high);
   
+  // HbA1c & GMI
   document.getElementById("gmi").textContent = r.hba1cMmol;
   document.getElementById("gmi").className = "card-val " + (r.hba1cMmol < 53 ? "good" : r.hba1cMmol > 64 ? "danger" : "warn");
+  document.getElementById("gmiPct").textContent = r.gmi.toFixed(1);
+  document.getElementById("gmiPct").className = "card-val " + (r.gmi < 6.5 ? "good" : r.gmi > 7.5 ? "warn" : "");
   
-  document.getElementById("avg").textContent = r.mean.toFixed(1) + " mmol/L";
+  // Average & SD
+  document.getElementById("avg").textContent = r.mean.toFixed(1);
   document.getElementById("avg").className = "card-val " + (r.mean < T.low ? "danger" : r.mean > T.high ? "warn" : "good");
-  document.getElementById("sd").textContent = "SD: " + r.std.toFixed(1);
+  document.getElementById("sdSub").textContent = "";
+  document.getElementById("sdVal").textContent = r.std.toFixed(1);
   
+  // CV
   document.getElementById("cv").textContent = r.cv.toFixed(0) + "%";
   document.getElementById("cv").className = "card-val " + (r.cv < 36 ? "good" : "warn");
   
+  // Night hypos
   document.getElementById("nightHypos").textContent = r.nightHypos;
   document.getElementById("nightHypos").className = "card-val " + (r.nightHypos === 0 ? "good" : "danger");
   
+  // Days & Total
   document.getElementById("days").textContent = r.days;
   document.getElementById("total").textContent = r.total;
   
+  // Hyper & Hypo
   document.getElementById("hyperCount").textContent = r.hyperCount;
   document.getElementById("hypoCount").textContent = r.hypoCount;
-  
-  document.getElementById("tirLowBar").style.flex = parseFloat(r.tir.low);
-  document.getElementById("tirLowBar").textContent = r.tir.low + "%";
-  document.getElementById("tirInBar").style.flex = parseFloat(r.tir.in);
-  document.getElementById("tirInBar").textContent = r.tir.in + "%";
-  document.getElementById("tirHighBar").style.flex = parseFloat(r.tir.high);
-  document.getElementById("tirHighBar").textContent = r.tir.high + "%";
   document.getElementById("lowPct").textContent = r.tir.low + "%";
   document.getElementById("inPct").textContent = r.tir.in + "%";
   document.getElementById("highPct").textContent = r.tir.high + "%";

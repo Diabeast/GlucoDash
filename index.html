@@ -21,6 +21,9 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .nav{margin-top:30px}
 .nav button{width:100%;text-align:left;padding:10px 15px;border:none;background:transparent;border-radius:8px;cursor:pointer;font-size:14px;color:#7a7974;margin-bottom:5px}
 .nav button:hover,.nav button.active{background:#f3f0ec;color:#01696f;font-weight:500}
+.menu-period{margin-top:20px;padding-top:15px;border-top:1px solid #d4d1ca}
+.menu-period label{font-size:12px;color:#7a7974;display:block;margin-bottom:5px}
+.menu-period select{width:100%;padding:8px 12px;border:1px solid #d4d1ca;border-radius:8px;font-size:13px;background:#fff}
 .main{margin-left:220px;padding:30px;max-width:1600px}
 .top{display:flex;justify-content:space-between;align-items:center;margin-bottom:30px;flex-wrap:wrap;gap:10px}
 .top h2{font-size:24px;font-weight:700}
@@ -28,7 +31,6 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .status{padding:8px 15px;border-radius:20px;font-size:12px;font-weight:500}
 .status.live{background:#d4dfcc;color:#437a22}
 .status.error{background:#e0ced7;color:#a12c7b}
-.glucose{display:flex;align-items:center;gap:30px;background:#f9f8f5;padding:25px;border-radius:15px;margin-bottom:25px;flex-wrap:wrap}
 .glucose-nr{font-size:56px;font-weight:700;font-family:JetBrains Mono,monospace}
 .glucose-nr.red{color:#dc2626}
 .glucose-nr.orange{color:#2563eb}
@@ -42,6 +44,16 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:25px}
 .stats-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-bottom:20px}
 .tir-card{margin-bottom:20px}
+
+/* Desktop centered layout */
+@media(min-width:901px){
+  .mobile-header{display:none !important}
+  .page-title{display:block}
+  .glucose{justify-content:center;text-align:center}
+}
+@media(max-width:900px){
+  .page-title{display:none}
+}
 .card{background:#f9f8f5;border:1px solid #d4d1ca;border-radius:12px;padding:20px}
 .card-label{font-size:11px;color:#7a7974;text-transform:uppercase;letter-spacing:0.5px}
 .card-val{font-size:24px;font-weight:700;font-family:JetBrains Mono,monospace;margin:5px 0}
@@ -50,6 +62,11 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .card-val.danger{color:#dc2626}
 .card-sub{font-size:11px;color:#7a7974}
 .two-col{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.glucose{display:flex;align-items:center;gap:30px;background:#f9f8f5;padding:25px;border-radius:15px;margin-bottom:25px;flex-wrap:wrap}
+@media(min-width:901px){
+  .glucose{justify-content:center;text-align:center;flex-direction:column}
+  .glucose .glucose-meta{justify-content:center;margin-top:10px}
+}
 .tir-bar{display:flex;height:28px;border-radius:6px;overflow:hidden;gap:2px;margin-top:15px}
 .tir-seg{display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:white;min-width:2px}
 .legend{display:flex;gap:15px;margin-top:10px;font-size:12px;color:#7a7974;flex-wrap:wrap}
@@ -81,6 +98,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
 .time-filters button{padding:8px 16px;border:1px solid #d4d1ca;border-radius:8px;background:#f9f8f5;cursor:pointer;font-size:13px}
 .time-filters button.active{background:#01696f;color:#fff;border-color:#01696f}
 .last-updated{font-size:11px;color:#7a7974;margin-top:5px}
+.page-title{display:none;text-align:center;font-size:24px;font-weight:700;margin-bottom:25px}
 
 /* Mobile Responsive */
 @media(max-width:1200px){.grid{grid-template-columns:repeat(2,1fr)}.grid-3{grid-template-columns:repeat(2,1fr)}}
@@ -126,12 +144,26 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
   <h1>GlucoDash</h1>
   <span>Arinelis - iAPS</span>
   <div class="nav">
-    <button class="active" onclick="showView('overzicht')">Overzicht</button>
+    <button class="active" onclick="showView('overzicht')">Vandaag</button>
+    <button onclick="showView('historie')">Historie</button>
     <button onclick="showView('trends')">Trends</button>
     <button onclick="showView('uitschieters')">Uitschieters</button>
     <button onclick="showView('maaltijden')">Maaltijden</button>
     <button onclick="showView('advies')">Advies</button>
   </div>
+  <div class="menu-period">
+    <label>Periode:</label>
+    <select id="periodSelect" onchange="changePeriod()">
+      <option value="1">1 dag</option>
+      <option value="7">7 dagen</option>
+      <option value="14">14 dagen</option>
+      <option value="30" selected>30 dagen</option>
+      <option value="60">60 dagen</option>
+      <option value="90">90 dagen</option>
+      <option value="180">180 dagen</option>
+    </select>
+  </div>
+  <span class="status live" id="statusBadge">Laden...</span>
   <button class="toggle" onclick="toggleTheme()">🌙 Dark mode</button>
 </div>
 
@@ -140,20 +172,7 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
     <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
     <h2 id="pageTitle">GlucoDash</h2>
   </div>
-  <div class="top">
-    <div class="mobile-controls">
-      <select id="periodSelect" onchange="changePeriod()">
-        <option value="1">1 dag</option>
-        <option value="7">7 dagen</option>
-        <option value="14">14 dagen</option>
-        <option value="30" selected>30 dagen</option>
-        <option value="60">60 dagen</option>
-        <option value="90">90 dagen</option>
-        <option value="180">180 dagen</option>
-      </select>
-      <span class="status live" id="statusBadge">Laden...</span>
-    </div>
-  </div>
+  <div class="page-title" id="desktopTitle">GlucoDash</div>
 
   <!-- OVERZICHT -->
   <div id="view-overzicht">
@@ -195,6 +214,25 @@ body{font-family:Inter,sans-serif;min-height:100vh;background:#f7f6f2;color:#282
     <div class="card">
       <div class="card-label">24-uurs Curve (gemiddelde)</div>
       <div class="chart"><canvas id="dailyChart"></canvas></div>
+    </div>
+  </div>
+
+  <!-- HISTORIE -->
+  <div id="view-historie" style="display:none">
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-label">Statistieken - <span id="historiePeriod">30 dagen</span></div>
+      <div class="stats-grid" style="margin-top:15px">
+        <div class="card"><div class="card-label">HbA1c</div><div class="card-val" id="histGmi">--</div><div class="card-sub">mmol/mol</div></div>
+        <div class="card"><div class="card-label">GMI</div><div class="card-val" id="histGmiPct">--</div><div class="card-sub">%</div></div>
+        <div class="card"><div class="card-label">Gemiddelde</div><div class="card-val" id="histAvg">--</div><div class="card-sub">mmol/L</div></div>
+        <div class="card"><div class="card-label">SD</div><div class="card-val" id="histSd">--</div><div class="card-sub">Streef &lt;2.2</div></div>
+        <div class="card"><div class="card-label">CV</div><div class="card-val" id="histCv">--</div><div class="card-sub">Streef &lt;36%</div></div>
+        <div class="card"><div class="card-label">Nacht hypo</div><div class="card-val" id="histNightHypos">--</div><div class="card-sub">00-06u</div></div>
+        <div class="card"><div class="card-label">Hyper (&gt;13.9)</div><div class="card-val warn" id="histHyper">--</div><div class="card-sub">Episodes</div></div>
+        <div class="card"><div class="card-label">Hypo (&lt;3.0)</div><div class="card-val danger" id="histHypo">--</div><div class="card-sub">Episodes</div></div>
+        <div class="card"><div class="card-label">Dagen data</div><div class="card-val" id="histDays">--</div><div class="card-sub">Periode</div></div>
+        <div class="card"><div class="card-label">Metingen</div><div class="card-val" id="histTotal">--</div><div class="card-sub">Totaal</div></div>
+      </div>
     </div>
   </div>
 
@@ -362,6 +400,9 @@ function changePeriod() {
   DAYS = parseInt(document.getElementById("periodSelect").value);
   analyze();
   update();
+  if (document.getElementById("view-historie").style.display !== "none") {
+    updateHistorie();
+  }
 }
 
 function setTrendPeriod(days) {
@@ -458,6 +499,25 @@ function countEpisodes(dataArr, minVal, maxVal) {
   return episodes;
 }
 
+function calculateTodayTIR() {
+  var today = new Date().toISOString().split("T")[0];
+  var todayData = data.filter(function(d) { return d.date.toISOString().split("T")[0] === today; });
+  
+  if (todayData.length === 0) return { low: "0", in: "100", high: "0" };
+  
+  var vals = todayData.map(function(d) { return d.sgv; });
+  var total = vals.length;
+  var low = vals.filter(function(v) { return v < T.low; }).length;
+  var inRange = vals.filter(function(v) { return v >= T.low && v <= T.high; }).length;
+  var high = vals.filter(function(v) { return v > T.high; }).length;
+  
+  return {
+    low: ((low / total) * 100).toFixed(1),
+    in: ((inRange / total) * 100).toFixed(1),
+    high: ((high / total) * 100).toFixed(1)
+  };
+}
+
 function update() {
   if (!r.total) return;
   
@@ -466,15 +526,16 @@ function update() {
   el.textContent = g.toFixed(1);
   el.className = "glucose-nr " + (g < T.low ? "red" : g > T.high ? "orange" : "green");
    
-  // TIR percentages
-  document.getElementById("lowPct").textContent = r.tir.low + "%";
-  document.getElementById("inPct").textContent = r.tir.in + "%";
-  document.getElementById("highPct").textContent = r.tir.high + "%";
+  // TIR percentages (vandaag)
+  var todayTIR = calculateTodayTIR();
+  document.getElementById("lowPct").textContent = todayTIR.low + "%";
+  document.getElementById("inPct").textContent = todayTIR.in + "%";
+  document.getElementById("highPct").textContent = todayTIR.high + "%";
   
-  // TIR bar
-  document.getElementById("tirLowBar").style.flex = parseFloat(r.tir.low);
-  document.getElementById("tirInBar").style.flex = parseFloat(r.tir.in);
-  document.getElementById("tirHighBar").style.flex = parseFloat(r.tir.high);
+  // TIR bar (vandaag)
+  document.getElementById("tirLowBar").style.flex = parseFloat(todayTIR.low);
+  document.getElementById("tirInBar").style.flex = parseFloat(todayTIR.in);
+  document.getElementById("tirHighBar").style.flex = parseFloat(todayTIR.high);
   
   // HbA1c & GMI
   document.getElementById("gmi").textContent = r.hba1cMmol;
@@ -623,6 +684,7 @@ function updateTrends() {
   document.getElementById("riseCount").textContent = Math.round(r.rise * (DAYS / trendPeriod));
   document.getElementById("fallCount").textContent = Math.round(r.fall * (DAYS / trendPeriod));
   document.getElementById("sdCard").textContent = r.std.toFixed(1);
+  document.getElementById("sdCard").className = "card-val " + (r.std < 2.2 ? "good" : "warn");
   document.getElementById("gmiCard").textContent = r.gmi.toFixed(1) + "%";
 }
 
@@ -889,13 +951,15 @@ function showView(id) {
   document.querySelectorAll(".nav button").forEach(function(b) { b.classList.remove("active"); });
   event.target.classList.add("active");
   var titles = { 
-    overzicht: "GlucoDash", 
+    overzicht: "Vandaag", 
+    historie: "Historie", 
     trends: "Trends", 
     uitschieters: "Uitschieters Analyse", 
     maaltijden: "Maaltijd Analyse",
     advies: "Persoonlijk Advies" 
   };
   document.getElementById("pageTitle").textContent = titles[id] || id;
+  if (id === "historie") updateHistorie();
   if (window.innerWidth < 901) {
     document.getElementById("sidebar").classList.remove("open");
   }
@@ -903,6 +967,32 @@ function showView(id) {
 
 function toggleTheme() {
   document.body.classList.toggle("dark");
+}
+
+function updateHistorie() {
+  document.getElementById("historiePeriod").textContent = DAYS + " dagen";
+  
+  document.getElementById("histGmi").textContent = r.hba1cMmol || "--";
+  document.getElementById("histGmi").className = "card-val " + (r.hba1cMmol < 53 ? "good" : r.hba1cMmol > 64 ? "danger" : "warn");
+  
+  document.getElementById("histGmiPct").textContent = r.gmi ? r.gmi.toFixed(1) : "--";
+  
+  document.getElementById("histAvg").textContent = r.mean ? r.mean.toFixed(1) : "--";
+  document.getElementById("histAvg").className = "card-val " + (r.mean < 3.9 ? "danger" : r.mean > 10 ? "warn" : "good");
+  
+  document.getElementById("histSd").textContent = r.std ? r.std.toFixed(1) : "--";
+  document.getElementById("histSd").className = "card-val " + (r.std < 2.2 ? "good" : "warn");
+  
+  document.getElementById("histCv").textContent = r.cv ? r.cv.toFixed(0) + "%" : "--";
+  document.getElementById("histCv").className = "card-val " + (r.cv < 36 ? "good" : "warn");
+  
+  document.getElementById("histNightHypos").textContent = r.nightHypos || "0";
+  document.getElementById("histNightHypos").className = "card-val " + (r.nightHypos === 0 ? "good" : "danger");
+  
+  document.getElementById("histHyper").textContent = r.hyperEpisodes || "0";
+  document.getElementById("histHypo").textContent = r.hypoEpisodes || "0";
+  document.getElementById("histDays").textContent = r.days || "--";
+  document.getElementById("histTotal").textContent = r.total || "--";
 }
 
 function toggleSidebar() {

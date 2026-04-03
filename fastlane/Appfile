@@ -1,0 +1,2 @@
+app_identifier("com.9CGZ7BWVXT.glucodash")
+team_id(ENV["TEAMID"])

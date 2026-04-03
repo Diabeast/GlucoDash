@@ -662,10 +662,64 @@
             return isNaN(parsed) ? 0 : parsed;
         }
 
+        // ============= HEALTHKIT (native app) =============
+        async function fetchFromHealthKit() {
+            console.log("[GlucoDash] Native modus - HealthKit ophalen...");
+            const HK = window.Capacitor.Plugins.CapacitorHealthkit;
+            const now = new Date();
+            const start = new Date(now.getTime() - 24 * 60 * 60 * 1000 * 3);
+
+            await HK.requestAuthorization({
+                all: [], read: ['bloodGlucose', 'insulinDelivery', 'carbohydrates'], write: []
+            });
+
+            const glucoseRaw = await HK.queryHKitSampleType({
+                sampleName: 'bloodGlucose',
+                startDate: start.toISOString(),
+                endDate: now.toISOString(),
+                limit: 2000
+            });
+
+            const insulinRaw = await HK.queryHKitSampleType({
+                sampleName: 'insulinDelivery',
+                startDate: start.toISOString(),
+                endDate: now.toISOString(),
+                limit: 500
+            });
+
+            const entries = (glucoseRaw.resultData || []).map(s => ({
+                sgv: Math.round(s.value * 18.018),
+                date: new Date(s.startDate).getTime(),
+                dateString: s.startDate,
+                direction: 'Flat'
+            })).sort((a, b) => b.date - a.date);
+
+            const treatments = (insulinRaw.resultData || []).map(s => ({
+                eventType: s.metadata?.HKInsulinDeliveryReason === 2 ? 'Bolus' : 'SMB',
+                insulin: s.value,
+                created_at: s.startDate,
+                date: new Date(s.startDate).getTime()
+            }));
+
+            console.log(`[GlucoDash] HealthKit: ${entries.length} glucose, ${treatments.length} insuline`);
+            processGlucoseData(entries);
+            processInsulinData(treatments);
+            document.getElementById('last-update').innerText = `Laatste update: ${new Date().toLocaleTimeString()}`;
+            updateStatus("HealthKit - offline modus", "ok");
+        }
+
         // ============= MAIN FETCH =============
         async function fetchData() {
             console.log("[GlucoDash] Start fetch...");
-            
+
+            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
+                try { await fetchFromHealthKit(); } catch (e) {
+                    console.error("[GlucoDash] HealthKit fout:", e);
+                    updateStatus("HealthKit fout: " + e.message, "error");
+                }
+                return;
+            }
+
             const baseUrl = `${NS_URL}/api/v1`;
             
             // Directe URLs (zonder proxy voor nu - we'll try both)

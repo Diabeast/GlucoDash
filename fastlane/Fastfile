@@ -23,10 +23,13 @@ default_platform(:ios)
 platform :ios do
   desc "Build GlucoDash en upload naar TestFlight"
   lane :build_upload do
+    raw_key = ENV['FASTLANE_KEY'].to_s
+    key_pem = raw_key.include?("\\n") ? raw_key.gsub("\\n", "\n") : raw_key
+
     api_key = app_store_connect_api_key(
-      key_id: "#{ENV['FASTLANE_KEY_ID']}",
-      issuer_id: "#{ENV['FASTLANE_ISSUER_ID']}",
-      key_filepath: "api_key.p8"
+      key_id: ENV['FASTLANE_KEY_ID'],
+      issuer_id: ENV['FASTLANE_ISSUER_ID'],
+      key_content: key_pem
     )
 
     update_code_signing_settings(

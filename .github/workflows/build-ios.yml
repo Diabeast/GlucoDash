@@ -76,8 +76,58 @@ jobs:
           echo "=== Key debug (geen inhoud) ==="
           echo "Regels: $(wc -l < api_key.p8)"
           echo "Grootte: $(wc -c < api_key.p8) bytes"
-          head -c 40 api_key.p8; echo
+          head -c 50 api_key.p8; echo
           tail -c 30 api_key.p8; echo
+
+      - name: Diagnosteer Ruby OpenSSL + key parsing
+        env:
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: |
+          ruby -e "
+          require 'openssl'
+          require 'base64'
+          puts 'Ruby: ' + RUBY_VERSION
+          puts 'OpenSSL versie: ' + OpenSSL::OPENSSL_VERSION
+          puts 'openssl gem: ' + OpenSSL::VERSION
+
+          raw = ENV['FASTLANE_KEY'].to_s.strip
+          puts 'Secret start: ' + raw[0..50].inspect
+          puts 'Heeft BEGIN: ' + raw.include?('BEGIN').to_s
+
+          # Als geen BEGIN: base64 decoderen
+          pem = raw.start_with?('-----BEGIN') ? raw : Base64.decode64(raw)
+          puts 'PEM start na decode: ' + pem[0..50].inspect
+
+          # Schrijf naar temp bestand
+          File.write('/tmp/test_key.pem', pem)
+
+          # Test system openssl
+          system_result = \`/usr/bin/openssl pkey -in /tmp/test_key.pem -noout 2>&1\`
+          puts 'System openssl (LibreSSL): ' + system_result.strip
+
+          # Homebrew openssl
+          brew_ssl = Dir['/opt/homebrew/opt/openssl*/bin/openssl'].first
+          if brew_ssl
+            brew_result = \`#{brew_ssl} pkey -in /tmp/test_key.pem -noout 2>&1\`
+            puts 'Homebrew openssl: ' + brew_result.strip
+          end
+
+          # Ruby OpenSSL::PKey.read test
+          begin
+            k = OpenSSL::PKey.read(pem)
+            puts 'PKey.read: OK, type=' + k.class.to_s
+          rescue => e
+            puts 'PKey.read FOUT: ' + e.class.to_s + ': ' + e.message
+          end
+
+          # Ruby OpenSSL::PKey.read met bestand
+          begin
+            k = OpenSSL::PKey.read(File.binread('/tmp/test_key.pem'))
+            puts 'PKey.read(binread): OK'
+          rescue => e
+            puts 'PKey.read(binread) FOUT: ' + e.message
+          end
+          "
 
       - name: Build & Upload to TestFlight
         env:

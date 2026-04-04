@@ -14,7 +14,7 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true
+          bundler-cache: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -65,13 +65,14 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'GlucoDash leest je glucose en insuline data.'" ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'GlucoDash heeft schrijftoegang nodig voor HealthKit.'" ios/App/App/Info.plist
 
-      - name: Fix Ruby OpenSSL (LibreSSL → OpenSSL 3)
+      - name: Stel OpenSSL 3 in voor bundle (vóór bundle install)
         run: |
-          brew install openssl@3 || true
           OPENSSL_DIR=$(brew --prefix openssl@3)
+          echo "OpenSSL dir: $OPENSSL_DIR"
           echo "OPENSSL_DIR=$OPENSSL_DIR" >> $GITHUB_ENV
-          gem install openssl -- --with-openssl-dir=$OPENSSL_DIR
           bundle config build.openssl --with-openssl-dir=$OPENSSL_DIR
+          bundle config build.openssl --with-opt-dir=$OPENSSL_DIR
+          echo "Bundle config ingesteld voor OpenSSL 3"
 
       - name: Install Fastlane via Bundler
         run: bundle install

@@ -10,11 +10,16 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ruby 3.2 (Fastlane compatibel)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: false
+      - name: Setup Ruby via Homebrew (OpenSSL 3 gelinkt)
+        run: |
+          # Homebrew ruby is gelinkt aan OpenSSL 3, niet aan LibreSSL
+          brew upgrade ruby 2>/dev/null || brew install ruby
+          BREW_RUBY_BIN="$(brew --prefix ruby)/bin"
+          echo "$BREW_RUBY_BIN" >> $GITHUB_PATH
+          export PATH="$BREW_RUBY_BIN:$PATH"
+          echo "Ruby versie: $(ruby --version)"
+          echo "OpenSSL versie: $(ruby -e "require 'openssl'; puts OpenSSL::OPENSSL_VERSION")"
+          gem install bundler --no-document
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -65,44 +70,26 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'GlucoDash leest je glucose en insuline data.'" ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'GlucoDash heeft schrijftoegang nodig voor HealthKit.'" ios/App/App/Info.plist
 
-      - name: Stel OpenSSL 3 in voor bundle (vóór bundle install)
+      - name: Configureer bundler (vendor/bundle pad)
         run: |
-          OPENSSL_DIR=$(brew --prefix openssl@3)
-          echo "OpenSSL dir: $OPENSSL_DIR"
-          echo "OPENSSL_DIR=$OPENSSL_DIR" >> $GITHUB_ENV
-          # Installeer gems naar vendor/bundle zodat we ze makkelijk kunnen vinden
           bundle config set --local path 'vendor/bundle'
-          bundle config build.openssl --with-openssl-dir=$OPENSSL_DIR
-          bundle config build.openssl --with-opt-dir=$OPENSSL_DIR
-          echo "Bundle config ingesteld voor OpenSSL 3 + vendor/bundle pad"
+          echo "Bundle pad ingesteld op vendor/bundle"
 
       - name: Install Fastlane via Bundler
         run: bundle install
 
       - name: Patch Fastlane token.rb voor OpenSSL 3
         run: |
-          # Zoek token.rb in vendor/bundle (predictable lokaal pad)
           TOKENFILE=$(find vendor/bundle -name "token.rb" -path "*/connect_api/*" | head -1)
           echo "Token file: $TOKENFILE"
           if [ -z "$TOKENFILE" ]; then
-            echo "FOUT: token.rb niet gevonden in vendor/bundle!"
-            ls -la vendor/bundle/ 2>/dev/null || echo "vendor/bundle bestaat niet"
+            echo "FOUT: token.rb niet gevonden!"
+            find vendor/bundle -name "token.rb" 2>/dev/null | head -5
             exit 1
           fi
           sed -i.bak 's/OpenSSL::PKey::EC\.new(\([^)]*\))/OpenSSL::PKey.read(\1)/g' "$TOKENFILE"
           echo "Na patch:"
           grep -n "PKey" "$TOKENFILE"
-
-      - name: Schrijf API key naar bestand
-        env:
-          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
-        run: |
-          printf '%s' "$FASTLANE_KEY" | sed 's/\\n/\n/g' > api_key.p8
-          echo "=== Key debug (geen inhoud) ==="
-          echo "Regels: $(wc -l < api_key.p8)"
-          echo "Grootte: $(wc -c < api_key.p8) bytes"
-          head -c 50 api_key.p8; echo
-          tail -c 30 api_key.p8; echo
 
       - name: Build & Upload to TestFlight
         env:
@@ -111,4 +98,3 @@ jobs:
           FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
           FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
         run: bundle exec fastlane build_upload
-        working-directory: .

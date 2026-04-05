@@ -91,10 +91,19 @@ jobs:
           echo "Na patch:"
           grep -n "PKey" "$TOKENFILE"
 
+      - name: Schrijf API key naar bestand
+        env:
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: |
+          # Decodeer base64 naar .p8 bestand met correcte Unix newlines
+          printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key.p8
+          echo "Key geschreven: $(wc -c < api_key.p8) bytes, $(wc -l < api_key.p8) regels"
+          head -1 api_key.p8
+          tail -1 api_key.p8
+
       - name: Build & Upload to TestFlight
         env:
           TEAMID: ${{ secrets.TEAMID }}
           FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
           FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
-          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
         run: bundle exec fastlane build_upload

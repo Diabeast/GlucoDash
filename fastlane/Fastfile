@@ -3,21 +3,12 @@ default_platform(:ios)
 platform :ios do
   desc "Build GlucoDash en upload naar TestFlight"
   lane :build_upload do
-    require 'base64'
-    raw_key = ENV['FASTLANE_KEY'].to_s.strip
-    # Auto-detecteer: geen PEM header = base64 formaat
-    if raw_key.start_with?("-----BEGIN")
-      key_pem = raw_key
-      UI.message("Key formaat: PEM (direct)")
-    else
-      key_pem = Base64.decode64(raw_key)
-      UI.message("Key formaat: base64 -> gedecodeerd naar PEM")
-    end
 
+    # Key wordt via key_filepath geladen (schrijf stap in workflow)
     api_key = app_store_connect_api_key(
       key_id: ENV['FASTLANE_KEY_ID'],
       issuer_id: ENV['FASTLANE_ISSUER_ID'],
-      key_content: key_pem
+      key_filepath: "api_key.p8"
     )
 
     update_code_signing_settings(

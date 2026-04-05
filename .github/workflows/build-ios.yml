@@ -123,3 +123,10 @@ jobs:
           FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
           FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
         run: bundle exec fastlane build_upload
+
+      - name: Toon Xcode build log bij fout
+        if: failure()
+        run: |
+          echo "=== GYM LOG ==="
+          cat ~/Library/Logs/gym/App-App.log 2>/dev/null | grep -E "error:|warning:|No profiles|No Accounts|authentication|signing|provision|certificate" | tail -40 || true
+          echo "=== EINDE GYM LOG ==="

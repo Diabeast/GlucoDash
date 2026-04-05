@@ -82,30 +82,31 @@ jobs:
       - name: Install Fastlane via Bundler
         run: bundle install
 
-      - name: Patch Fastlane token.rb voor OpenSSL 3
+      - name: Schrijf en converteer API key
+        env:
+          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
+        run: |
+          # Decodeer base64 naar .p8 (PKCS#8 PEM formaat)
+          printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key_pkcs8.p8
+          echo "PKCS8 key: $(wc -c < api_key_pkcs8.p8 | tr -d ' ') bytes"
+          echo "Eerste regel: $(head -1 api_key_pkcs8.p8)"
+
+          # Converteer PKCS#8 naar EC private key (SEC1) via Homebrew OpenSSL
+          OPENSSL_BIN="$(brew --prefix openssl@3)/bin/openssl"
+          $OPENSSL_BIN pkcs8 -nocrypt -in api_key_pkcs8.p8 -out api_key.p8
+          echo "EC key: $(wc -c < api_key.p8 | tr -d ' ') bytes"
+          echo "Eerste regel EC: $(head -1 api_key.p8)"
+
+      - name: Patch Fastlane token.rb (EC.new behouden voor EC key)
         run: |
           TOKENFILE=$(find vendor/bundle -name "token.rb" -path "*/connect_api/*" | head -1)
           echo "Token file: $TOKENFILE"
           if [ -z "$TOKENFILE" ]; then
             echo "FOUT: token.rb niet gevonden!"
-            find vendor/bundle -name "token.rb" 2>/dev/null | head -5
             exit 1
           fi
-          sed -i.bak 's/OpenSSL::PKey::EC\.new(\([^)]*\))/OpenSSL::PKey.read(\1)/g' "$TOKENFILE"
-          echo "Na patch:"
-          grep -n "PKey" "$TOKENFILE"
-
-      - name: Schrijf API key naar bestand
-        env:
-          FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
-        run: |
-          # Decodeer base64 naar .p8 bestand
-          printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key.p8
-          echo "Bytes: $(wc -c < api_key.p8 | tr -d ' '), Regels: $(wc -l < api_key.p8 | tr -d ' ')"
-          echo "Eerste regel: $(head -1 api_key.p8)"
-          echo "Laatste regel: $(tail -1 api_key.p8)"
-          # Verifieer OpenSSL versie in Ruby
-          ruby -e "require 'openssl'; puts 'Ruby OpenSSL: ' + OpenSSL::OPENSSL_VERSION"
+          echo "Huidige regel 71:"
+          sed -n '69,73p' "$TOKENFILE"
 
       - name: Build & Upload to TestFlight
         env:

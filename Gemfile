@@ -1,4 +1,5 @@
 source "https://rubygems.org"
 
-# Officiële Fastlane - heeft OpenSSL 3 fix al ingebouwd (v2.219+)
+# Expliciet openssl gem zodat bundler het compileert met Homebrew OpenSSL 3
+gem 'openssl'
 gem 'fastlane'

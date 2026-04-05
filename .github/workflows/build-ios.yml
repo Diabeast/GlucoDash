@@ -70,20 +70,25 @@ jobs:
           OPENSSL_DIR=$(brew --prefix openssl@3)
           echo "OpenSSL dir: $OPENSSL_DIR"
           echo "OPENSSL_DIR=$OPENSSL_DIR" >> $GITHUB_ENV
+          # Installeer gems naar vendor/bundle zodat we ze makkelijk kunnen vinden
+          bundle config set --local path 'vendor/bundle'
           bundle config build.openssl --with-openssl-dir=$OPENSSL_DIR
           bundle config build.openssl --with-opt-dir=$OPENSSL_DIR
-          echo "Bundle config ingesteld voor OpenSSL 3"
+          echo "Bundle config ingesteld voor OpenSSL 3 + vendor/bundle pad"
 
       - name: Install Fastlane via Bundler
         run: bundle install
 
       - name: Patch Fastlane token.rb voor OpenSSL 3
         run: |
-          # Vind spaceship gem via bundler
-          SPACESHIPDIR=$(bundle show spaceship)
-          echo "Spaceship dir: $SPACESHIPDIR"
-          TOKENFILE=$(find "$SPACESHIPDIR" -name "token.rb" -path "*/connect_api/*" | head -1)
+          # Zoek token.rb in vendor/bundle (predictable lokaal pad)
+          TOKENFILE=$(find vendor/bundle -name "token.rb" -path "*/connect_api/*" | head -1)
           echo "Token file: $TOKENFILE"
+          if [ -z "$TOKENFILE" ]; then
+            echo "FOUT: token.rb niet gevonden in vendor/bundle!"
+            ls -la vendor/bundle/ 2>/dev/null || echo "vendor/bundle bestaat niet"
+            exit 1
+          fi
           sed -i.bak 's/OpenSSL::PKey::EC\.new(\([^)]*\))/OpenSSL::PKey.read(\1)/g' "$TOKENFILE"
           echo "Na patch:"
           grep -n "PKey" "$TOKENFILE"

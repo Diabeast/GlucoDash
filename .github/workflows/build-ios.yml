@@ -86,16 +86,27 @@ jobs:
         env:
           FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
         run: |
-          # Decodeer base64 naar .p8 (PKCS#8 PEM formaat)
-          printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key_pkcs8.p8
-          echo "PKCS8 key: $(wc -c < api_key_pkcs8.p8 | tr -d ' ') bytes"
-          echo "Eerste regel: $(head -1 api_key_pkcs8.p8)"
+          # Diagnostiek: wat zit er in de secret?
+          echo "Secret lengte: ${#FASTLANE_KEY}"
+          echo "Eerste 40 chars: ${FASTLANE_KEY:0:40}"
 
-          # Converteer PKCS#8 naar EC private key (SEC1) via Homebrew OpenSSL
-          OPENSSL_BIN="$(brew --prefix openssl@3)/bin/openssl"
-          $OPENSSL_BIN pkcs8 -nocrypt -in api_key_pkcs8.p8 -out api_key.p8
-          echo "EC key: $(wc -c < api_key.p8 | tr -d ' ') bytes"
-          echo "Eerste regel EC: $(head -1 api_key.p8)"
+          # Probeer: is het al een PEM string? (begint met -----BEGIN)
+          if [[ "$FASTLANE_KEY" == "-----BEGIN"* ]]; then
+            echo "Formaat: raw PEM"
+            printf '%s' "$FASTLANE_KEY" | sed 's/\\n/\n/g' > api_key.p8
+          else
+            echo "Formaat: base64"
+            printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key_pkcs8.p8
+            echo "Decoded bytes: $(wc -c < api_key_pkcs8.p8 | tr -d ' ')"
+            echo "Decoded eerste regel: $(head -1 api_key_pkcs8.p8)"
+
+            # Converteer PKCS#8 naar SEC1 EC key
+            OPENSSL_BIN="$(brew --prefix openssl@3)/bin/openssl"
+            $OPENSSL_BIN pkcs8 -nocrypt -in api_key_pkcs8.p8 -out api_key.p8
+          fi
+
+          echo "api_key.p8: $(wc -c < api_key.p8 | tr -d ' ') bytes"
+          echo "Eerste regel: $(head -1 api_key.p8)"
 
       - name: Patch Fastlane token.rb (EC.new behouden voor EC key)
         run: |

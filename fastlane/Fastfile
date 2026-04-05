@@ -28,8 +28,10 @@ platform :ios do
       scheme: "App",
       configuration: "Release",
       export_method: "app-store",
+      xcargs: "-allowProvisioningUpdates",
       export_options: {
-        provisioningProfiles: {}
+        provisioningProfiles: {},
+        signingStyle: "automatic"
       }
     )
 

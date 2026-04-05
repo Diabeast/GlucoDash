@@ -70,10 +70,14 @@ jobs:
           /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'GlucoDash leest je glucose en insuline data.'" ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'GlucoDash heeft schrijftoegang nodig voor HealthKit.'" ios/App/App/Info.plist
 
-      - name: Configureer bundler (vendor/bundle pad)
+      - name: Configureer bundler (vendor/bundle + OpenSSL 3)
         run: |
+          OPENSSL_DIR=$(brew --prefix openssl@3)
+          echo "OpenSSL dir: $OPENSSL_DIR"
           bundle config set --local path 'vendor/bundle'
-          echo "Bundle pad ingesteld op vendor/bundle"
+          bundle config build.openssl --with-openssl-dir=$OPENSSL_DIR
+          bundle config build.openssl --with-opt-dir=$OPENSSL_DIR
+          echo "Bundle config: vendor/bundle + OpenSSL 3"
 
       - name: Install Fastlane via Bundler
         run: bundle install
@@ -95,11 +99,13 @@ jobs:
         env:
           FASTLANE_KEY: ${{ secrets.FASTLANE_KEY }}
         run: |
-          # Decodeer base64 naar .p8 bestand met correcte Unix newlines
+          # Decodeer base64 naar .p8 bestand
           printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key.p8
-          echo "Key geschreven: $(wc -c < api_key.p8) bytes, $(wc -l < api_key.p8) regels"
-          head -1 api_key.p8
-          tail -1 api_key.p8
+          echo "Bytes: $(wc -c < api_key.p8 | tr -d ' '), Regels: $(wc -l < api_key.p8 | tr -d ' ')"
+          echo "Eerste regel: $(head -1 api_key.p8)"
+          echo "Laatste regel: $(tail -1 api_key.p8)"
+          # Verifieer OpenSSL versie in Ruby
+          ruby -e "require 'openssl'; puts 'Ruby OpenSSL: ' + OpenSSL::OPENSSL_VERSION"
 
       - name: Build & Upload to TestFlight
         env:

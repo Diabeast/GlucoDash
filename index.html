@@ -954,10 +954,16 @@
         
         // Handmatig sensor start overschrijven (zet dit op true en pas datum aan)
         const MANUAL_SENSOR_START = true; // Zet op true om handmatige datum te gebruiken
-        const MANUAL_SENSOR_DATE = '2026-03-25T20:45:00'; // Pas aan naar juiste datum
+        const MANUAL_SENSOR_DATE = '2026-04-05T08:00:00'; // Pas aan naar juiste datum
         
         function processSensorData(treatments, eventTypes) {
-            if (!treatments || !Array.isArray(treatments)) return;
+            if (!treatments || !Array.isArray(treatments)) {
+                console.log("[GlucoDash] Geen treatments data beschikbaar");
+                // Toon fallback info
+                document.getElementById('sensor-status').innerText = "Geen data";
+                document.getElementById('sensor-time').innerText = "Kon sensor niet bepalen";
+                return;
+            }
             
             console.log("[GlucoDash] Alle event types:", eventTypes);
             

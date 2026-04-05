@@ -90,23 +90,21 @@ jobs:
           echo "Secret lengte: ${#FASTLANE_KEY}"
           echo "Eerste 40 chars: ${FASTLANE_KEY:0:40}"
 
-          # Probeer: is het al een PEM string? (begint met -----BEGIN)
+          OPENSSL_BIN="$(brew --prefix openssl@3)/bin/openssl"
+
+          # Decodeer/schrijf de originele key (PKCS#8 formaat voor xcodebuild)
           if [[ "$FASTLANE_KEY" == "-----BEGIN"* ]]; then
             echo "Formaat: raw PEM"
-            printf '%s' "$FASTLANE_KEY" | sed 's/\\n/\n/g' > api_key.p8
+            printf '%s' "$FASTLANE_KEY" | sed 's/\\n/\n/g' > api_key_pkcs8.p8
           else
             echo "Formaat: base64"
             printf '%s' "$FASTLANE_KEY" | base64 --decode > api_key_pkcs8.p8
-            echo "Decoded bytes: $(wc -c < api_key_pkcs8.p8 | tr -d ' ')"
-            echo "Decoded eerste regel: $(head -1 api_key_pkcs8.p8)"
-
-            # Converteer PKCS#8 naar SEC1 EC key
-            OPENSSL_BIN="$(brew --prefix openssl@3)/bin/openssl"
-            $OPENSSL_BIN pkcs8 -nocrypt -in api_key_pkcs8.p8 -out api_key.p8
           fi
+          echo "PKCS8 key: $(wc -c < api_key_pkcs8.p8 | tr -d ' ') bytes, eerste regel: $(head -1 api_key_pkcs8.p8)"
 
-          echo "api_key.p8: $(wc -c < api_key.p8 | tr -d ' ') bytes"
-          echo "Eerste regel: $(head -1 api_key.p8)"
+          # Converteer PKCS#8 naar SEC1 EC key (voor Fastlane/spaceship)
+          $OPENSSL_BIN pkcs8 -nocrypt -in api_key_pkcs8.p8 -out api_key.p8
+          echo "EC key: $(wc -c < api_key.p8 | tr -d ' ') bytes, eerste regel: $(head -1 api_key.p8)"
 
       - name: Patch Fastlane token.rb (EC.new behouden voor EC key)
         run: |

@@ -23,12 +23,17 @@ platform :ios do
       app_identifier: "com.9CGZ7BWVXT.glucodash"
     )
 
+    # Gebruik API key voor xcodebuild authenticatie (automatisch provisioning)
+    api_key_path = File.expand_path("api_key_pkcs8.p8")
+    # Fallback: als pkcs8 niet bestaat, gebruik de geconverteerde key
+    api_key_path = File.expand_path("api_key.p8") unless File.exist?(api_key_path)
+
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
       configuration: "Release",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates",
+      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path} -authenticationKeyID #{ENV['FASTLANE_KEY_ID']} -authenticationKeyIssuerID #{ENV['FASTLANE_ISSUER_ID']}",
       export_options: {
         provisioningProfiles: {},
         signingStyle: "automatic"

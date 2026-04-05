@@ -24,9 +24,12 @@ platform :ios do
     )
 
     # Gebruik API key voor xcodebuild authenticatie (automatisch provisioning)
-    api_key_path = File.expand_path("api_key_pkcs8.p8")
+    # __dir__ is fastlane/, project root is één niveau hoger
+    project_root = File.expand_path("..", __dir__)
+    api_key_path = File.join(project_root, "api_key_pkcs8.p8")
     # Fallback: als pkcs8 niet bestaat, gebruik de geconverteerde key
-    api_key_path = File.expand_path("api_key.p8") unless File.exist?(api_key_path)
+    api_key_path = File.join(project_root, "api_key.p8") unless File.exist?(api_key_path)
+    UI.message("API key pad: #{api_key_path} (bestaat: #{File.exist?(api_key_path)})")
 
     build_app(
       workspace: "ios/App/App.xcworkspace",

@@ -152,7 +152,7 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 20px;
             margin-bottom: 30px;
         }
@@ -161,9 +161,16 @@
             grid-column: span 1;
         }
         
+        .desktop-only {
+            display: block;
+        }
+        
         @media (max-width: 900px) {
             .stats-grid {
                 grid-template-columns: repeat(3, 1fr);
+            }
+            .desktop-only {
+                display: none;
             }
         }
         
@@ -482,8 +489,12 @@
                 <h3>Variatie (CV) <span class="info-icon" onclick="openModal('cv-modal')">i</span></h3>
                 <p id="cv-val">--%</p>
             </div>
+            <div class="stat-card desktop-only">
+                <h3>Laatste bolus</h3>
+                <p id="last-bolus">--</p>
+            </div>
             <div class="stat-card small-card">
-                <h3>Gemiddeld (24u)</h3>
+                <h3>Gemiddeld</h3>
                 <p id="avg-val">--</p>
             </div>
             <div class="stat-card small-card">
@@ -491,11 +502,11 @@
                 <p id="sd-val">--</p>
             </div>
             <div class="stat-card small-card" style="border-left: 4px solid var(--danger-color); cursor: pointer;" onclick="showHypos()">
-                <h3>Hypo's (< 3.9)</h3>
+                <h3>Hypo's</h3>
                 <p id="hypo-val">--</p>
             </div>
             <div class="stat-card small-card" style="border-left: 4px solid var(--warning-color); cursor: pointer;" onclick="showHypers()">
-                <h3>Hypers (> 10.0)</h3>
+                <h3>Hypers</h3>
                 <p id="hyper-val">--</p>
             </div>
         </div>
@@ -929,6 +940,17 @@
             console.log(`[GlucoDash] Totaal insuline: ${totalInsulin}U, SMBs: ${smbCount}`);
 
             document.getElementById('total-insulin').innerText = totalInsulin;
+            
+            // Laatste bolus (groot handmatig)
+            const bolusTreatments = insulinTreatments.filter(t => t.eventType === 'Bolus');
+            if (bolusTreatments.length > 0) {
+                const lastBolus = bolusTreatments[0];
+                const bolusTime = new Date(getTimestamp(lastBolus));
+                const hoursAgo = Math.round((now.getTime() - bolusTime.getTime()) / (1000 * 60 * 60) * 10) / 10;
+                document.getElementById('last-bolus').innerText = `${lastBolus.insulin}U (${hoursAgo}u geleden)`;
+            } else {
+                document.getElementById('last-bolus').innerText = "Geen bolus";
+            }
 
             window.latestInsulinStats = { totalInsulin, avgSmb };
             triggerAI();

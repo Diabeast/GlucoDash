@@ -999,7 +999,7 @@
         
         // Handmatig sensor start overschrijven (zet dit op true en pas datum aan)
         const MANUAL_SENSOR_START = true; // Zet op true om handmatige datum te gebruiken
-        const MANUAL_SENSOR_DATE = '2026-04-05T08:00:00'; // Pas aan naar juiste datum
+        const MANUAL_SENSOR_DATE = '2026-04-06T08:00:00'; // Pas aan naar juiste datum
         
         function processSensorData(treatments, eventTypes) {
             if (!treatments || !Array.isArray(treatments)) {
@@ -1088,18 +1088,22 @@
             const statusEl = document.getElementById('sensor-status');
             const timeEl = document.getElementById('sensor-time');
             
+            // Altijd toon hoeveel tijd over is
             if (daysLeft <= 1) {
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--danger-color)';
             } else if (daysLeft <= 3) {
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--warning-color)';
-            } else {
-                statusEl.innerText = `${ageDays}d ${ageHours}u`;
+            } else if (daysLeft > 0) {
+                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--accent-color)';
+            } else {
+                statusEl.innerText = `Vervangen!`;
+                statusEl.style.color = 'var(--danger-color)';
             }
             
-            timeEl.innerText = `Vervangen: ${replaceDate.toLocaleDateString('nl-NL')}`;
+            timeEl.innerText = `Verloopt: ${replaceDate.toLocaleDateString('nl-NL')}`;
         }
 
         // ============= HISTORISCHE DATA OPSLAG =============

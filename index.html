@@ -946,7 +946,7 @@
             if (bolusTreatments.length > 0) {
                 const lastBolus = bolusTreatments[0];
                 const bolusTime = new Date(getTimestamp(lastBolus));
-                const hoursAgo = Math.round((now.getTime() - bolusTime.getTime()) / (1000 * 60 * 60) * 10) / 10;
+                const hoursAgo = Math.round((new Date().getTime() - bolusTime.getTime()) / (1000 * 60 * 60) * 10) / 10;
                 document.getElementById('last-bolus').innerText = `${lastBolus.insulin}U (${hoursAgo}u geleden)`;
             } else {
                 document.getElementById('last-bolus').innerText = "Geen bolus";

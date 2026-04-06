@@ -873,9 +873,16 @@
             // Process sensor data
             processSensorData(treatments, eventTypes);
 
-            // Filter en bereken insuline stats
-            const insulinTreatments = treatments.filter(t => t.insulin && parseFloat(t.insulin) > 0);
-            console.log(`[GlucoDash] Insulin treatments: ${insulinTreatments.length}`);
+            // Filter en bereken insuline stats - ALLEEN VANDAAG
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+            
+            const insulinTreatments = treatments.filter(t => {
+                if (!t.insulin || parseFloat(t.insulin) <= 0) return false;
+                const ts = getTimestamp(t);
+                return ts >= todayStart.getTime();
+            });
+            console.log(`[GlucoDash] Insulin treatments vandaag: ${insulinTreatments.length}`);
 
             let totalVal = 0;
             insulinTreatments.forEach(t => { totalVal += parseFloat(t.insulin) || 0; });

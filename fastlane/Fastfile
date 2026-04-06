@@ -5,7 +5,6 @@ platform :ios do
   lane :build_upload do
 
     # API key voor App Store Connect
-    # key_filepath is absoluut pad vanuit project root (api_key.p8 staat naast fastlane/)
     api_key = app_store_connect_api_key(
       key_id: ENV['FASTLANE_KEY_ID'],
       issuer_id: ENV['FASTLANE_ISSUER_ID'],
@@ -26,38 +25,37 @@ platform :ios do
       lock_when_sleeps: false
     )
 
-    # Haal Distribution Certificate op via API (of maak nieuw aan als er geen is)
-    # cert gebruikt keychain_path (niet keychain_name)
-    cert(
-      api_key: api_key,
-      keychain_path: keychain_path,
-      keychain_password: keychain_pass
-    )
-
-    # Zorg dat codesign de private key kan gebruiken zonder UI-prompt (CI vereiste)
-    sh("security set-key-partition-list -S apple-tool:,apple: -s -k '#{keychain_pass}' '#{keychain_path}' 2>/dev/null || true")
-
-    # Download/maak provisioning profile aan (force=true zodat het nieuwe cert erin zit)
-    sigh(
+    # Match: haalt cert + provisioning profile op uit versleutelde git repo
+    # Eerste run: maakt cert aan en slaat alles op
+    # Volgende runs: hergebruikt opgeslagen cert (geen nieuw cert nodig)
+    match(
+      type: "appstore",
       api_key: api_key,
       app_identifier: "com.#{ENV['TEAMID']}.glucodash",
-      provisioning_name: "GlucoDash AppStore",
-      force: true
+      keychain_name: keychain_name,
+      keychain_password: keychain_pass,
+      readonly: false,
+      force: false
     )
 
-    # Manual signing met het gedownloade profiel
-    update_code_signing_settings(
-      use_automatic_signing: false,
-      team_id: ENV["TEAMID"],
-      path: "ios/App/App.xcodeproj",
-      profile_name: "GlucoDash AppStore",
-      code_sign_identity: "iPhone Distribution"
-    )
+    # Zorg dat codesign de private key kan gebruiken zonder UI-prompt
+    sh("security set-key-partition-list -S apple-tool:,apple: -s -k '#{keychain_pass}' '#{keychain_path}' 2>/dev/null || true")
 
     update_app_identifier(
       xcodeproj: "ios/App/App.xcodeproj",
       plist_path: "App/Info.plist",
       app_identifier: "com.#{ENV['TEAMID']}.glucodash"
+    )
+
+    # Match stelt de profile_name in via lane_context
+    profile_name = ENV["sigh_com.#{ENV['TEAMID']}.glucodash_appstore_profile-name"] || "match AppStore com.#{ENV['TEAMID']}.glucodash"
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: ENV["TEAMID"],
+      path: "ios/App/App.xcodeproj",
+      profile_name: profile_name,
+      code_sign_identity: "iPhone Distribution"
     )
 
     build_app(
@@ -67,7 +65,7 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.#{ENV['TEAMID']}.glucodash" => "GlucoDash AppStore"
+          "com.#{ENV['TEAMID']}.glucodash" => profile_name
         }
       }
     )

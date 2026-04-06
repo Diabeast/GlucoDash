@@ -349,6 +349,19 @@
         .status-ok { color: var(--accent-color); }
         .status-error { color: var(--danger-color); }
         
+        /* TIR Bar */
+        .tir-bar {
+            display: flex;
+            height: 8px;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-top: 8px;
+            background: #e0e0e0;
+        }
+        .tir-low { background: var(--danger-color); }
+        .tir-range { background: var(--accent-color); }
+        .tir-high { background: var(--warning-color); }
+        
         /* 24h Graph Modal */
         .modal-24h { max-width: 800px; width: 95%; }
         .chart-24h-container { height: 300px; position: relative; }
@@ -445,6 +458,15 @@
 
         <div class="stats-grid">
             <div class="stat-card">
+                <h3>TIR (3.9-10) <span class="info-icon" onclick="openModal('tir-modal')">i</span></h3>
+                <p id="tir-val">--%</p>
+                <div class="tir-bar">
+                    <div class="tir-low" id="tir-low"></div>
+                    <div class="tir-range" id="tir-range"></div>
+                    <div class="tir-high" id="tir-high"></div>
+                </div>
+            </div>
+            <div class="stat-card">
                 <h3>HbA1c <span class="info-icon" onclick="openModal('gmi-modal')">i</span></h3>
                 <p id="gmi-val">--</p>
             </div>
@@ -478,6 +500,13 @@
     </div>
 
     <!-- Modals -->
+    <div id="tir-modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
+            <h2>TIR - Time In Range</h2>
+            <p>Percentage tijd in bereik (3.9-10.0 mmol/L).<br><br><strong>Streefwaarden:</strong><br>🟢 >70% in bereik<br>🟡 50-70% matig<br>🔴 &lt;50% te laag</p>
+        </div>
+    </div>
     <div id="gmi-modal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
@@ -856,6 +885,7 @@
                 let sumMgdl = 0;
                 let hypos = 0;
                 let hypers = 0;
+                let inRange = 0;
                 const values = [];
 
                 entries.forEach(entry => {
@@ -865,7 +895,8 @@
                         values.push(entry.sgv);
                         
                         if (entry.sgv < 70) hypos++;
-                        if (entry.sgv > 180) hypers++;
+                        else if (entry.sgv > 180) hypers++;
+                        else inRange++;
                     }
                 });
 
@@ -877,10 +908,11 @@
                     const sdMgdl = Math.sqrt(variance);
                     const sdMmol = (sdMgdl / 18.018).toFixed(1);
                     const cv = ((sdMgdl / avgMgdl) * 100).toFixed(1);
+                    const tir = ((inRange / values.length) * 100).toFixed(0);
                     
                     periodStats[period] = {
-                        avgMmol, gmi, cv, hypos, hypers, sdMmol,
-                        values: values.length
+                        avgMmol, gmi, cv, hypos, hypers, sdMmol, tir, inRange,
+                        values: values.length, lowPct: ((hypos/values.length)*100).toFixed(0), highPct: ((hypers/values.length)*100).toFixed(0)
                     };
                 }
             }
@@ -897,6 +929,19 @@
             const gmiPercent = parseFloat(stats.gmi);
             const gmiMmol = (gmiPercent * 10.929 - 23.5).toFixed(0);
             document.getElementById('gmi-val').innerHTML = gmiMmol + ' <span class="unit-mmol">mmol</span>';
+            
+            // TIR tonen
+            document.getElementById('tir-val').innerText = stats.tir + "%";
+            document.getElementById('tir-low').style.width = stats.lowPct + "%";
+            document.getElementById('tir-range').style.width = stats.tir + "%";
+            document.getElementById('tir-high').style.width = stats.highPct + "%";
+            
+            // Kleur TIR op basis van percentage
+            const tirEl = document.getElementById('tir-val');
+            if (parseInt(stats.tir) >= 70) tirEl.style.color = "var(--accent-color)";
+            else if (parseInt(stats.tir) >= 50) tirEl.style.color = "var(--warning-color)";
+            else tirEl.style.color = "var(--danger-color)";
+            
             document.getElementById('sd-val').innerText = stats.sdMmol;
             document.getElementById('cv-val').innerText = stats.cv + "%";
             document.getElementById('hypo-val').innerText = stats.hypos;

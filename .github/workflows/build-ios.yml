@@ -55,6 +55,12 @@ jobs:
       - name: Sync Capacitor
         run: npx cap sync ios
 
+      - name: Genereer iOS app icoon
+        run: |
+          mkdir -p resources
+          cp appicon.png resources/icon.png
+          npx @capacitor/assets generate --ios
+
       - name: Add HealthKit entitlement
         run: |
           ENTITLEMENTS="ios/App/App/App.entitlements"

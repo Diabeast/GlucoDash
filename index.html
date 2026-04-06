@@ -1027,51 +1027,6 @@
             const tenDayDate = new Date(sensorStart.getTime() + (SENSOR_DAYS * 24 * 60 * 60 * 1000));
             timeEl.innerText = `Verloopt: ${replaceDate.toLocaleDateString('nl-NL')} (10d: ${tenDayDate.toLocaleDateString('nl-NL')})`;
         }
-            const timeLeftMs = replaceDate.getTime() - now.getTime();
-            const daysLeft = Math.max(0, Math.floor(timeLeftMs / (1000 * 60 * 60 * 24)));
-            const hoursLeft = Math.max(0, Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
-            
-            console.log(`[GlucoDash] Sensor leeftijd: ${ageDays}d ${ageHours}u, nog ${daysLeft}d ${hoursLeft}u`);
-            
-            // Update insulin grid sensor info
-            const statusEl = document.getElementById('sensor-status');
-            const timeEl = document.getElementById('sensor-time');
-            
-            if (daysLeft <= 1) {
-                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
-                statusEl.style.color = 'var(--danger-color)';
-            } else if (daysLeft <= 3) {
-                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
-                statusEl.style.color = 'var(--warning-color)';
-            } else {
-                statusEl.innerText = `${ageDays}d ${ageHours}u`;
-                statusEl.style.color = 'var(--accent-color)';
-            }
-            
-            timeEl.innerText = "oud";
-            
-            // Update full sensor details section
-            const detailEl = document.getElementById('sensor-detail');
-            const expiresEl = document.getElementById('sensor-expires');
-            
-            const startStr = sensorStart.toLocaleDateString('nl-NL');
-            
-            if (daysLeft <= 1) {
-                detailEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
-                detailEl.style.color = 'var(--danger-color)';
-            } else if (daysLeft <= 3) {
-                detailEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
-                detailEl.style.color = 'var(--warning-color)';
-            } else if (inGrace) {
-                detailEl.innerText = `Nog ${hoursLeft}u (grace)`;
-                detailEl.style.color = 'var(--danger-color)';
-            } else {
-                detailEl.innerText = `${ageDays}d ${ageHours}u`;
-                detailEl.style.color = 'var(--accent-color)';
-            }
-            
-            expiresEl.innerText = `Gestart: ${startStr} | Verloopt: ${replaceDate.toLocaleDateString('nl-NL')}`;
-        }
 
         // ============= HISTORISCHE DATA OPSLAG =============
         const STORAGE_KEY = 'glucodash_history';

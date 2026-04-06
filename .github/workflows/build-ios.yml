@@ -123,6 +123,66 @@ jobs:
           grep -n "PKey\|EC\.new\|key_filepath\|key_content" "$TOKENFILE" | head -15
           echo "Patch klaar!"
 
+      - name: Test JWT authenticatie tegen Apple API
+        env:
+          FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
+          FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
+        run: |
+          echo "KEY_ID eerste 4 chars: ${FASTLANE_KEY_ID:0:4}..."
+          echo "ISSUER_ID eerste 8 chars: ${FASTLANE_ISSUER_ID:0:8}..."
+          echo "Aantal chars KEY_ID: ${#FASTLANE_KEY_ID}"
+          echo "Aantal chars ISSUER_ID: ${#FASTLANE_ISSUER_ID}"
+
+          # Test of Ruby + OpenSSL de key kan laden en een JWT kan genereren
+          bundle exec ruby -e "
+            require 'openssl'
+            require 'base64'
+            require 'json'
+            require 'net/http'
+
+            key_path = File.expand_path('api_key.p8')
+            key_content = File.binread(key_path)
+            puts 'Key bytes: ' + key_content.bytesize.to_s
+            puts 'Key eerste regel: ' + key_content.lines.first.chomp
+
+            begin
+              key = OpenSSL::PKey.read(key_content)
+              puts 'PKey.read: OK (' + key.class.to_s + ')'
+            rescue => e
+              puts 'PKey.read FAILED: ' + e.message
+              exit 1
+            end
+
+            # Genereer JWT
+            key_id = ENV['FASTLANE_KEY_ID']
+            issuer_id = ENV['FASTLANE_ISSUER_ID']
+            now = Time.now.to_i
+            header = Base64.urlsafe_encode64(JSON.generate({alg:'ES256',kid:key_id,typ:'JWT'}), padding: false)
+            payload = Base64.urlsafe_encode64(JSON.generate({iss:issuer_id,iat:now,exp:now+1200,aud:'appstoreconnect-v1'}), padding: false)
+            signing_input = header + '.' + payload
+            digest = OpenSSL::Digest::SHA256.new
+            sig_der = key.sign(digest, signing_input)
+            # DER naar raw r+s voor JWT ES256
+            asn1 = OpenSSL::ASN1.decode(sig_der)
+            r = asn1.value[0].value.to_s(2).rjust(32, \"\\x00\").bytes.last(32).pack('C*')
+            s = asn1.value[1].value.to_s(2).rjust(32, \"\\x00\").bytes.last(32).pack('C*')
+            sig = Base64.urlsafe_encode64(r + s, padding: false)
+            jwt = signing_input + '.' + sig
+            puts 'JWT gegenereerd (eerste 60 chars): ' + jwt[0..59] + '...'
+
+            # Test JWT tegen Apple API
+            uri = URI('https://api.appstoreconnect.apple.com/v1/apps?limit=1')
+            req = Net::HTTP::Get.new(uri)
+            req['Authorization'] = 'Bearer ' + jwt
+            res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) {|h| h.request(req)}
+            puts 'Apple API response: ' + res.code + ' ' + res.message
+            if res.code.to_i >= 400
+              puts 'Error body: ' + res.body[0..300]
+            else
+              puts 'JWT is GELDIG!'
+            end
+          "
+
       - name: Build & Upload to TestFlight
         env:
           TEAMID: ${{ secrets.TEAMID }}

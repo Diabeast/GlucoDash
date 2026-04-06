@@ -899,17 +899,20 @@
 
             // Filter en bereken insuline stats - ALLEEN VANDAAG (lokale tijd)
             const now = new Date();
-            // Start van vandaag om 00:00 lokale tijd
+            // Vandaag 00:00 lokaal tot morgen 00:00 lokaal
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-            console.log("[GlucoDash] Vandaag lokaal:", todayStart.toLocaleString(), "tot", todayEnd.toLocaleString());
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+            
+            console.log("[GlucoDash] Insuline filter:", {
+                now: now.toISOString(),
+                todayStart: todayStart.toISOString(),
+                todayEnd: todayEnd.toISOString()
+            });
             
             const insulinTreatments = treatments.filter(t => {
                 if (!t.insulin || parseFloat(t.insulin) <= 0) return false;
                 const ts = getTimestamp(t);
-                const entryDate = new Date(ts);
-                // Check of behandeling van vandaag is (lokale tijd)
-                return entryDate >= todayStart && entryDate <= todayEnd;
+                return ts >= todayStart.getTime() && ts < todayEnd.getTime();
             });
             
             // Debug: toon alle insuline behandelingen

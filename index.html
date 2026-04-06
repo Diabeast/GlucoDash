@@ -131,6 +131,8 @@
             align-items: center; 
             justify-content: center;
             min-width: 50px;
+            font-size: 30px;
+            color: #2ecc71;
         }
         
         .trend-arrow svg {
@@ -809,17 +811,12 @@
             console.log("[GlucoDash] Direction:", current.direction);
             
             const arrowSvg = getArrow(current.direction, currentMmol);
-            console.log("[GlucoDash] Arrow SVG:", arrowSvg ? "generated" : "empty", "len:", arrowSvg?.length);
+            console.log("[GlucoDash] Arrow raw:", arrowSvg);
             
             document.getElementById('current-bg').innerText = currentMmol;
             const arrowEl = document.getElementById('trend-arrow');
-            // Check if valid SVG (not empty and contains svg tag)
-            if (arrowSvg && arrowSvg.length > 10 && arrowSvg.includes('<svg')) {
-                arrowEl.innerHTML = arrowSvg;
-            } else {
-                // Fallback text - use emoji arrow
-                arrowEl.innerHTML = '<span style="font-size:24px">→</span>';
-            }
+            // Altijd de SVG tonen, of fallback pijl
+            arrowEl.innerHTML = arrowSvg || '→';
             
             console.log("[GlucoDash] Arrow SVG rendered for:", current.direction);
             

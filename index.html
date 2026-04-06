@@ -447,12 +447,7 @@
             </div>
             <div class="stat-card insulin-card">
                 <h3>Sensor</h3>
-                <p><span id="sensor-status">--</span> <span class="small-unit" id="sensor-time"></span></p>
-            </div>
-            <div class="stat-card sensor-card" style="border-left: 4px solid var(--info-color);">
-                <h3>Sensorgegevens</h3>
-                <p id="sensor-detail">--</p>
-                <p id="sensor-expires" style="font-size: 0.85rem; color: #7f8c8d;">--</p>
+                <p><span id="sensor-status">--</span></p>
             </div>
         </div>
 
@@ -813,8 +808,17 @@
             
             console.log("[GlucoDash] Direction:", current.direction);
             
+            const arrowSvg = getArrow(current.direction, currentMmol);
+            console.log("[GlucoDash] Arrow SVG:", arrowSvg ? "generated" : "empty");
+            
             document.getElementById('current-bg').innerText = currentMmol;
-            document.getElementById('trend-arrow').innerHTML = getArrow(current.direction, currentMmol);
+            const arrowEl = document.getElementById('trend-arrow');
+            if (arrowSvg) {
+                arrowEl.innerHTML = arrowSvg;
+            } else {
+                // Fallback text
+                arrowEl.innerHTML = '<span style="font-size:20px">→</span>';
+            }
             
             console.log("[GlucoDash] Arrow SVG rendered for:", current.direction);
             
@@ -1011,10 +1015,9 @@
             
             // ==== UI Update ====
             const statusEl = document.getElementById('sensor-status');
-            const timeEl = document.getElementById('sensor-time');
             
             if (inGrace) {
-                statusEl.innerText = `Nog ${hoursLeft}u (grace)`;
+                statusEl.innerText = `Nog ${hoursLeft}u`;
                 statusEl.style.color = 'var(--danger-color)';
             } else if (daysLeft <= 1) {
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
@@ -1026,9 +1029,6 @@
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--accent-color)';
             }
-            
-            const tenDayDate = new Date(sensorStart.getTime() + (SENSOR_DAYS * 24 * 60 * 60 * 1000));
-            timeEl.innerText = `Verloopt: ${replaceDate.toLocaleDateString('nl-NL')} (10d: ${tenDayDate.toLocaleDateString('nl-NL')})`;
         }
 
         // ============= HISTORISCHE DATA OPSLAG =============

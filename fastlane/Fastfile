@@ -12,10 +12,14 @@ platform :ios do
       key_filepath: File.expand_path("../api_key.p8", __dir__)
     )
 
+    keychain_name = "build.keychain"
+    keychain_path = File.expand_path("~/Library/Keychains/build.keychain-db")
+    keychain_pass = "buildpass"
+
     # Maak tijdelijke keychain aan voor CI
     create_keychain(
-      name: "build.keychain",
-      password: "buildpass",
+      name: keychain_name,
+      password: keychain_pass,
       default_keychain: true,
       unlock: true,
       timeout: 3600,
@@ -23,15 +27,15 @@ platform :ios do
     )
 
     # Haal Distribution Certificate op via API (of maak nieuw aan als er geen is)
-    # Geen P12/Mac nodig: cert genereert een nieuw keypair op CI indien nodig
+    # cert gebruikt keychain_path (niet keychain_name)
     cert(
       api_key: api_key,
-      keychain_name: "build.keychain",
-      keychain_password: "buildpass"
+      keychain_path: keychain_path,
+      keychain_password: keychain_pass
     )
 
     # Zorg dat codesign de private key kan gebruiken zonder UI-prompt (CI vereiste)
-    sh("security set-key-partition-list -S apple-tool:,apple: -s -k buildpass ~/Library/Keychains/build.keychain-db 2>/dev/null || true")
+    sh("security set-key-partition-list -S apple-tool:,apple: -s -k '#{keychain_pass}' '#{keychain_path}' 2>/dev/null || true")
 
     # Download/maak provisioning profile aan (force=true zodat het nieuwe cert erin zit)
     sigh(

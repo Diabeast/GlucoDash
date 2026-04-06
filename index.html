@@ -676,7 +676,13 @@
         }
 
         // Converteer Nightscout datum naar timestamp (ms)
-        function getTimestamp(entry) {
+        function getTimestamp(entry, preferCreatedAt = false) {
+            // Voor sensor events: gebruik created_at (want date veld heeft soms 2106 bug)
+            if (preferCreatedAt && entry.created_at) {
+                const parsed = Date.parse(entry.created_at);
+                if (!isNaN(parsed)) return parsed;
+            }
+            
             // Probeer verschillende datum velden
             const dateValue = entry.date || entry.dateString || entry.created_at;
             if (!dateValue) return 0;
@@ -860,6 +866,7 @@
             document.getElementById('delta').innerHTML = deltaHtml;
             
             console.log("[GlucoDash] Direction:", current.direction);
+            console.log("[GlucoDash] Full entry:", JSON.stringify(current));
             
             document.getElementById('current-bg').innerText = currentMmol;
             document.getElementById('trend-arrow').innerHTML = getArrow(current.direction, currentMmol);
@@ -1034,7 +1041,8 @@
                 
                 if (sensorEvents.length > 0) {
                     const latestSensor = sensorEvents[0];
-                    sensorStart = new Date(getTimestamp(latestSensor));
+                    // Gebruik created_at voor sensor events (vermijd 2106 bug in date veld)
+                    sensorStart = new Date(getTimestamp(latestSensor, true));
                     
                     // Filter ongeldige data (year 2038 overflow)
                     const year = sensorStart.getFullYear();
@@ -1042,7 +1050,7 @@
                         console.log("[GlucoDash] Sensor automatisch gedetecteerd:", sensorStart);
                         localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
                     } else {
-                        console.log("[GlucoDash] Ongeldige sensor datum:", year);
+                        console.log("[GlucoDash] Ongeldige sensor datum:", year, latestSensor.created_at);
                     }
                 }
             }
@@ -1071,7 +1079,7 @@
             
             // If MANUAL_SENSOR_START was false, try to get from events
             if (!sensorStart && allSensorEvents.length > 0) {
-                sensorStart = new Date(getTimestamp(allSensorEvents[0]));
+                sensorStart = new Date(getTimestamp(allSensorEvents[0], true));
                 // Check if date is valid and not year 2106 or far future
                 const year = sensorStart.getFullYear();
                 if (year > 2030 || year < 2020) {
@@ -1088,7 +1096,14 @@
             if (!sensorStart) {
                 const storedSensorStart = localStorage.getItem('glucodash_sensor_start');
                 if (storedSensorStart) {
-                    sensorStart = new Date(parseInt(storedSensorStart));
+                    const stored = new Date(parseInt(storedSensorStart));
+                    // Valideer opgeslagen datum
+                    if (stored.getFullYear() >= 2020 && stored.getFullYear() <= 2030) {
+                        sensorStart = stored;
+                    } else {
+                        console.log("[GlucoDash] Ongeldige opgeslagen sensor datum, negeren");
+                        localStorage.removeItem('glucodash_sensor_start');
+                    }
                 }
             }
             

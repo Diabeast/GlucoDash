@@ -12,14 +12,6 @@ platform :ios do
       key_filepath: File.expand_path("../api_key.p8", __dir__)
     )
 
-    # Registreer app identifier in Developer Portal als die nog niet bestaat
-    # (api_key wordt automatisch overgenomen van app_store_connect_api_key hierboven)
-    produce(
-      app_identifier: "com.#{ENV['TEAMID']}.glucodash",
-      app_name: "GlucoDash",
-      skip_itc: true
-    )
-
     # Maak tijdelijke keychain aan voor CI
     create_keychain(
       name: "build.keychain",

@@ -1,10 +1,10 @@
 default_platform(:ios)
 
 platform :ios do
-  desc "Build GlucoDash en upload naar TestFlight"
+  desc "Build GlucoDash en upload naar TestFlight voor de interne groep Testers"
   lane :build_upload do
 
-    # API key voor App Store Connect
+    # 1. API key voor App Store Connect
     api_key = app_store_connect_api_key(
       key_id: ENV['FASTLANE_KEY_ID'],
       issuer_id: ENV['FASTLANE_ISSUER_ID'],
@@ -15,7 +15,7 @@ platform :ios do
     keychain_path = File.expand_path("~/Library/Keychains/build.keychain-db")
     keychain_pass = "buildpass"
 
-    # Maak tijdelijke keychain aan voor CI
+    # 2. Maak tijdelijke keychain aan voor CI (GitHub Actions)
     create_keychain(
       name: keychain_name,
       password: keychain_pass,
@@ -25,9 +25,7 @@ platform :ios do
       lock_when_sleeps: false
     )
 
-    # Match: haalt cert + provisioning profile op uit versleutelde git repo
-    # Eerste run: maakt cert aan en slaat alles op
-    # Volgende runs: hergebruikt opgeslagen cert (geen nieuw cert nodig)
+    # 3. Match: Certificaten en Provisioning Profiles ophalen
     match(
       type: "appstore",
       api_key: api_key,
@@ -38,7 +36,7 @@ platform :ios do
       force: false
     )
 
-    # Zorg dat codesign de private key kan gebruiken zonder UI-prompt
+    # 4. Keychain permissies goedzetten voor codesign
     sh("security set-key-partition-list -S apple-tool:,apple: -s -k '#{keychain_pass}' '#{keychain_path}' 2>/dev/null || true")
 
     update_app_identifier(
@@ -47,9 +45,9 @@ platform :ios do
       app_identifier: "com.#{ENV['TEAMID']}.glucodash"
     )
 
-    # Match stelt de profile_name in via lane_context
     profile_name = ENV["sigh_com.#{ENV['TEAMID']}.glucodash_appstore_profile-name"] || "match AppStore com.#{ENV['TEAMID']}.glucodash"
 
+    # 5. Code signing instellingen bijwerken
     update_code_signing_settings(
       use_automatic_signing: false,
       team_id: ENV["TEAMID"],
@@ -58,13 +56,14 @@ platform :ios do
       code_sign_identity: "iPhone Distribution"
     )
 
-    # Gebruik GitHub run number als build number — altijd uniek en stijgend
+    # 6. Build number instellen (GitHub Run Number voor uniekheid)
     build_number = ENV['GITHUB_RUN_NUMBER'] || Time.now.to_i.to_s
     increment_build_number(
       build_number: build_number,
       xcodeproj: "ios/App/App.xcodeproj"
     )
 
+    # 7. De .ipa file builden
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
@@ -77,12 +76,8 @@ platform :ios do
       }
     )
 
+    # 8. Uploaden naar TestFlight en distribueren naar interne groep "Testers"
     upload_to_testflight(
       api_key: api_key,
-      skip_waiting_for_build_processing: false,
+      groups: ["Testers"],                     # Specifieke interne groep
       distribute_external: false,
-      notify_external_testers: false,
-      groups: ["Testers"]
-    )
-  end
-end

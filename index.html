@@ -274,6 +274,12 @@
             font-weight: normal;
             color: #7f8c8d;
         }
+        
+        .val-unit {
+            font-size: 0.8rem;
+            font-weight: normal;
+            color: #7f8c8d;
+        }
 
         .info-icon {
             cursor: pointer;
@@ -493,7 +499,7 @@
             </div>
             <div class="stat-card">
                 <h3>Variatie (CV) <span class="info-icon" onclick="openModal('cv-modal')">i</span></h3>
-                <p id="cv-val">--%</p>
+                <p id="cv-val">--<span class="val-unit">%</span></p>
             </div>
             <div class="stat-card desktop-only">
                 <h3>Laatste bolus</h3>
@@ -884,8 +890,8 @@
             const gmiPercent = parseFloat(stats.gmi);
             const gmiMmol = (gmiPercent * 10.929 - 23.5).toFixed(0);
             document.getElementById('gmi-val').innerHTML = gmiMmol + ' <span class="unit-mmol">mmol</span>';
-            document.getElementById('sd-val').innerText = stats.sdMmol;
-            document.getElementById('cv-val').innerText = stats.cv + "%";
+            document.getElementById('sd-val').innerHTML = stats.sdMmol + ' <span class="val-unit">mmol</span>';
+            document.getElementById('cv-val').innerHTML = stats.cv + '<span class="val-unit">%</span>';
             document.getElementById('hypo-val').innerText = stats.hypos;
             document.getElementById('hyper-val').innerText = stats.hypers;
 

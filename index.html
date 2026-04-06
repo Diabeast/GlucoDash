@@ -847,6 +847,14 @@
             }
 
             const stats = periodStats['24u'];
+            console.log("[GlucoDash] TIR debug:", {
+                inRange: stats.inRange,
+                hypos: stats.hypos,
+                hypers: stats.hypers,
+                total: stats.values,
+                tir: stats.tir
+            });
+            
             document.getElementById('avg-val').innerText = stats.avgMmol;
             // TIR tonen
             document.getElementById('tir-val').innerText = stats.tir + "%";

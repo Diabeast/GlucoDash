@@ -4,42 +4,52 @@ platform :ios do
   desc "Build GlucoDash en upload naar TestFlight"
   lane :build_upload do
 
-    # Key wordt via key_filepath geladen (schrijf stap in workflow)
+    # API key voor App Store Connect
     api_key = app_store_connect_api_key(
       key_id: ENV['FASTLANE_KEY_ID'],
       issuer_id: ENV['FASTLANE_ISSUER_ID'],
       key_filepath: "api_key.p8"
     )
 
+    # Download/maak signing certificate (dist)
+    cert(
+      api_key: api_key,
+      output_path: "/tmp/certs"
+    )
+
+    # Download/maak App Store provisioning profile
+    sigh(
+      api_key: api_key,
+      app_identifier: "com.#{ENV['TEAMID']}.glucodash",
+      output_path: "/tmp/profiles",
+      provisioning_name: "GlucoDash AppStore",
+      force: true
+    )
+
+    # Update project naar manual signing met het gedownloade profiel
     update_code_signing_settings(
-      use_automatic_signing: true,
+      use_automatic_signing: false,
       team_id: ENV["TEAMID"],
-      path: "ios/App/App.xcodeproj"
+      path: "ios/App/App.xcodeproj",
+      profile_name: "GlucoDash AppStore",
+      code_sign_identity: "iPhone Distribution"
     )
 
     update_app_identifier(
       xcodeproj: "ios/App/App.xcodeproj",
       plist_path: "App/Info.plist",
-      app_identifier: "com.9CGZ7BWVXT.glucodash"
+      app_identifier: "com.#{ENV['TEAMID']}.glucodash"
     )
-
-    # Gebruik API key voor xcodebuild authenticatie (automatisch provisioning)
-    # __dir__ is fastlane/, project root is één niveau hoger
-    project_root = File.expand_path("..", __dir__)
-    api_key_path = File.join(project_root, "api_key_pkcs8.p8")
-    # Fallback: als pkcs8 niet bestaat, gebruik de geconverteerde key
-    api_key_path = File.join(project_root, "api_key.p8") unless File.exist?(api_key_path)
-    UI.message("API key pad: #{api_key_path} (bestaat: #{File.exist?(api_key_path)})")
 
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
       configuration: "Release",
       export_method: "app-store",
-      xcargs: "-allowProvisioningUpdates -authenticationKeyPath #{api_key_path} -authenticationKeyID #{ENV['FASTLANE_KEY_ID']} -authenticationKeyIssuerID #{ENV['FASTLANE_ISSUER_ID']}",
       export_options: {
-        provisioningProfiles: {},
-        signingStyle: "automatic"
+        provisioningProfiles: {
+          "com.#{ENV['TEAMID']}.glucodash" => "GlucoDash AppStore"
+        }
       }
     )
 

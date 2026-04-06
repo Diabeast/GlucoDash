@@ -349,19 +349,6 @@
         .status-ok { color: var(--accent-color); }
         .status-error { color: var(--danger-color); }
         
-        /* TIR Bar */
-        .tir-bar {
-            display: flex;
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            margin-top: 8px;
-            background: #e0e0e0;
-        }
-        .tir-low { background: var(--danger-color); }
-        .tir-range { background: var(--accent-color); }
-        .tir-high { background: var(--warning-color); }
-        
         /* 24h Graph Modal */
         .modal-24h { max-width: 800px; width: 95%; }
         .chart-24h-container { height: 300px; position: relative; }
@@ -458,15 +445,6 @@
 
         <div class="stats-grid">
             <div class="stat-card">
-                <h3>TIR (3.9-10) <span class="info-icon" onclick="openModal('tir-modal')">i</span></h3>
-                <p id="tir-val">--%</p>
-                <div class="tir-bar">
-                    <div class="tir-low" id="tir-low"></div>
-                    <div class="tir-range" id="tir-range"></div>
-                    <div class="tir-high" id="tir-high"></div>
-                </div>
-            </div>
-            <div class="stat-card">
                 <h3>HbA1c <span class="info-icon" onclick="openModal('gmi-modal')">i</span></h3>
                 <p id="gmi-val">--</p>
             </div>
@@ -500,13 +478,6 @@
     </div>
 
     <!-- Modals -->
-    <div id="tir-modal" class="modal-overlay" onclick="closeModal(event)">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
-            <h2>TIR - Time In Range</h2>
-            <p>Percentage tijd in bereik (3.9-10.0 mmol/L).<br><br><strong>Streefwaarden:</strong><br>🟢 >70% in bereik<br>🟡 50-70% matig<br>🔴 &lt;50% te laag</p>
-        </div>
-    </div>
     <div id="gmi-modal" class="modal-overlay" onclick="closeModal(event)">
         <div class="modal-content">
             <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
@@ -676,13 +647,7 @@
         }
 
         // Converteer Nightscout datum naar timestamp (ms)
-        function getTimestamp(entry, preferCreatedAt = false) {
-            // Voor sensor events: gebruik created_at (want date veld heeft soms 2106 bug)
-            if (preferCreatedAt && entry.created_at) {
-                const parsed = Date.parse(entry.created_at);
-                if (!isNaN(parsed)) return parsed;
-            }
-            
+        function getTimestamp(entry) {
             // Probeer verschillende datum velden
             const dateValue = entry.date || entry.dateString || entry.created_at;
             if (!dateValue) return 0;
@@ -697,64 +662,10 @@
             return isNaN(parsed) ? 0 : parsed;
         }
 
-        // ============= HEALTHKIT (native app) =============
-        async function fetchFromHealthKit() {
-            console.log("[GlucoDash] Native modus - HealthKit ophalen...");
-            const HK = window.Capacitor.Plugins.CapacitorHealthkit;
-            const now = new Date();
-            const start = new Date(now.getTime() - 24 * 60 * 60 * 1000 * 3);
-
-            await HK.requestAuthorization({
-                all: [], read: ['bloodGlucose', 'insulinDelivery', 'carbohydrates'], write: []
-            });
-
-            const glucoseRaw = await HK.queryHKitSampleType({
-                sampleName: 'bloodGlucose',
-                startDate: start.toISOString(),
-                endDate: now.toISOString(),
-                limit: 2000
-            });
-
-            const insulinRaw = await HK.queryHKitSampleType({
-                sampleName: 'insulinDelivery',
-                startDate: start.toISOString(),
-                endDate: now.toISOString(),
-                limit: 500
-            });
-
-            const entries = (glucoseRaw.resultData || []).map(s => ({
-                sgv: Math.round(s.value * 18.018),
-                date: new Date(s.startDate).getTime(),
-                dateString: s.startDate,
-                direction: 'Flat'
-            })).sort((a, b) => b.date - a.date);
-
-            const treatments = (insulinRaw.resultData || []).map(s => ({
-                eventType: s.metadata?.HKInsulinDeliveryReason === 2 ? 'Bolus' : 'SMB',
-                insulin: s.value,
-                created_at: s.startDate,
-                date: new Date(s.startDate).getTime()
-            }));
-
-            console.log(`[GlucoDash] HealthKit: ${entries.length} glucose, ${treatments.length} insuline`);
-            processGlucoseData(entries);
-            processInsulinData(treatments);
-            document.getElementById('last-update').innerText = `Laatste update: ${new Date().toLocaleTimeString()}`;
-            updateStatus("HealthKit - offline modus", "ok");
-        }
-
         // ============= MAIN FETCH =============
         async function fetchData() {
             console.log("[GlucoDash] Start fetch...");
-
-            if (window.Capacitor && window.Capacitor.isNativePlatform()) {
-                try { await fetchFromHealthKit(); } catch (e) {
-                    console.error("[GlucoDash] HealthKit fout:", e);
-                    updateStatus("HealthKit fout: " + e.message, "error");
-                }
-                return;
-            }
-
+            
             const baseUrl = `${NS_URL}/api/v1`;
             
             // Directe URLs (zonder proxy voor nu - we'll try both)
@@ -866,7 +777,6 @@
             document.getElementById('delta').innerHTML = deltaHtml;
             
             console.log("[GlucoDash] Direction:", current.direction);
-            console.log("[GlucoDash] Full entry:", JSON.stringify(current));
             
             document.getElementById('current-bg').innerText = currentMmol;
             document.getElementById('trend-arrow').innerHTML = getArrow(current.direction, currentMmol);
@@ -892,7 +802,6 @@
                 let sumMgdl = 0;
                 let hypos = 0;
                 let hypers = 0;
-                let inRange = 0;
                 const values = [];
 
                 entries.forEach(entry => {
@@ -902,8 +811,7 @@
                         values.push(entry.sgv);
                         
                         if (entry.sgv < 70) hypos++;
-                        else if (entry.sgv > 180) hypers++;
-                        else inRange++;
+                        if (entry.sgv > 180) hypers++;
                     }
                 });
 
@@ -915,11 +823,10 @@
                     const sdMgdl = Math.sqrt(variance);
                     const sdMmol = (sdMgdl / 18.018).toFixed(1);
                     const cv = ((sdMgdl / avgMgdl) * 100).toFixed(1);
-                    const tir = ((inRange / values.length) * 100).toFixed(0);
                     
                     periodStats[period] = {
-                        avgMmol, gmi, cv, hypos, hypers, sdMmol, tir, inRange,
-                        values: values.length, lowPct: ((hypos/values.length)*100).toFixed(0), highPct: ((hypers/values.length)*100).toFixed(0)
+                        avgMmol, gmi, cv, hypos, hypers, sdMmol,
+                        values: values.length
                     };
                 }
             }
@@ -936,19 +843,6 @@
             const gmiPercent = parseFloat(stats.gmi);
             const gmiMmol = (gmiPercent * 10.929 - 23.5).toFixed(0);
             document.getElementById('gmi-val').innerHTML = gmiMmol + ' <span class="unit-mmol">mmol</span>';
-            
-            // TIR tonen
-            document.getElementById('tir-val').innerText = stats.tir + "%";
-            document.getElementById('tir-low').style.width = stats.lowPct + "%";
-            document.getElementById('tir-range').style.width = stats.tir + "%";
-            document.getElementById('tir-high').style.width = stats.highPct + "%";
-            
-            // Kleur TIR op basis van percentage
-            const tirEl = document.getElementById('tir-val');
-            if (parseInt(stats.tir) >= 70) tirEl.style.color = "var(--accent-color)";
-            else if (parseInt(stats.tir) >= 50) tirEl.style.color = "var(--warning-color)";
-            else tirEl.style.color = "var(--danger-color)";
-            
             document.getElementById('sd-val').innerText = stats.sdMmol;
             document.getElementById('cv-val').innerText = stats.cv + "%";
             document.getElementById('hypo-val').innerText = stats.hypos;
@@ -1003,20 +897,13 @@
 
         // ============= SENSOR =============
         const SENSOR_DAYS = 10; // Dexcom G7 lasts 10 days
-        const SENSOR_GRACE_HOURS = 12; // 12 uur respijt periode na 10 dagen
         
-        // Handmatig sensor start overschrijven (zet dit op false om automatisch uit Nightscout te halen)
-        const MANUAL_SENSOR_START = false; // Zet op true om handmatige datum te gebruiken
-        const MANUAL_SENSOR_DATE = '2026-04-04T16:20:00'; // Pas aan naar juiste datum
+        // Handmatig sensor start overschrijven (zet dit op true en pas datum aan)
+        const MANUAL_SENSOR_START = true; // Zet op true om handmatige datum te gebruiken
+        const MANUAL_SENSOR_DATE = '2026-03-25T20:45:00'; // Pas aan naar juiste datum
         
         function processSensorData(treatments, eventTypes) {
-            if (!treatments || !Array.isArray(treatments)) {
-                console.log("[GlucoDash] Geen treatments data beschikbaar");
-                // Toon fallback info
-                document.getElementById('sensor-status').innerText = "Geen data";
-                document.getElementById('sensor-time').innerText = "Kon sensor niet bepalen";
-                return;
-            }
+            if (!treatments || !Array.isArray(treatments)) return;
             
             console.log("[GlucoDash] Alle event types:", eventTypes);
             
@@ -1027,32 +914,6 @@
                 sensorStart = new Date(MANUAL_SENSOR_DATE);
                 console.log("[GlucoDash] Handmatige sensor start:", sensorStart);
                 localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
-            } else {
-                // Auto-detect: zoek Sensor Start uit Nightscout
-                const sensorEvents = treatments.filter(t => 
-                    t.eventType === 'Sensor Start' || 
-                    t.eventType === 'Sensor Start' ||
-                    t.eventType === 'sensor start' ||
-                    t.eventType === 'Sensor Change' ||
-                    (t.eventType && t.eventType.toLowerCase().includes('sensor') && t.eventType.toLowerCase().includes('start'))
-                ).sort((a, b) => getTimestamp(b) - getTimestamp(a));
-                
-                console.log("[GlucoDash] Sensor events gevonden:", sensorEvents.length);
-                
-                if (sensorEvents.length > 0) {
-                    const latestSensor = sensorEvents[0];
-                    // Gebruik created_at voor sensor events (vermijd 2106 bug in date veld)
-                    sensorStart = new Date(getTimestamp(latestSensor, true));
-                    
-                    // Filter ongeldige data (year 2038 overflow)
-                    const year = sensorStart.getFullYear();
-                    if (year >= 2020 && year <= 2030) {
-                        console.log("[GlucoDash] Sensor automatisch gedetecteerd:", sensorStart);
-                        localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
-                    } else {
-                        console.log("[GlucoDash] Ongeldige sensor datum:", year, latestSensor.created_at);
-                    }
-                }
             }
             
             // Find sensor change events - check more types
@@ -1079,7 +940,7 @@
             
             // If MANUAL_SENSOR_START was false, try to get from events
             if (!sensorStart && allSensorEvents.length > 0) {
-                sensorStart = new Date(getTimestamp(allSensorEvents[0], true));
+                sensorStart = new Date(getTimestamp(allSensorEvents[0]));
                 // Check if date is valid and not year 2106 or far future
                 const year = sensorStart.getFullYear();
                 if (year > 2030 || year < 2020) {
@@ -1096,14 +957,7 @@
             if (!sensorStart) {
                 const storedSensorStart = localStorage.getItem('glucodash_sensor_start');
                 if (storedSensorStart) {
-                    const stored = new Date(parseInt(storedSensorStart));
-                    // Valideer opgeslagen datum
-                    if (stored.getFullYear() >= 2020 && stored.getFullYear() <= 2030) {
-                        sensorStart = stored;
-                    } else {
-                        console.log("[GlucoDash] Ongeldige opgeslagen sensor datum, negeren");
-                        localStorage.removeItem('glucodash_sensor_start');
-                    }
+                    sensorStart = new Date(parseInt(storedSensorStart));
                 }
             }
             
@@ -1113,49 +967,34 @@
                 localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
             }
             
-            // Calculate sensor age and replacement time (inclusief 12u respijt)
+            // Calculate sensor age and replacement time
             const now = new Date();
             const ageMs = now.getTime() - sensorStart.getTime();
             const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
             const ageHours = Math.floor((ageMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             
-            // 10 dagen + 12 uur grace period
-            const totalSensorMs = (SENSOR_DAYS * 24 * 60 * 60 * 1000) + (SENSOR_GRACE_HOURS * 60 * 60 * 1000);
-            const replaceDate = new Date(sensorStart.getTime() + totalSensorMs);
+            const replaceDate = new Date(sensorStart.getTime() + (SENSOR_DAYS * 24 * 60 * 60 * 1000));
             const timeLeftMs = replaceDate.getTime() - now.getTime();
             const daysLeft = Math.max(0, Math.floor(timeLeftMs / (1000 * 60 * 60 * 24)));
             const hoursLeft = Math.max(0, Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
             
-            // Check of we in grace periode zitten (na 10 dagen, binnen 12u)
-            const inGracePeriod = ageDays >= SENSOR_DAYS && ageDays < (SENSOR_DAYS + 1);
-            
-            console.log(`[GlucoDash] Sensor leeftijd: ${ageDays}d ${ageHours}u, nog ${daysLeft}d ${hoursLeft}u (grace: ${inGracePeriod})`);
+            console.log(`[GlucoDash] Sensor leeftijd: ${ageDays}d ${ageHours}u, nog ${daysLeft}d ${hoursLeft}u`);
             
             const statusEl = document.getElementById('sensor-status');
             const timeEl = document.getElementById('sensor-time');
             
-            // Altijd toon hoeveel tijd over is
-            if (inGracePeriod) {
-                // Grace periode - rood knipperen
-                statusEl.innerText = `Nog ${hoursLeft}u (grace)`;
-                statusEl.style.color = 'var(--danger-color)';
-            } else if (daysLeft <= 1) {
+            if (daysLeft <= 1) {
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--danger-color)';
             } else if (daysLeft <= 3) {
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--warning-color)';
-            } else if (daysLeft > 0) {
-                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
-                statusEl.style.color = 'var(--accent-color)';
             } else {
-                statusEl.innerText = `Vervangen!`;
-                statusEl.style.color = 'var(--danger-color)';
+                statusEl.innerText = `${ageDays}d ${ageHours}u`;
+                statusEl.style.color = 'var(--accent-color)';
             }
             
-            // Toon ook de echte 10-dagen datum voor referentie
-            const tenDayDate = new Date(sensorStart.getTime() + (SENSOR_DAYS * 24 * 60 * 60 * 1000));
-            timeEl.innerText = `Verloopt: ${replaceDate.toLocaleDateString('nl-NL')} (10d: ${tenDayDate.toLocaleDateString('nl-NL')})`;
+            timeEl.innerText = `Vervangen: ${replaceDate.toLocaleDateString('nl-NL')}`;
         }
 
         // ============= HISTORISCHE DATA OPSLAG =============

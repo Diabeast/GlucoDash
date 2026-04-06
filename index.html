@@ -996,10 +996,11 @@
 
         // ============= SENSOR =============
         const SENSOR_DAYS = 10; // Dexcom G7 lasts 10 days
+        const SENSOR_GRACE_HOURS = 12; // 12 uur respijt periode na 10 dagen
         
-        // Handmatig sensor start overschrijven (zet dit op true en pas datum aan)
-        const MANUAL_SENSOR_START = true; // Zet op true om handmatige datum te gebruiken
-        const MANUAL_SENSOR_DATE = '2026-04-06T08:00:00'; // Pas aan naar juiste datum
+        // Handmatig sensor start overschrijven (zet dit op false om automatisch uit Nightscout te halen)
+        const MANUAL_SENSOR_START = false; // Zet op true om handmatige datum te gebruiken
+        const MANUAL_SENSOR_DATE = '2026-04-04T16:20:00'; // Pas aan naar juiste datum
         
         function processSensorData(treatments, eventTypes) {
             if (!treatments || !Array.isArray(treatments)) {
@@ -1019,6 +1020,31 @@
                 sensorStart = new Date(MANUAL_SENSOR_DATE);
                 console.log("[GlucoDash] Handmatige sensor start:", sensorStart);
                 localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
+            } else {
+                // Auto-detect: zoek Sensor Start uit Nightscout
+                const sensorEvents = treatments.filter(t => 
+                    t.eventType === 'Sensor Start' || 
+                    t.eventType === 'Sensor Start' ||
+                    t.eventType === 'sensor start' ||
+                    t.eventType === 'Sensor Change' ||
+                    (t.eventType && t.eventType.toLowerCase().includes('sensor') && t.eventType.toLowerCase().includes('start'))
+                ).sort((a, b) => getTimestamp(b) - getTimestamp(a));
+                
+                console.log("[GlucoDash] Sensor events gevonden:", sensorEvents.length);
+                
+                if (sensorEvents.length > 0) {
+                    const latestSensor = sensorEvents[0];
+                    sensorStart = new Date(getTimestamp(latestSensor));
+                    
+                    // Filter ongeldige data (year 2038 overflow)
+                    const year = sensorStart.getFullYear();
+                    if (year >= 2020 && year <= 2030) {
+                        console.log("[GlucoDash] Sensor automatisch gedetecteerd:", sensorStart);
+                        localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
+                    } else {
+                        console.log("[GlucoDash] Ongeldige sensor datum:", year);
+                    }
+                }
             }
             
             // Find sensor change events - check more types
@@ -1072,24 +1098,33 @@
                 localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
             }
             
-            // Calculate sensor age and replacement time
+            // Calculate sensor age and replacement time (inclusief 12u respijt)
             const now = new Date();
             const ageMs = now.getTime() - sensorStart.getTime();
             const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
             const ageHours = Math.floor((ageMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             
-            const replaceDate = new Date(sensorStart.getTime() + (SENSOR_DAYS * 24 * 60 * 60 * 1000));
+            // 10 dagen + 12 uur grace period
+            const totalSensorMs = (SENSOR_DAYS * 24 * 60 * 60 * 1000) + (SENSOR_GRACE_HOURS * 60 * 60 * 1000);
+            const replaceDate = new Date(sensorStart.getTime() + totalSensorMs);
             const timeLeftMs = replaceDate.getTime() - now.getTime();
             const daysLeft = Math.max(0, Math.floor(timeLeftMs / (1000 * 60 * 60 * 24)));
             const hoursLeft = Math.max(0, Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
             
-            console.log(`[GlucoDash] Sensor leeftijd: ${ageDays}d ${ageHours}u, nog ${daysLeft}d ${hoursLeft}u`);
+            // Check of we in grace periode zitten (na 10 dagen, binnen 12u)
+            const inGracePeriod = ageDays >= SENSOR_DAYS && ageDays < (SENSOR_DAYS + 1);
+            
+            console.log(`[GlucoDash] Sensor leeftijd: ${ageDays}d ${ageHours}u, nog ${daysLeft}d ${hoursLeft}u (grace: ${inGracePeriod})`);
             
             const statusEl = document.getElementById('sensor-status');
             const timeEl = document.getElementById('sensor-time');
             
             // Altijd toon hoeveel tijd over is
-            if (daysLeft <= 1) {
+            if (inGracePeriod) {
+                // Grace periode - rood knipperen
+                statusEl.innerText = `Nog ${hoursLeft}u (grace)`;
+                statusEl.style.color = 'var(--danger-color)';
+            } else if (daysLeft <= 1) {
                 statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
                 statusEl.style.color = 'var(--danger-color)';
             } else if (daysLeft <= 3) {
@@ -1103,7 +1138,9 @@
                 statusEl.style.color = 'var(--danger-color)';
             }
             
-            timeEl.innerText = `Verloopt: ${replaceDate.toLocaleDateString('nl-NL')}`;
+            // Toon ook de echte 10-dagen datum voor referentie
+            const tenDayDate = new Date(sensorStart.getTime() + (SENSOR_DAYS * 24 * 60 * 60 * 1000));
+            timeEl.innerText = `Verloopt: ${replaceDate.toLocaleDateString('nl-NL')} (10d: ${tenDayDate.toLocaleDateString('nl-NL')})`;
         }
 
         // ============= HISTORISCHE DATA OPSLAG =============

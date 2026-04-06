@@ -3,12 +3,20 @@ name: Build GlucoDash iOS
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Stel Match git auth in via GITHUB_TOKEN
+        run: |
+          AUTH=$(printf 'x-access-token:%s' "${{ secrets.GITHUB_TOKEN }}" | base64 -w0)
+          echo "MATCH_GIT_AUTH=$AUTH" >> $GITHUB_ENV
 
       - name: Setup Ruby via Homebrew (OpenSSL 3 gelinkt)
         run: |
@@ -190,7 +198,7 @@ jobs:
           FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
           FASTLANE_HIDE_CHANGELOG: "1"
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ env.MATCH_GIT_AUTH }}
         run: bundle exec fastlane build_upload 2>&1 | tee /tmp/fastlane_output.txt; exit ${PIPESTATUS[0]}
 
       - name: Toon logs bij fout

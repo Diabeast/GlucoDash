@@ -1,5 +1,6 @@
-git_url("https://github.com/Diabeast/glucodash-certs")
+git_url("https://github.com/Diabeast/GlucoDash")
+git_branch("certs")
 storage_mode("git")
 type("appstore")
 app_identifier(["com.9CGZ7BWVXT.glucodash"])
-username("")  # Niet nodig bij API key auth
+username("")

@@ -152,9 +152,25 @@
 
         .stats-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 20px;
             margin-bottom: 30px;
+        }
+        
+        .stats-grid .small-card {
+            grid-column: span 1;
+        }
+        
+        @media (max-width: 900px) {
+            .stats-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+        
+        @media (max-width: 600px) {
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
         }
         
         .insulin-grid {
@@ -466,20 +482,20 @@
                 <h3>Variatie (CV) <span class="info-icon" onclick="openModal('cv-modal')">i</span></h3>
                 <p id="cv-val">--%</p>
             </div>
-            <div class="stat-card">
-                <h3>Deviatie (SD) <span class="info-icon" onclick="openModal('sd-modal')">i</span></h3>
-                <p id="sd-val">--</p>
-            </div>
-            <div class="stat-card">
+            <div class="stat-card small-card">
                 <h3>Gemiddeld (24u)</h3>
                 <p id="avg-val">--</p>
             </div>
-            <div class="stat-card" style="border-left: 4px solid var(--danger-color); cursor: pointer;" onclick="showHypos()">
-                <h3>Hypo's (< 3.9) <span style="font-size:0.8rem;color:#7f8c8d">klik voor details</span></h3>
+            <div class="stat-card small-card">
+                <h3>Deviatie (SD)</h3>
+                <p id="sd-val">--</p>
+            </div>
+            <div class="stat-card small-card" style="border-left: 4px solid var(--danger-color); cursor: pointer;" onclick="showHypos()">
+                <h3>Hypo's (< 3.9)</h3>
                 <p id="hypo-val">--</p>
             </div>
-            <div class="stat-card" style="border-left: 4px solid var(--warning-color); cursor: pointer;" onclick="showHypers()">
-                <h3>Hypers (> 10.0) <span style="font-size:0.8rem;color:#7f8c8d">klik voor details</span></h3>
+            <div class="stat-card small-card" style="border-left: 4px solid var(--warning-color); cursor: pointer;" onclick="showHypers()">
+                <h3>Hypers (> 10.0)</h3>
                 <p id="hyper-val">--</p>
             </div>
         </div>
@@ -874,14 +890,23 @@
             processSensorData(treatments, eventTypes);
 
             // Filter en bereken insuline stats - ALLEEN VANDAAG
-            const todayStart = new Date();
-            todayStart.setHours(0, 0, 0, 0);
+            const now = new Date();
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+            console.log("[GlucoDash] Vandaag vanaf:", todayStart.toISOString());
             
             const insulinTreatments = treatments.filter(t => {
                 if (!t.insulin || parseFloat(t.insulin) <= 0) return false;
                 const ts = getTimestamp(t);
+                // Check of behandeling van vandaag is
                 return ts >= todayStart.getTime();
             });
+            
+            // Debug: toon alle insuline behandelingen
+            insulinTreatments.forEach((t, i) => {
+                const d = new Date(getTimestamp(t));
+                console.log(`[GlucoDash] Insuline ${i+1}:`, t.insulin, "type:", t.eventType, "tijd:", d.toISOString());
+            });
+            
             console.log(`[GlucoDash] Insulin treatments vandaag: ${insulinTreatments.length}`);
 
             let totalVal = 0;

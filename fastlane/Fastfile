@@ -58,6 +58,13 @@ platform :ios do
       code_sign_identity: "iPhone Distribution"
     )
 
+    # Gebruik GitHub run number als build number — altijd uniek en stijgend
+    build_number = ENV['GITHUB_RUN_NUMBER'] || Time.now.to_i.to_s
+    increment_build_number(
+      build_number: build_number,
+      xcodeproj: "ios/App/App.xcodeproj"
+    )
+
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",

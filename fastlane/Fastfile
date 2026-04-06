@@ -82,7 +82,7 @@ platform :ios do
       skip_waiting_for_build_processing: false,
       distribute_external: false,
       notify_external_testers: false,
-      groups: ["Intern"]
+      groups: ["Testers"]
     )
   end
 end

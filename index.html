@@ -579,79 +579,34 @@
             return response.json();
         }
 
-        function getArrow(dir, GlucoDashValue) {
-            // Normaliseer direction (trim en spaties verwijderen)
-            let normalizedDir = (dir || "").trim();
-            console.log("[GlucoDash] Direction:", normalizedDir);
+        function getArrow(dir, glucoseValue) {
+            const d = (dir || "").trim().toString();
+            console.log("[GlucoDash] getArrow input:", d);
             
-            // Fallback: als leeg of undefined, toon Flat
-            if (!normalizedDir || normalizedDir === "") {
-                normalizedDir = "Flat";
-            }
+            let color = "#2ecc71";
+            if (glucoseValue < 3.9) color = "#e74c3c";
+            else if (glucoseValue > 10) color = "#f39c12";
             
-            // Bepaal kleur op basis van GlucoDash waarde
-            let color = "#2ecc71"; // groen - stabiel/in bereik
-            if (GlucoDashValue < 3.9) {
-                color = "#e74c3c"; // rood - laag
-            } else if (GlucoDashValue > 10) {
-                color = "#f39c12"; // oranje - hoog
-            }
-            
-            // Simple flat SVG icons met dynamische kleur
-            const svgArrows = {
-                "DoubleUp": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7M12 5l-7 7m7-7l7 7"/></svg>`,
-                "SingleUp": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M12 19V5M5 12l7-7 7 7"/></svg>`,
-                "FortyFiveUp": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>`,
-                "Flat": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M5 12h14"/></svg>`,
-                "Right": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M5 12h14M15 9l4 3-4 3"/></svg>`,
-                "FortyFiveDown": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>`,
-                "SingleDown": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M12 5v14M19 12l-7 7-7-7"/></svg>`,
-                "DoubleDown": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7M12 14l-7-7m7 7l7-7"/></svg>`,
-                "NONE": `<svg width="25" height="25" viewBox="0 0 24 24" fill="none" stroke="#7f8c8d" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>`,
-                "0": `<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="2"><path d="M5 12h14"/></svg>`
+            const arrows = {
+                "DoubleUp": "⬆⬆",
+                "SingleUp": "⬆",
+                "FortyFiveUp": "↗",
+                "Flat": "→",
+                "Right": "→",
+                "FortyFiveDown": "↘",
+                "SingleDown": "⬇",
+                "DoubleDown": "⬇⬆"
             };
             
-            // Check if exact match exists
-            if (svgArrows[normalizedDir]) {
-                return svgArrows[normalizedDir];
-            }
+            // Probeer exact match
+            if (arrows[d]) return arrows[d];
             
-            // Try to parse numeric directions
-            const numDir = parseFloat(normalizedDir);
-            if (!isNaN(numDir)) {
-                if (numDir > 1) return svgArrows["DoubleUp"];
-                if (numDir === 1) return svgArrows["SingleUp"];
-                if (numDir > 0.5) return svgArrows["FortyFiveUp"];
-                if (numDir === 0) return svgArrows["Flat"];
-                if (numDir < -0.5) return svgArrows["FortyFiveDown"];
-                if (numDir === -1) return svgArrows["SingleDown"];
-                if (numDir < -1) return svgArrows["DoubleDown"];
-            }
+            // Lowercase match
+            const lc = d.toLowerCase();
+            if (arrows[lc]) return arrows[lc];
             
-            // Try lowercase mapping
-            const lowerDir = normalizedDir.toLowerCase();
-            const directionMap = {
-                "doubleup": "DoubleUp",
-                "singleup": "SingleUp",
-                "fortyfivedup": "FortyFiveUp",
-                "fortyfiveup": "FortyFiveUp",
-                "flat": "Flat",
-                "right": "Flat",
-                "fortyfivedown": "FortyFiveDown",
-                "fortyfiveown": "FortyFiveDown",
-                "singledown": "SingleDown",
-                "doubledown": "DoubleDown",
-                "none": "NONE"
-            };
-            
-            const mappedDir = directionMap[lowerDir];
-            if (mappedDir && svgArrows[mappedDir]) {
-                console.log("[GlucoDash] Mapped direction:", normalizedDir, "->", mappedDir);
-                return svgArrows[mappedDir];
-            }
-            
-            console.log("[GlucoDash] Unknown direction, using Flat:", normalizedDir);
-            return svgArrows["Flat"];
+            // Fallback
+            return "→";
         }
 
         // Get timestamp for today 00:00 to 23:59 (current day insuline)
@@ -811,12 +766,10 @@
             console.log("[GlucoDash] Direction:", current.direction);
             
             const arrowSvg = getArrow(current.direction, currentMmol);
-            console.log("[GlucoDash] Arrow raw:", arrowSvg);
+            console.log("[GlucoDash] Arrow result:", arrowSvg);
             
             document.getElementById('current-bg').innerText = currentMmol;
-            const arrowEl = document.getElementById('trend-arrow');
-            // Altijd de SVG tonen, of fallback pijl
-            arrowEl.innerHTML = arrowSvg || '→';
+            document.getElementById('trend-arrow').innerText = arrowSvg;
             
             console.log("[GlucoDash] Arrow SVG rendered for:", current.direction);
             

@@ -897,22 +897,16 @@
             // Process sensor data
             processSensorData(treatments, eventTypes);
 
-            // Filter en bereken insuline stats - ALLEEN VANDAAG (lokale tijd)
-            const now = new Date();
-            // Vandaag 00:00 lokaal tot morgen 00:00 lokaal
-            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+            // Filter en bereken insuline stats - LAATSTE 24 UUR
+            const now = Date.now();
+            const last24h = now - (24 * 60 * 60 * 1000);
             
-            console.log("[GlucoDash] Insuline filter:", {
-                now: now.toISOString(),
-                todayStart: todayStart.toISOString(),
-                todayEnd: todayEnd.toISOString()
-            });
+            console.log("[GlucoDash] Insuline laatste 24u vanaf:", new Date(last24h).toISOString());
             
             const insulinTreatments = treatments.filter(t => {
                 if (!t.insulin || parseFloat(t.insulin) <= 0) return false;
                 const ts = getTimestamp(t);
-                return ts >= todayStart.getTime() && ts < todayEnd.getTime();
+                return ts >= last24h;
             });
             
             // Debug: toon alle insuline behandelingen

@@ -157,7 +157,7 @@
         
         .insulin-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(2, 1fr);
             gap: 20px;
             margin-bottom: 30px;
             width: 100%;
@@ -809,15 +809,16 @@
             console.log("[GlucoDash] Direction:", current.direction);
             
             const arrowSvg = getArrow(current.direction, currentMmol);
-            console.log("[GlucoDash] Arrow SVG:", arrowSvg ? "generated" : "empty");
+            console.log("[GlucoDash] Arrow SVG:", arrowSvg ? "generated" : "empty", "len:", arrowSvg?.length);
             
             document.getElementById('current-bg').innerText = currentMmol;
             const arrowEl = document.getElementById('trend-arrow');
-            if (arrowSvg) {
+            // Check if valid SVG (not empty and contains svg tag)
+            if (arrowSvg && arrowSvg.length > 10 && arrowSvg.includes('<svg')) {
                 arrowEl.innerHTML = arrowSvg;
             } else {
-                // Fallback text
-                arrowEl.innerHTML = '<span style="font-size:20px">→</span>';
+                // Fallback text - use emoji arrow
+                arrowEl.innerHTML = '<span style="font-size:24px">→</span>';
             }
             
             console.log("[GlucoDash] Arrow SVG rendered for:", current.direction);

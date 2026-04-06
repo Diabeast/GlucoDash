@@ -128,11 +128,20 @@ jobs:
           TEAMID: ${{ secrets.TEAMID }}
           FASTLANE_ISSUER_ID: ${{ secrets.FASTLANE_ISSUER_ID }}
           FASTLANE_KEY_ID: ${{ secrets.FASTLANE_KEY_ID }}
-        run: bundle exec fastlane build_upload
+          FASTLANE_HIDE_CHANGELOG: "1"
+        run: bundle exec fastlane build_upload 2>&1 | tee /tmp/fastlane_output.txt; exit ${PIPESTATUS[0]}
 
-      - name: Toon Xcode build log bij fout
+      - name: Toon logs bij fout
         if: failure()
         run: |
-          echo "=== GYM LOG ==="
-          cat ~/Library/Logs/gym/App-App.log 2>/dev/null | grep -E "error:|warning:|No profiles|No Accounts|authentication|signing|provision|certificate" | tail -40 || true
-          echo "=== EINDE GYM LOG ==="
+          echo "=== FASTLANE OUTPUT (laatste 80 regels) ==="
+          tail -80 /tmp/fastlane_output.txt 2>/dev/null || true
+          echo ""
+          echo "=== FASTLANE CRASHLOG ==="
+          find ~/Library/Logs/fastlane -name "*.log" 2>/dev/null | xargs cat 2>/dev/null | tail -50 || true
+          echo ""
+          echo "=== GYM LOG (errors/warnings) ==="
+          cat ~/Library/Logs/gym/App-App.log 2>/dev/null | grep -E "error:|warning:|No profiles|No Accounts|authentication|signing|provision|certificate|export|xcodebuild" | tail -60 || true
+          echo ""
+          echo "=== SPACESHIP DEBUG ==="
+          find /tmp -name "*.log" -newer /tmp/fastlane_output.txt 2>/dev/null | head -5 | xargs cat 2>/dev/null | tail -30 || true

@@ -81,3 +81,9 @@ platform :ios do
       api_key: api_key,
       groups: ["Testers"],                     # Specifieke interne groep
       distribute_external: false,
+      notify_external_testers: false,
+      skip_waiting_for_build_processing: false
+    )
+
+  end
+end

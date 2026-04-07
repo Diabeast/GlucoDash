@@ -112,7 +112,54 @@
         .datasource-option input { display: none; }
         .datasource-option span { font-weight: bold; font-size: 1rem; }
         .datasource-option small { color: #7f8c8d; font-size: 0.8rem; }
-        
+
+        /* ===== TAB BAR ===== */
+        .tab-bar {
+            display: flex;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--card-bg);
+            border-top: 1px solid rgba(127,127,127,0.15);
+            z-index: 100;
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+        .tab-btn {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 0 8px;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #7f8c8d;
+            font-size: 0.65rem;
+            gap: 3px;
+            transition: color 0.2s;
+        }
+        .tab-btn.active { color: var(--primary-color); }
+        .tab-btn svg { width: 24px; height: 24px; }
+        body { padding-bottom: 70px; }
+
+        /* ===== GRAFIEKEN VIEW ===== */
+        #charts-view { display: none; }
+        .chart-section {
+            background: var(--card-bg);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: var(--card-shadow);
+        }
+        .chart-section h3 {
+            margin: 0 0 16px 0;
+            color: var(--primary-color);
+            font-size: 1rem;
+        }
+        .chart-wrapper { position: relative; height: 220px; }
+
         /* SVG Logo */
         .logo-svg {
             height: 80px;
@@ -513,7 +560,7 @@
         </svg>
     </header>
 
-    <div class="dashboard-container">
+    <div class="dashboard-container" id="dashboard-view">
         
         <div class="status-bar">
             <span id="status-text">Data ophalen...</span>
@@ -582,6 +629,39 @@
         </div>
 
     </div>
+
+    <!-- GRAFIEKEN VIEW -->
+    <div id="charts-view" class="dashboard-container">
+        <div class="chart-section">
+            <h3>📈 Glucose — laatste 24 uur</h3>
+            <div class="chart-wrapper">
+                <canvas id="chart-glucose-main"></canvas>
+            </div>
+        </div>
+        <div class="chart-section">
+            <h3>💉 Insuline — laatste 24 uur</h3>
+            <div class="chart-wrapper">
+                <canvas id="chart-insulin-main"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- TAB BAR -->
+    <nav class="tab-bar">
+        <button class="tab-btn active" onclick="switchTab('dashboard')" id="tab-dashboard">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+            </svg>
+            Dashboard
+        </button>
+        <button class="tab-btn" onclick="switchTab('charts')" id="tab-charts">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+            </svg>
+            Grafieken
+        </button>
+    </nav>
 
     <!-- Modals -->
     <div id="tir-modal" class="modal-overlay" onclick="closeModal(event)">
@@ -1108,6 +1188,7 @@
             }
 
             window.latestInsulinStats = { totalInsulin, avgSmb };
+            window.latestTreatments = treatments;
             triggerAI();
         }
 
@@ -1664,6 +1745,108 @@
             }
             
             document.getElementById('ai-tip').innerText = tip;
+        }
+
+        // ============= TABS =============
+        function switchTab(tab) {
+            const dashboard = document.getElementById('dashboard-view') || document.querySelector('.dashboard-container:not(#charts-view)');
+            const charts = document.getElementById('charts-view');
+            const btnDash = document.getElementById('tab-dashboard');
+            const btnCharts = document.getElementById('tab-charts');
+
+            if (tab === 'charts') {
+                dashboard.style.display = 'none';
+                charts.style.display = 'block';
+                btnDash.classList.remove('active');
+                btnCharts.classList.add('active');
+                renderChartsView();
+            } else {
+                dashboard.style.display = 'block';
+                charts.style.display = 'none';
+                btnCharts.classList.remove('active');
+                btnDash.classList.add('active');
+            }
+        }
+
+        function renderChartsView() {
+            const entries = window.GlucoDashData || [];
+            const treatments = window.latestTreatments || [];
+            const now = Date.now();
+            const ago24 = now - 24 * 60 * 60 * 1000;
+
+            // --- Glucose grafiek ---
+            const glucoData = entries
+                .filter(d => getTimestamp(d) >= ago24)
+                .sort((a, b) => getTimestamp(a) - getTimestamp(b));
+
+            const glucoLabels = glucoData.map(d => {
+                const dt = new Date(getTimestamp(d));
+                return dt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+            });
+            const glucoValues = glucoData.map(d => parseFloat((d.sgv / 18.018).toFixed(1)));
+            const glucoColors = glucoValues.map(v => v < 3.9 ? 'rgba(231,76,60,0.8)' : v > 10 ? 'rgba(243,156,18,0.8)' : 'rgba(46,204,113,0.8)');
+
+            const ctxG = document.getElementById('chart-glucose-main');
+            if (window._chartGlucoseMain) window._chartGlucoseMain.destroy();
+            window._chartGlucoseMain = new Chart(ctxG, {
+                type: 'line',
+                data: {
+                    labels: glucoLabels,
+                    datasets: [
+                        { data: glucoValues, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.08)', fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4 },
+                        { data: new Array(glucoValues.length).fill(10), borderColor: 'rgba(243,156,18,0.35)', borderDash: [4,4], pointRadius: 0, fill: false },
+                        { data: new Array(glucoValues.length).fill(3.9), borderColor: 'rgba(231,76,60,0.35)', borderDash: [4,4], pointRadius: 0, fill: false }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+                        y: { min: 2, max: 16, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
+
+            // --- Insuline grafiek ---
+            const insulinData = treatments
+                .filter(t => {
+                    const ts = getTimestamp(t);
+                    return ts >= ago24 && t.insulin && parseFloat(t.insulin) > 0;
+                })
+                .sort((a, b) => getTimestamp(a) - getTimestamp(b));
+
+            const insulinLabels = insulinData.map(d => {
+                const dt = new Date(getTimestamp(d));
+                return dt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
+            });
+            const insulinValues = insulinData.map(d => parseFloat(parseFloat(d.insulin).toFixed(2)));
+            const insulinColors = insulinData.map(d =>
+                d.eventType === 'Bolus' ? 'rgba(155,89,182,0.8)' : 'rgba(52,152,219,0.6)'
+            );
+
+            const ctxI = document.getElementById('chart-insulin-main');
+            if (window._chartInsulinMain) window._chartInsulinMain.destroy();
+            window._chartInsulinMain = new Chart(ctxI, {
+                type: 'bar',
+                data: {
+                    labels: insulinLabels,
+                    datasets: [{
+                        data: insulinValues,
+                        backgroundColor: insulinColors,
+                        borderRadius: 3,
+                        label: 'Insuline (U)'
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: {
+                        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+                        y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+                    }
+                }
+            });
         }
 
         // ============= INIT =============

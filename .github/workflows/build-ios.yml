@@ -83,6 +83,7 @@ jobs:
         run: |
           /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'GlucoDash leest je glucose en insuline data.'" ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'GlucoDash heeft schrijftoegang nodig voor HealthKit.'" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" ios/App/App/Info.plist
 
       - name: Configureer bundler (vendor/bundle + OpenSSL 3)
         run: |

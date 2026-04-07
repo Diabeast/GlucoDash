@@ -76,6 +76,42 @@
         }
 
         .source-img { display: none; }
+
+        .settings-btn {
+            background: none;
+            border: none;
+            font-size: 1.2rem;
+            cursor: pointer;
+            padding: 2px 6px;
+            border-radius: 6px;
+            opacity: 0.6;
+            transition: opacity 0.2s;
+        }
+        .settings-btn:hover { opacity: 1; }
+
+        .datasource-options {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .datasource-option {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            padding: 12px 16px;
+            border: 2px solid transparent;
+            border-radius: 12px;
+            cursor: pointer;
+            background: var(--bg-color);
+            transition: border-color 0.2s;
+        }
+        .datasource-option:has(input:checked) {
+            border-color: var(--primary-color);
+        }
+        .datasource-option input { display: none; }
+        .datasource-option span { font-weight: bold; font-size: 1rem; }
+        .datasource-option small { color: #7f8c8d; font-size: 0.8rem; }
         
         /* SVG Logo */
         .logo-svg {
@@ -482,6 +518,7 @@
         <div class="status-bar">
             <span id="status-text">Data ophalen...</span>
             <span id="last-update"></span>
+            <button class="settings-btn" onclick="openDataSourceModal()" title="Databron instellen">⚙️</button>
         </div>
         
         <div class="current-GlucoDash" onclick="show24hGraph()">
@@ -518,7 +555,7 @@
                 <p id="cv-val">--<span class="val-unit">%</span></p>
             </div>
             <div class="stat-card desktop-only">
-                <h3>Laatste bolus</h3>
+                <h3>Manuele bolus</h3>
                 <p id="last-bolus">--</p>
             </div>
             <div class="stat-card small-card">
@@ -573,6 +610,27 @@
             <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
             <h2>SD</h2>
             <p>Standaarddeviatie - streef onder 3.0 mmol/L.</p>
+        </div>
+    </div>
+
+    <!-- Databron Modal -->
+    <div id="datasource-modal" class="modal-overlay" onclick="closeModal(event)">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
+            <h2>⚙️ Databron</h2>
+            <div class="datasource-options">
+                <label class="datasource-option" onclick="setDataSource('nightscout')">
+                    <input type="radio" name="datasource" value="nightscout" id="src-nightscout">
+                    <span>📡 Nightscout</span>
+                    <small>Live data via internet</small>
+                </label>
+                <label class="datasource-option" onclick="setDataSource('local')">
+                    <input type="radio" name="datasource" value="local" id="src-local">
+                    <span>📱 Lokaal</span>
+                    <small>Gecachte data — werkt ook offline</small>
+                </label>
+            </div>
+            <p id="cache-info" style="font-size:0.8em;opacity:0.6;margin:0;"></p>
         </div>
     </div>
 
@@ -704,59 +762,117 @@
             return isNaN(parsed) ? 0 : parsed;
         }
 
+        // ============= DATABRON =============
+        const DATA_SOURCE_KEY = 'glucodash_datasource';
+        const CACHE_ENTRIES_KEY = 'glucodash_cached_entries';
+        const CACHE_TREATMENTS_KEY = 'glucodash_cached_treatments';
+        const CACHE_TIME_KEY = 'glucodash_cache_time';
+
+        function getDataSource() {
+            return localStorage.getItem(DATA_SOURCE_KEY) || 'nightscout';
+        }
+
+        function setDataSource(source) {
+            localStorage.setItem(DATA_SOURCE_KEY, source);
+            document.getElementById('src-' + source).checked = true;
+            closeModal(null, true);
+            fetchData();
+        }
+
+        function saveToCache(entries, treatments) {
+            try {
+                localStorage.setItem(CACHE_ENTRIES_KEY, JSON.stringify(entries));
+                localStorage.setItem(CACHE_TREATMENTS_KEY, JSON.stringify(treatments));
+                localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+            } catch(e) {
+                console.log('[GlucoDash] Cache opslaan mislukt:', e);
+            }
+        }
+
+        function loadFromCache() {
+            try {
+                const entries = JSON.parse(localStorage.getItem(CACHE_ENTRIES_KEY) || 'null');
+                const treatments = JSON.parse(localStorage.getItem(CACHE_TREATMENTS_KEY) || 'null');
+                const time = parseInt(localStorage.getItem(CACHE_TIME_KEY) || '0');
+                if (!entries) return null;
+                return { entries, treatments: treatments || [], time };
+            } catch(e) { return null; }
+        }
+
+        function openDataSourceModal() {
+            const source = getDataSource();
+            document.getElementById('src-' + source).checked = true;
+            const cache = loadFromCache();
+            const infoEl = document.getElementById('cache-info');
+            if (cache && cache.time) {
+                const d = new Date(cache.time);
+                infoEl.innerText = `Cache: ${d.toLocaleString('nl-NL')}`;
+            } else {
+                infoEl.innerText = 'Nog geen lokale cache beschikbaar';
+            }
+            document.getElementById('datasource-modal').style.display = 'flex';
+        }
+
         // ============= MAIN FETCH =============
         async function fetchData() {
-            console.log("[GlucoDash] Start fetch...");
-            
+            console.log("[GlucoDash] Start fetch, bron:", getDataSource());
+
+            // ---- LOKALE MODUS ----
+            if (getDataSource() === 'local') {
+                const cache = loadFromCache();
+                if (cache) {
+                    const d = new Date(cache.time);
+                    processGlucoseData(cache.entries);
+                    processInsulinData(cache.treatments);
+                    document.getElementById('last-update').innerText = `Cache: ${d.toLocaleTimeString()}`;
+                    updateStatus("📱 Lokale data", "ok");
+                } else {
+                    updateStatus("Geen lokale cache beschikbaar", "error");
+                    document.getElementById('ai-tip').innerText = "Schakel naar Nightscout om eerst data op te halen.";
+                }
+                return;
+            }
+
+            // ---- NIGHTSCOUT MODUS ----
             const baseUrl = `${NS_URL}/api/v1`;
-            
-            // Directe URLs (zonder proxy voor nu - we'll try both)
             const GlucoDashUrl = `${baseUrl}/entries.json?token=${NS_TOKEN}&count=2000`;
             const treatmentsUrl = `${baseUrl}/treatments.json?token=${NS_TOKEN}&count=500`;
-            // Profiel data ophalen -probeer verschillende endpoints
             const profileUrl = `${baseUrl}/profile.json?token=${NS_TOKEN}`;
             const settingsUrl = `${baseUrl}/settings.json?token=${NS_TOKEN}`;
 
             updateStatus("Data ophalen...", "neutral");
 
             try {
-                // Probeer eerst direct (werkt als CORS enabled is)
-                let GlucoDashData, treatmentsData, profileData;
-                
+                let GlucoDashData, treatmentsData;
+
                 try {
                     console.log("[GlucoDash] Probeer directe verbinding...");
-                    const [g, t, p, s] = await Promise.all([
+                    const [g, t] = await Promise.all([
                         fetch(GlucoDashUrl).then(r => r.json()),
                         fetch(treatmentsUrl).then(r => r.json()),
-                        fetch(profileUrl).then(r => r.json()),
+                        fetch(profileUrl).then(r => r.json()).catch(() => null),
                         fetch(settingsUrl).then(r => r.json()).catch(() => null)
                     ]);
                     GlucoDashData = g;
                     treatmentsData = t;
-                    profileData = { profile: p, settings: s };
                     console.log("[GlucoDash] Directe verbinding succesvol!");
                 } catch (directError) {
                     console.log("[GlucoDash] Direct mislukt, probeer met proxy...", directError.message);
                     updateStatus("CORS geblokkeerd, probeer proxy...", "neutral");
-                    
-                    // Fallback naar proxy
-                    const [g, t, p, s] = await Promise.all([
+                    const [g, t] = await Promise.all([
                         fetchWithProxy(GlucoDashUrl),
                         fetchWithProxy(treatmentsUrl),
-                        fetchWithProxy(profileUrl),
+                        fetchWithProxy(profileUrl).catch(() => null),
                         fetchWithProxy(settingsUrl).catch(() => null)
                     ]);
                     GlucoDashData = g;
                     treatmentsData = t;
-                    profileData = { profile: p, settings: s };
                     console.log("[GlucoDash] Proxy verbinding succesvol!");
                 }
 
-                // Verwerk data
-                console.log("[GlucoDash] Glucose:", GlucoDashData?.length, "entries");
-                console.log("[GlucoDash] Treatments:", treatmentsData?.length, "items");
-                console.log("[GlucoDash] Profile:", profileData);
-                
+                // Sla op in cache voor offline gebruik
+                saveToCache(GlucoDashData, treatmentsData);
+
                 processGlucoseData(GlucoDashData);
                 processInsulinData(treatmentsData);
 
@@ -766,9 +882,20 @@
 
             } catch (error) {
                 console.error("[GlucoDash] Fout:", error);
-                document.getElementById('current-bg').innerText = "Fout";
-                document.getElementById('ai-tip').innerText = `Kon Nightscout niet bereiken: ${error.message}`;
-                updateStatus("Verbindingsfout - zie console", "error");
+                // ---- AUTOMATISCHE FALLBACK NAAR LOKALE CACHE ----
+                const cache = loadFromCache();
+                if (cache) {
+                    console.log("[GlucoDash] Geen internet, gebruik lokale cache");
+                    const d = new Date(cache.time);
+                    processGlucoseData(cache.entries);
+                    processInsulinData(cache.treatments);
+                    document.getElementById('last-update').innerText = `Cache: ${d.toLocaleTimeString()}`;
+                    updateStatus("📴 Offline — lokale data", "neutral");
+                } else {
+                    document.getElementById('current-bg').innerText = "Fout";
+                    document.getElementById('ai-tip').innerText = `Kon Nightscout niet bereiken: ${error.message}`;
+                    updateStatus("Verbindingsfout - geen cache", "error");
+                }
             }
         }
 

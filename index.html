@@ -1093,39 +1093,48 @@
                 return;
             }
             try {
-                await HK.requestAuthorization({ all: [], read: ['bloodGlucose', 'insulinDelivery'], write: [] });
+                // Alleen bloodGlucose — insulinelevering niet ondersteund door plugin v1.3
+                await HK.requestAuthorization({ all: [], read: ['bloodGlucose'], write: [] });
 
                 const endDate = new Date();
                 const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
 
-                const [glucoseResult, insulinResult] = await Promise.all([
-                    HK.queryHKitSampleType({ sampleName: 'bloodGlucose', startDate: startDate.toISOString(), endDate: endDate.toISOString(), limit: 2000 }),
-                    HK.queryHKitSampleType({ sampleName: 'insulinDelivery', startDate: startDate.toISOString(), endDate: endDate.toISOString(), limit: 500 })
-                ]);
+                const glucoseResult = await HK.queryHKitSampleType({
+                    sampleName: 'bloodGlucose',
+                    startDate: startDate.toISOString(),
+                    endDate: endDate.toISOString(),
+                    limit: 2000
+                });
 
-                // Converteer naar Nightscout-formaat
-                const entries = (glucoseResult.resultData || []).map(r => ({
-                    sgv: r.unitName === 'mg/dL' ? Math.round(r.value) : Math.round(r.value * 18.018),
-                    date: new Date(r.startDate).getTime(),
-                    dateString: r.startDate,
+                const rawData = glucoseResult.resultData || glucoseResult.output || glucoseResult || [];
+                const entries = rawData.map(r => ({
+                    // plugin geeft mmol/L terug tenzij anders aangegeven
+                    sgv: r.unitName === 'mg/dL' || r.unit === 'mg/dL'
+                        ? Math.round(r.value)
+                        : Math.round(r.value * 18.018),
+                    date: new Date(r.startDate || r.date).getTime(),
+                    dateString: r.startDate || r.date,
                     direction: 'Flat'
                 })).sort((a, b) => b.date - a.date);
 
-                const treatments = (insulinResult.resultData || []).map(r => ({
-                    insulin: r.value,
-                    eventType: r.metadata && r.metadata.HKInsulinDeliveryPurpose === 1 ? 'Bolus' : 'SMB',
-                    created_at: r.startDate,
-                    date: new Date(r.startDate).getTime()
-                }));
+                if (entries.length === 0) {
+                    updateStatus("⚠️ Geen glucose data in HealthKit (laatste 24u)", "neutral");
+                    return;
+                }
+
+                // Insuline: uit cache (Nightscout) als die beschikbaar is
+                const cache = loadFromCache();
+                const treatments = cache ? cache.treatments : [];
 
                 saveToCache(entries, treatments);
                 processGlucoseData(entries);
-                processInsulinData(treatments);
+                if (treatments.length > 0) processInsulinData(treatments);
+
                 document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
-                updateStatus("✅ iAPS data geladen", "ok");
+                updateStatus("✅ iAPS glucose geladen" + (treatments.length > 0 ? " + insuline uit cache" : ""), "ok");
             } catch (err) {
                 console.error("[GlucoDash] HealthKit fout:", err);
-                updateStatus("HealthKit fout: " + err.message, "error");
+                updateStatus("HealthKit fout: " + (err.message || JSON.stringify(err)), "error");
             }
         }
 

@@ -228,6 +228,28 @@
             opacity: 0.5;
         }
 
+        /* ===== HEALTHKIT SECTIE ===== */
+        .hk-section { margin-bottom: 30px; }
+        .hk-section h2 { color: var(--info-color); text-align: center; margin-bottom: 16px; font-size: 1.1rem; }
+        .hk-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+        @media (max-width: 900px) { .hk-grid { grid-template-columns: repeat(3, 1fr); } }
+        @media (max-width: 600px) { .hk-grid { grid-template-columns: repeat(2, 1fr); } }
+        .hk-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            box-shadow: var(--card-shadow);
+            border-left: 3px solid var(--info-color);
+        }
+        .hk-card .hk-label { font-size: 0.75rem; color: #7f8c8d; margin-bottom: 4px; }
+        .hk-card .hk-value { font-size: 1.4rem; font-weight: bold; }
+        .hk-card .hk-unit { font-size: 0.7rem; color: #7f8c8d; }
+
         /* ===== GRAFIEKEN VIEW ===== */
         #charts-view { display: none; }
         .chart-section {
@@ -751,6 +773,12 @@
             </div>
         </div>
 
+        <!-- HEALTHKIT EXTRA DATA (alleen zichtbaar bij iAPS modus) -->
+        <div id="hk-section" class="hk-section" style="display:none;">
+            <h2>❤️ HealthKit — lokale data</h2>
+            <div class="hk-grid" id="hk-grid"></div>
+        </div>
+
         <div class="ai-section">
             <h2>Lokale Analyse</h2>
             <p id="ai-tip">Data wordt geladen...</p>
@@ -1083,58 +1111,174 @@
             }
         }
 
-        // ============= HEALTHKIT / iAPS =============
+        // ============= HEALTHKIT / iAPS — ALLE DATA =============
+        // Alle ondersteunde types in @perfood/capacitor-healthkit v1.3
+        const HK_ALL_TYPES = [
+            'bloodGlucose',
+            'heartRate', 'restingHeartRate', 'respiratoryRate',
+            'oxygenSaturation', 'bodyTemperature', 'basalBodyTemperature',
+            'bloodPressureSystolic', 'bloodPressureDiastolic',
+            'weight', 'bodyFat',
+            'stepCount', 'distanceWalkingRunning', 'distanceCycling',
+            'activeEnergyBurned', 'basalEnergyBurned', 'appleExerciseTime',
+            'flightsClimbed', 'sleepAnalysis', 'workoutType'
+        ];
+
+        // Leesbare labels + eenheden per type
+        const HK_META = {
+            bloodGlucose:          { label: '🩸 Glucose',       unit: 'mmol/L', decimals: 1 },
+            heartRate:             { label: '❤️ Hartslag',       unit: 'bpm',    decimals: 0 },
+            restingHeartRate:      { label: '💤 Rust hartslag',  unit: 'bpm',    decimals: 0 },
+            respiratoryRate:       { label: '💨 Ademhaling',     unit: '/min',   decimals: 0 },
+            oxygenSaturation:      { label: '🫁 SpO₂',           unit: '%',      decimals: 1, mult: 100 },
+            bodyTemperature:       { label: '🌡️ Temp',           unit: '°C',     decimals: 1 },
+            basalBodyTemperature:  { label: '🌡️ Basaal temp',    unit: '°C',     decimals: 1 },
+            bloodPressureSystolic: { label: '🩺 BD Sys',         unit: 'mmHg',   decimals: 0 },
+            bloodPressureDiastolic:{ label: '🩺 BD Dia',         unit: 'mmHg',   decimals: 0 },
+            weight:                { label: '⚖️ Gewicht',        unit: 'kg',     decimals: 1 },
+            bodyFat:               { label: '📊 Vetpercentage',  unit: '%',      decimals: 1, mult: 100 },
+            stepCount:             { label: '👟 Stappen',        unit: 'staps',  decimals: 0 },
+            distanceWalkingRunning:{ label: '🚶 Loopafstand',    unit: 'km',     decimals: 2, div: 1000 },
+            distanceCycling:       { label: '🚴 Fietsafstand',   unit: 'km',     decimals: 2, div: 1000 },
+            activeEnergyBurned:    { label: '🔥 Actieve kcal',   unit: 'kcal',   decimals: 0 },
+            basalEnergyBurned:     { label: '🔥 Basaal kcal',    unit: 'kcal',   decimals: 0 },
+            appleExerciseTime:     { label: '🏃 Beweegminuten',  unit: 'min',    decimals: 0 },
+            flightsClimbed:        { label: '🪜 Trappen',        unit: 'verd.',  decimals: 0 },
+            sleepAnalysis:         { label: '😴 Slaap',          unit: 'uur',    decimals: 1 },
+            workoutType:           { label: '💪 Training',       unit: '',       decimals: 0 }
+        };
+
         async function fetchFromHealthKit() {
-            updateStatus("iAPS data ophalen...", "neutral");
+            updateStatus("HealthKit data ophalen...", "neutral");
             const HK = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHealthkit;
             if (!HK) {
                 updateStatus("HealthKit niet beschikbaar (alleen in iOS app)", "error");
                 document.getElementById('ai-tip').innerText = "HealthKit werkt alleen in de iOS app. Gebruik Nightscout in de browser.";
                 return;
             }
+
             try {
-                // Alleen bloodGlucose — insulinelevering niet ondersteund door plugin v1.3
-                await HK.requestAuthorization({ all: [], read: ['bloodGlucose'], write: [] });
-
-                const endDate = new Date();
-                const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-
-                const glucoseResult = await HK.queryHKitSampleType({
-                    sampleName: 'bloodGlucose',
-                    startDate: startDate.toISOString(),
-                    endDate: endDate.toISOString(),
-                    limit: 2000
+                // Vraag toestemming voor alle types tegelijk
+                await HK.requestAuthorization({
+                    all: [],
+                    read: HK_ALL_TYPES,
+                    write: []
                 });
+            } catch (authErr) {
+                console.warn("[GlucoDash] Autorisatie gedeeltelijk mislukt:", authErr);
+                // Ga toch door — HealthKit geeft altijd 'succes' terug (privacy)
+            }
 
-                const rawData = glucoseResult.resultData || glucoseResult.output || glucoseResult || [];
-                const entries = rawData.map(r => ({
-                    // plugin geeft mmol/L terug tenzij anders aangegeven
-                    sgv: r.unitName === 'mg/dL' || r.unit === 'mg/dL'
+            const endDate = new Date();
+            const startDate24h = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+            const startDate7d  = new Date(endDate.getTime() - 7  * 24 * 60 * 60 * 1000);
+
+            // Query alle types parallel — fouten per type opvangen
+            const queries = HK_ALL_TYPES.map(type =>
+                HK.queryHKitSampleType({
+                    sampleName: type,
+                    startDate: (type === 'weight' || type === 'bodyFat') ? startDate7d.toISOString() : startDate24h.toISOString(),
+                    endDate: endDate.toISOString(),
+                    limit: type === 'bloodGlucose' ? 2000 : 200
+                }).then(r => ({ type, data: r.resultData || r.output || [] }))
+                  .catch(e => { console.warn(`[HK] ${type} fout:`, e.message); return { type, data: [] }; })
+            );
+
+            const results = await Promise.all(queries);
+            const byType = {};
+            results.forEach(r => { byType[r.type] = r.data; });
+
+            // ---- GLUCOSE (primair) ----
+            const glucoseRaw = byType['bloodGlucose'] || [];
+            if (glucoseRaw.length > 0) {
+                const entries = glucoseRaw.map(r => ({
+                    sgv: (r.unitName === 'mg/dL' || r.unit === 'mg/dL')
                         ? Math.round(r.value)
-                        : Math.round(r.value * 18.018),
+                        : Math.round((r.value || 0) * 18.018),
                     date: new Date(r.startDate || r.date).getTime(),
                     dateString: r.startDate || r.date,
                     direction: 'Flat'
                 })).sort((a, b) => b.date - a.date);
 
-                if (entries.length === 0) {
-                    updateStatus("⚠️ Geen glucose data in HealthKit (laatste 24u)", "neutral");
-                    return;
+                // Bewaar in cache voor offline + grafiek
+                const cachedTreatments = (loadFromCache() || {}).treatments || [];
+                saveToCache(entries, cachedTreatments);
+                processGlucoseData(entries);
+            }
+
+            // ---- EXTRA HEALTHKIT KAARTEN ----
+            renderHKCards(byType);
+
+            // ---- SLAAP: bereken totale uren ----
+            const sleepRaw = byType['sleepAnalysis'] || [];
+            if (sleepRaw.length > 0) {
+                let sleepMs = 0;
+                sleepRaw.forEach(s => {
+                    const start = new Date(s.startDate).getTime();
+                    const end   = new Date(s.endDate   || s.startDate).getTime();
+                    if (end > start) sleepMs += end - start;
+                });
+                byType['_sleepHours'] = sleepMs / 3600000;
+            }
+
+            const loaded = results.filter(r => r.data.length > 0).map(r => r.type);
+            document.getElementById('last-update').innerText = `HealthKit: ${new Date().toLocaleTimeString()}`;
+            updateStatus(`✅ ${loaded.length} typen geladen uit HealthKit`, "ok");
+            console.log("[GlucoDash] HealthKit types geladen:", loaded);
+        }
+
+        function renderHKCards(byType) {
+            const grid = document.getElementById('hk-grid');
+            const section = document.getElementById('hk-section');
+            if (!grid) return;
+
+            const cards = [];
+
+            HK_ALL_TYPES.forEach(type => {
+                if (type === 'bloodGlucose') return; // al in hoofddashboard
+                const data = byType[type] || [];
+                if (data.length === 0) return;
+
+                const meta = HK_META[type] || { label: type, unit: '', decimals: 1 };
+
+                let displayValue;
+                if (type === 'sleepAnalysis') {
+                    // Bereken totale slaap
+                    let ms = 0;
+                    data.forEach(s => {
+                        const diff = new Date(s.endDate || s.startDate).getTime() - new Date(s.startDate).getTime();
+                        if (diff > 0) ms += diff;
+                    });
+                    displayValue = (ms / 3600000).toFixed(meta.decimals);
+                } else if (type === 'stepCount' || type === 'activeEnergyBurned' || type === 'basalEnergyBurned' || type === 'appleExerciseTime' || type === 'flightsClimbed' || type === 'distanceWalkingRunning' || type === 'distanceCycling') {
+                    // Som voor dagelijkse types
+                    const sum = data.reduce((s, r) => s + (parseFloat(r.value) || 0), 0);
+                    let val = sum;
+                    if (meta.div) val = val / meta.div;
+                    if (meta.mult) val = val * meta.mult;
+                    displayValue = val.toFixed(meta.decimals);
+                } else {
+                    // Meest recente waarde
+                    const latest = data[data.length - 1] || data[0];
+                    let val = parseFloat(latest.value) || 0;
+                    if (meta.div) val = val / meta.div;
+                    if (meta.mult) val = val * meta.mult;
+                    displayValue = val.toFixed(meta.decimals);
                 }
 
-                // Insuline: uit cache (Nightscout) als die beschikbaar is
-                const cache = loadFromCache();
-                const treatments = cache ? cache.treatments : [];
+                cards.push(`
+                    <div class="hk-card">
+                        <div class="hk-label">${meta.label}</div>
+                        <div class="hk-value">${displayValue}</div>
+                        <div class="hk-unit">${meta.unit}</div>
+                    </div>`);
+            });
 
-                saveToCache(entries, treatments);
-                processGlucoseData(entries);
-                if (treatments.length > 0) processInsulinData(treatments);
-
-                document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
-                updateStatus("✅ iAPS glucose geladen" + (treatments.length > 0 ? " + insuline uit cache" : ""), "ok");
-            } catch (err) {
-                console.error("[GlucoDash] HealthKit fout:", err);
-                updateStatus("HealthKit fout: " + (err.message || JSON.stringify(err)), "error");
+            if (cards.length > 0) {
+                grid.innerHTML = cards.join('');
+                section.style.display = 'block';
+            } else {
+                section.style.display = 'none';
             }
         }
 

@@ -1123,6 +1123,9 @@
             'activeEnergyBurned', 'basalEnergyBurned', 'appleExerciseTime',
             'flightsClimbed', 'sleepAnalysis', 'workoutType'
         ];
+        // Alleen HKQuantityType-types mogen in requestAuthorization read[].
+        // sleepAnalysis = HKCategoryType, workoutType = HKWorkoutType → weglaten uit auth
+        const HK_AUTH_TYPES = HK_ALL_TYPES.filter(t => t !== 'sleepAnalysis' && t !== 'workoutType');
 
         // Leesbare labels + eenheden per type
         const HK_META = {
@@ -1157,16 +1160,19 @@
                 return;
             }
 
+            // Stap 1: probeer auth voor alle quantity-types (sleep/workout zijn andere HK-klassen)
             try {
-                // Vraag toestemming voor alle types tegelijk
-                await HK.requestAuthorization({
-                    all: [],
-                    read: HK_ALL_TYPES,
-                    write: []
-                });
+                await HK.requestAuthorization({ all: [], read: HK_AUTH_TYPES, write: [] });
+                console.log("[GlucoDash] HealthKit auth OK voor", HK_AUTH_TYPES.length, "types");
             } catch (authErr) {
-                console.warn("[GlucoDash] Autorisatie gedeeltelijk mislukt:", authErr);
-                // Ga toch door — HealthKit geeft altijd 'succes' terug (privacy)
+                console.warn("[GlucoDash] Batch auth mislukt, fallback naar alleen glucose:", authErr.message);
+                // Fallback: vraag alleen glucose-toestemming
+                try {
+                    await HK.requestAuthorization({ all: [], read: ['bloodGlucose'], write: [] });
+                    console.log("[GlucoDash] HealthKit auth fallback: alleen bloodGlucose");
+                } catch (e2) {
+                    console.error("[GlucoDash] Zelfs glucose auth mislukt:", e2.message);
+                }
             }
 
             const endDate = new Date();

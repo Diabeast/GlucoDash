@@ -113,36 +113,120 @@
         .datasource-option span { font-weight: bold; font-size: 1rem; }
         .datasource-option small { color: #7f8c8d; font-size: 0.8rem; }
 
-        /* ===== TAB BAR ===== */
-        .tab-bar {
-            display: flex;
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: var(--card-bg);
-            border-top: 1px solid rgba(127,127,127,0.15);
-            z-index: 100;
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        .tab-btn {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 10px 0 8px;
+        /* ===== HAMBURGER MENU ===== */
+        .hamburger-btn {
             background: none;
             border: none;
             cursor: pointer;
-            color: #7f8c8d;
-            font-size: 0.65rem;
-            gap: 3px;
-            transition: color 0.2s;
+            padding: 8px;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            align-items: center;
+            justify-content: center;
         }
-        .tab-btn.active { color: var(--primary-color); }
-        .tab-btn svg { width: 24px; height: 24px; }
-        body { padding-bottom: 70px; }
+        .hamburger-btn span {
+            display: block;
+            width: 24px;
+            height: 2px;
+            background: var(--text-color);
+            border-radius: 2px;
+            transition: all 0.3s;
+        }
+        header {
+            position: relative;
+        }
+        .header-left {
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+
+        /* ===== SLIDE-IN MENU ===== */
+        .menu-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.45);
+            z-index: 200;
+        }
+        .menu-overlay.open { display: block; }
+
+        .menu-panel {
+            position: fixed;
+            top: 0;
+            left: 0;
+            bottom: 0;
+            width: min(320px, 85vw);
+            background: var(--card-bg);
+            z-index: 201;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .menu-panel.open { transform: translateX(0); }
+
+        .menu-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 20px 20px 16px;
+            border-bottom: 1px solid rgba(127,127,127,0.15);
+        }
+        .menu-header h2 {
+            margin: 0;
+            font-size: 1.2rem;
+            background: linear-gradient(90deg, #2a7cf6, #5be34f);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .menu-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--text-color);
+            padding: 4px 8px;
+        }
+
+        .menu-nav {
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(127,127,127,0.15);
+        }
+        .menu-nav-item {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 14px 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-color);
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+            transition: background 0.15s;
+        }
+        .menu-nav-item:hover { background: rgba(127,127,127,0.08); }
+        .menu-nav-item.active { color: var(--primary-color); font-weight: 600; }
+        .menu-nav-item svg { width: 22px; height: 22px; flex-shrink: 0; }
+
+        .menu-datasource {
+            padding: 16px 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        .menu-datasource h3 {
+            margin: 0 0 12px;
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            opacity: 0.5;
+        }
 
         /* ===== GRAFIEKEN VIEW ===== */
         #charts-view { display: none; }
@@ -158,7 +242,7 @@
             color: var(--primary-color);
             font-size: 1rem;
         }
-        .chart-wrapper { position: relative; height: 220px; }
+        .chart-wrapper { position: relative; height: 280px; }
 
         /* SVG Logo */
         .logo-svg {
@@ -537,6 +621,11 @@
 <body>
 
     <header>
+        <div class="header-left">
+            <button class="hamburger-btn" onclick="openMenu()" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
         <!-- SVG Logo -->
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 150" class="logo-svg">
             <defs>
@@ -560,17 +649,56 @@
         </svg>
     </header>
 
+    <!-- HAMBURGER MENU -->
+    <div class="menu-overlay" id="menu-overlay" onclick="closeMenu()"></div>
+    <div class="menu-panel" id="menu-panel">
+        <div class="menu-header">
+            <h2>GlucoDash</h2>
+            <button class="menu-close" onclick="closeMenu()">✕</button>
+        </div>
+        <nav class="menu-nav">
+            <button class="menu-nav-item active" id="tab-dashboard" onclick="switchTab('dashboard')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>
+                Dashboard
+            </button>
+            <button class="menu-nav-item" id="tab-charts" onclick="switchTab('charts')">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                Grafieken
+            </button>
+        </nav>
+        <div class="menu-datasource">
+            <h3>Databron</h3>
+            <div class="datasource-options">
+                <label class="datasource-option">
+                    <input type="radio" name="datasource" id="src-nightscout" value="nightscout" onchange="setDataSource('nightscout')">
+                    <span>🌐 Nightscout</span>
+                    <small>Live data via Nightscout</small>
+                </label>
+                <label class="datasource-option">
+                    <input type="radio" name="datasource" id="src-healthkit" value="healthkit" onchange="setDataSource('healthkit')">
+                    <span>❤️ iAPS (HealthKit)</span>
+                    <small>Directe data van iPhone</small>
+                </label>
+                <label class="datasource-option">
+                    <input type="radio" name="datasource" id="src-local" value="local" onchange="setDataSource('local')">
+                    <span>📱 Lokale cache</span>
+                    <small>Offline — laatste opgeslagen data</small>
+                </label>
+            </div>
+            <div id="cache-info" style="font-size:0.8rem;opacity:0.6;margin-top:8px;"></div>
+        </div>
+    </div>
+
     <div class="dashboard-container" id="dashboard-view">
         
         <div class="status-bar">
             <span id="status-text">Data ophalen...</span>
             <span id="last-update"></span>
-            <button class="settings-btn" onclick="openDataSourceModal()" title="Databron instellen">⚙️</button>
         </div>
         
-        <div class="current-GlucoDash" onclick="show24hGraph()">
+        <div class="current-GlucoDash">
             <h2>Glucose</h2>
-            <div class="GlucoDash-value" style="cursor:pointer" title="Klik voor 24u grafiek">
+            <div class="GlucoDash-value">
                 <span id="current-bg">--</span>
                 <span id="trend-arrow" class="trend-arrow"></span>
             </div>
@@ -631,37 +759,15 @@
     </div>
 
     <!-- GRAFIEKEN VIEW -->
-    <div id="charts-view" class="dashboard-container">
+    <div id="charts-view" class="dashboard-container" style="display:none;">
         <div class="chart-section">
-            <h3>📈 Glucose — laatste 24 uur</h3>
+            <h3>📈 Glucose & 💉 Insuline — laatste 24 uur</h3>
             <div class="chart-wrapper">
-                <canvas id="chart-glucose-main"></canvas>
-            </div>
-        </div>
-        <div class="chart-section">
-            <h3>💉 Insuline — laatste 24 uur</h3>
-            <div class="chart-wrapper">
-                <canvas id="chart-insulin-main"></canvas>
+                <canvas id="chart-combined"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- TAB BAR -->
-    <nav class="tab-bar">
-        <button class="tab-btn active" onclick="switchTab('dashboard')" id="tab-dashboard">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-            </svg>
-            Dashboard
-        </button>
-        <button class="tab-btn" onclick="switchTab('charts')" id="tab-charts">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
-            </svg>
-            Grafieken
-        </button>
-    </nav>
 
     <!-- Modals -->
     <div id="tir-modal" class="modal-overlay" onclick="closeModal(event)">
@@ -693,37 +799,7 @@
         </div>
     </div>
 
-    <!-- Databron Modal -->
-    <div id="datasource-modal" class="modal-overlay" onclick="closeModal(event)">
-        <div class="modal-content">
-            <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
-            <h2>⚙️ Databron</h2>
-            <div class="datasource-options">
-                <label class="datasource-option" onclick="setDataSource('nightscout')">
-                    <input type="radio" name="datasource" value="nightscout" id="src-nightscout">
-                    <span>📡 Nightscout</span>
-                    <small>Live data via internet</small>
-                </label>
-                <label class="datasource-option" onclick="setDataSource('local')">
-                    <input type="radio" name="datasource" value="local" id="src-local">
-                    <span>📱 Lokaal</span>
-                    <small>Gecachte data — werkt ook offline</small>
-                </label>
-            </div>
-            <p id="cache-info" style="font-size:0.8em;opacity:0.6;margin:0;"></p>
-        </div>
-    </div>
 
-    <!-- 24h Graph Popup -->
-    <div id="modal-24h" class="modal-overlay" onclick="closeModal(event)">
-        <div class="modal-content modal-24h">
-            <span class="close-modal" onclick="closeModal(event, true)">&times;</span>
-            <h2>📈 Laatste 24 uur</h2>
-            <div class="chart-24h-container">
-                <canvas id="chart24h"></canvas>
-            </div>
-        </div>
-    </div>
 
     <!-- Hypers Popup -->
     <div id="modal-hypers" class="modal-overlay" onclick="closeModal(event)">
@@ -855,7 +931,7 @@
         function setDataSource(source) {
             localStorage.setItem(DATA_SOURCE_KEY, source);
             document.getElementById('src-' + source).checked = true;
-            closeModal(null, true);
+            closeMenu();
             fetchData();
         }
 
@@ -893,9 +969,37 @@
             document.getElementById('datasource-modal').style.display = 'flex';
         }
 
+        // ============= MENU =============
+        function openMenu() {
+            const source = getDataSource();
+            const radio = document.getElementById('src-' + source);
+            if (radio) radio.checked = true;
+            const cache = loadFromCache();
+            const infoEl = document.getElementById('cache-info');
+            if (cache && cache.time) {
+                const d = new Date(cache.time);
+                infoEl.innerText = `Cache: ${d.toLocaleString('nl-NL')}`;
+            } else {
+                infoEl.innerText = 'Nog geen lokale cache beschikbaar';
+            }
+            document.getElementById('menu-overlay').classList.add('open');
+            document.getElementById('menu-panel').classList.add('open');
+        }
+
+        function closeMenu() {
+            document.getElementById('menu-overlay').classList.remove('open');
+            document.getElementById('menu-panel').classList.remove('open');
+        }
+
         // ============= MAIN FETCH =============
         async function fetchData() {
             console.log("[GlucoDash] Start fetch, bron:", getDataSource());
+
+            // ---- HEALTHKIT MODUS (iAPS) ----
+            if (getDataSource() === 'healthkit') {
+                await fetchFromHealthKit();
+                return;
+            }
 
             // ---- LOKALE MODUS ----
             if (getDataSource() === 'local') {
@@ -976,6 +1080,52 @@
                     document.getElementById('ai-tip').innerText = `Kon Nightscout niet bereiken: ${error.message}`;
                     updateStatus("Verbindingsfout - geen cache", "error");
                 }
+            }
+        }
+
+        // ============= HEALTHKIT / iAPS =============
+        async function fetchFromHealthKit() {
+            updateStatus("iAPS data ophalen...", "neutral");
+            const HK = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHealthkit;
+            if (!HK) {
+                updateStatus("HealthKit niet beschikbaar (alleen in iOS app)", "error");
+                document.getElementById('ai-tip').innerText = "HealthKit werkt alleen in de iOS app. Gebruik Nightscout in de browser.";
+                return;
+            }
+            try {
+                await HK.requestAuthorization({ all: [], read: ['bloodGlucose', 'insulinDelivery'], write: [] });
+
+                const endDate = new Date();
+                const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
+
+                const [glucoseResult, insulinResult] = await Promise.all([
+                    HK.queryHKitSampleType({ sampleName: 'bloodGlucose', startDate: startDate.toISOString(), endDate: endDate.toISOString(), limit: 2000 }),
+                    HK.queryHKitSampleType({ sampleName: 'insulinDelivery', startDate: startDate.toISOString(), endDate: endDate.toISOString(), limit: 500 })
+                ]);
+
+                // Converteer naar Nightscout-formaat
+                const entries = (glucoseResult.resultData || []).map(r => ({
+                    sgv: r.unitName === 'mg/dL' ? Math.round(r.value) : Math.round(r.value * 18.018),
+                    date: new Date(r.startDate).getTime(),
+                    dateString: r.startDate,
+                    direction: 'Flat'
+                })).sort((a, b) => b.date - a.date);
+
+                const treatments = (insulinResult.resultData || []).map(r => ({
+                    insulin: r.value,
+                    eventType: r.metadata && r.metadata.HKInsulinDeliveryPurpose === 1 ? 'Bolus' : 'SMB',
+                    created_at: r.startDate,
+                    date: new Date(r.startDate).getTime()
+                }));
+
+                saveToCache(entries, treatments);
+                processGlucoseData(entries);
+                processInsulinData(treatments);
+                document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
+                updateStatus("✅ iAPS data geladen", "ok");
+            } catch (err) {
+                console.error("[GlucoDash] HealthKit fout:", err);
+                updateStatus("HealthKit fout: " + err.message, "error");
             }
         }
 
@@ -1749,10 +1899,12 @@
 
         // ============= TABS =============
         function switchTab(tab) {
-            const dashboard = document.getElementById('dashboard-view') || document.querySelector('.dashboard-container:not(#charts-view)');
+            const dashboard = document.getElementById('dashboard-view');
             const charts = document.getElementById('charts-view');
             const btnDash = document.getElementById('tab-dashboard');
             const btnCharts = document.getElementById('tab-charts');
+
+            closeMenu();
 
             if (tab === 'charts') {
                 dashboard.style.display = 'none';
@@ -1774,83 +1926,120 @@
             const now = Date.now();
             const ago24 = now - 24 * 60 * 60 * 1000;
 
-            // --- Glucose grafiek ---
+            // Glucose data (chronologisch)
             const glucoData = entries
                 .filter(d => getTimestamp(d) >= ago24)
                 .sort((a, b) => getTimestamp(a) - getTimestamp(b));
 
-            const glucoLabels = glucoData.map(d => {
-                const dt = new Date(getTimestamp(d));
-                return dt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-            });
+            const labels = glucoData.map(d =>
+                new Date(getTimestamp(d)).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
+            );
             const glucoValues = glucoData.map(d => parseFloat((d.sgv / 18.018).toFixed(1)));
-            const glucoColors = glucoValues.map(v => v < 3.9 ? 'rgba(231,76,60,0.8)' : v > 10 ? 'rgba(243,156,18,0.8)' : 'rgba(46,204,113,0.8)');
 
-            const ctxG = document.getElementById('chart-glucose-main');
-            if (window._chartGlucoseMain) window._chartGlucoseMain.destroy();
-            window._chartGlucoseMain = new Chart(ctxG, {
-                type: 'line',
-                data: {
-                    labels: glucoLabels,
-                    datasets: [
-                        { data: glucoValues, borderColor: '#3498db', backgroundColor: 'rgba(52,152,219,0.08)', fill: true, tension: 0.3, pointRadius: 0, pointHoverRadius: 4 },
-                        { data: new Array(glucoValues.length).fill(10), borderColor: 'rgba(243,156,18,0.35)', borderDash: [4,4], pointRadius: 0, fill: false },
-                        { data: new Array(glucoValues.length).fill(3.9), borderColor: 'rgba(231,76,60,0.35)', borderDash: [4,4], pointRadius: 0, fill: false }
-                    ]
-                },
-                options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
-                    scales: {
-                        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
-                        y: { min: 2, max: 16, ticks: { font: { size: 10 } } }
-                    }
+            // Insuline data — maak een lookup per tijdslot voor de bars
+            const insulinData = treatments
+                .filter(t => getTimestamp(t) >= ago24 && t.insulin && parseFloat(t.insulin) > 0)
+                .sort((a, b) => getTimestamp(a) - getTimestamp(b));
+
+            // Snap insuline op het dichtstbijzijnde glucose-tijdstip
+            const insulinOnGlucoAxis = new Array(glucoData.length).fill(null);
+            insulinData.forEach(ins => {
+                const insTs = getTimestamp(ins);
+                let closest = -1, minDiff = Infinity;
+                glucoData.forEach((g, idx) => {
+                    const diff = Math.abs(getTimestamp(g) - insTs);
+                    if (diff < minDiff) { minDiff = diff; closest = idx; }
+                });
+                if (closest >= 0) {
+                    insulinOnGlucoAxis[closest] = (insulinOnGlucoAxis[closest] || 0) + parseFloat(ins.insulin);
                 }
             });
 
-            // --- Insuline grafiek ---
-            const insulinData = treatments
-                .filter(t => {
-                    const ts = getTimestamp(t);
-                    return ts >= ago24 && t.insulin && parseFloat(t.insulin) > 0;
-                })
-                .sort((a, b) => getTimestamp(a) - getTimestamp(b));
-
-            const insulinLabels = insulinData.map(d => {
-                const dt = new Date(getTimestamp(d));
-                return dt.toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' });
-            });
-            const insulinValues = insulinData.map(d => parseFloat(parseFloat(d.insulin).toFixed(2)));
-            const insulinColors = insulinData.map(d =>
-                d.eventType === 'Bolus' ? 'rgba(155,89,182,0.8)' : 'rgba(52,152,219,0.6)'
-            );
-
-            const ctxI = document.getElementById('chart-insulin-main');
-            if (window._chartInsulinMain) window._chartInsulinMain.destroy();
-            window._chartInsulinMain = new Chart(ctxI, {
-                type: 'bar',
+            const ctx = document.getElementById('chart-combined');
+            if (window._chartCombined) window._chartCombined.destroy();
+            window._chartCombined = new Chart(ctx, {
                 data: {
-                    labels: insulinLabels,
-                    datasets: [{
-                        data: insulinValues,
-                        backgroundColor: insulinColors,
-                        borderRadius: 3,
-                        label: 'Insuline (U)'
-                    }]
+                    labels,
+                    datasets: [
+                        {
+                            type: 'line',
+                            label: 'Glucose (mmol/L)',
+                            data: glucoValues,
+                            borderColor: '#3498db',
+                            backgroundColor: 'rgba(52,152,219,0.08)',
+                            fill: true,
+                            tension: 0.3,
+                            pointRadius: 0,
+                            pointHoverRadius: 4,
+                            yAxisID: 'yGluco',
+                            order: 1
+                        },
+                        {
+                            type: 'bar',
+                            label: 'Insuline (U)',
+                            data: insulinOnGlucoAxis,
+                            backgroundColor: 'rgba(155,89,182,0.55)',
+                            borderRadius: 3,
+                            yAxisID: 'yInsulin',
+                            order: 2
+                        },
+                        {
+                            type: 'line',
+                            label: 'Hyper (10)',
+                            data: new Array(labels.length).fill(10),
+                            borderColor: 'rgba(243,156,18,0.35)',
+                            borderDash: [4,4],
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'yGluco',
+                            order: 3
+                        },
+                        {
+                            type: 'line',
+                            label: 'Hypo (3.9)',
+                            data: new Array(labels.length).fill(3.9),
+                            borderColor: 'rgba(231,76,60,0.35)',
+                            borderDash: [4,4],
+                            pointRadius: 0,
+                            fill: false,
+                            yAxisID: 'yGluco',
+                            order: 4
+                        }
+                    ]
                 },
                 options: {
-                    responsive: true, maintainAspectRatio: false,
-                    plugins: { legend: { display: false } },
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    interaction: { mode: 'index', intersect: false },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            labels: { filter: item => item.text !== 'Hyper (10)' && item.text !== 'Hypo (3.9)', font: { size: 11 } }
+                        }
+                    },
                     scales: {
                         x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
-                        y: { beginAtZero: true, ticks: { font: { size: 10 } } }
+                        yGluco: {
+                            position: 'left',
+                            min: 2, max: 16,
+                            ticks: { font: { size: 10 }, callback: v => v + ' mmol' }
+                        },
+                        yInsulin: {
+                            position: 'right',
+                            beginAtZero: true,
+                            grid: { drawOnChartArea: false },
+                            ticks: { font: { size: 10 }, callback: v => v + ' U' }
+                        }
                     }
                 }
             });
         }
 
         // ============= INIT =============
-        // App icon verwerking (alleen nodig voor PWA)
+        // Zet juiste radio button bij start
+        const _src = getDataSource();
+        const _radio = document.getElementById('src-' + _src);
+        if (_radio) _radio.checked = true;
 
         // Start
         fetchData();

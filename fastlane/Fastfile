@@ -79,9 +79,6 @@ platform :ios do
     # 8. Uploaden naar TestFlight en distribueren naar interne groep "Testers"
     upload_to_testflight(
       api_key: api_key,
-      groups: ["Testers"],
-      distribute_external: false,
-      notify_external_testers: false,
       skip_waiting_for_build_processing: false,
       changelog: "Nieuwe build via CI",
       beta_app_description: "GlucoDash - glucose en insuline dashboard",

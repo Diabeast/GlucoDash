@@ -83,7 +83,9 @@ platform :ios do
       distribute_external: false,
       notify_external_testers: false,
       skip_waiting_for_build_processing: false,
-      changelog: "Nieuwe build via CI"
+      changelog: "Nieuwe build via CI",
+      beta_app_description: "GlucoDash - glucose en insuline dashboard",
+      beta_app_feedback_email: "arthurmink@gmail.com"
     )
 
   end

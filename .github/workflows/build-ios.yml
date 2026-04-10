@@ -152,11 +152,351 @@ jobs:
           project.save
           RUBY
 
+      - name: Voeg Live Activity toe
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+        run: |
+          # ---- File 1: GlucoDashAttributes.swift (gedeeld door app + widget) ----
+          cat > "ios/App/App/GlucoDashAttributes.swift" << 'SWIFT'
+          import ActivityKit
+          import Foundation
+
+          @available(iOS 16.2, *)
+          struct GlucoDashAttributes: ActivityAttributes {
+              public struct ContentState: Codable, Hashable {
+                  var glucoseMMOL: Double
+                  var trend: String
+                  var delta: String
+                  var isHigh: Bool
+                  var isLow: Bool
+                  var updatedAt: Date
+              }
+          }
+          SWIFT
+
+          # ---- File 2: LiveActivityPlugin.swift (alleen app target) ----
+          cat > "ios/App/App/LiveActivityPlugin.swift" << 'SWIFT'
+          import Capacitor
+          import Foundation
+
+          @objc(LiveActivityPlugin)
+          public class LiveActivityPlugin: CAPPlugin, CAPBridgedPlugin {
+              public let identifier = "LiveActivityPlugin"
+              public let jsName = "LiveActivityPlugin"
+              public let pluginMethods: [CAPPluginMethod] = [
+                  CAPPluginMethod(name: "start", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "update", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "stop", returnType: CAPPluginReturnPromise)
+              ]
+              private var currentActivityID: String?
+
+              @available(iOS 16.2, *)
+              private var currentActivity: Activity<GlucoDashAttributes>? {
+                  guard let id = currentActivityID else { return nil }
+                  return Activity<GlucoDashAttributes>.activities.first { $0.id == id }
+              }
+
+              @objc func start(_ call: CAPPluginCall) {
+                  guard #available(iOS 16.2, *) else { call.reject("iOS 16.2+"); return }
+                  guard ActivityAuthorizationInfo().areActivitiesEnabled else { call.reject("Activities disabled"); return }
+                  let glucose = call.getDouble("glucose") ?? 0.0
+                  let trend   = call.getString("trend") ?? "\u{2192}\u{FE0E}"
+                  let delta   = call.getString("delta") ?? ""
+                  let state   = GlucoDashAttributes.ContentState(
+                      glucoseMMOL: glucose, trend: trend, delta: delta,
+                      isHigh: glucose > 10.0, isLow: glucose < 3.9, updatedAt: Date()
+                  )
+                  let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(900))
+                  do {
+                      if let act = currentActivity {
+                          Task { await act.update(content) }
+                      } else {
+                          let act = try Activity.request(attributes: GlucoDashAttributes(), content: content, pushType: nil)
+                          currentActivityID = act.id
+                      }
+                      call.resolve(["success": true])
+                  } catch { call.reject(error.localizedDescription) }
+              }
+
+              @objc func update(_ call: CAPPluginCall) { start(call) }
+
+              @objc func stop(_ call: CAPPluginCall) {
+                  guard #available(iOS 16.2, *) else { call.resolve(["success": true]); return }
+                  Task {
+                      await currentActivity?.end(nil, dismissalPolicy: .immediate)
+                      self.currentActivityID = nil
+                      call.resolve(["success": true])
+                  }
+              }
+          }
+          SWIFT
+
+          # ---- Maak widget map aan ----
+          mkdir -p "ios/App/GlucoDashWidget"
+
+          # ---- File 3: GlucoDashWidgetBundle.swift (widget target) ----
+          cat > "ios/App/GlucoDashWidget/GlucoDashWidgetBundle.swift" << 'SWIFT'
+          import WidgetKit
+          import SwiftUI
+
+          @main
+          struct GlucoDashWidgetBundle: WidgetBundle {
+              var body: some Widget {
+                  if #available(iOS 16.2, *) {
+                      GlucoDashLiveActivityWidget()
+                  }
+              }
+          }
+
+          @available(iOS 16.2, *)
+          struct GlucoDashLiveActivityWidget: Widget {
+              var body: some WidgetConfiguration {
+                  ActivityConfiguration(for: GlucoDashAttributes.self) { context in
+                      GlucoDashLockScreenView(state: context.state)
+                  } dynamicIsland: { context in
+                      DynamicIsland {
+                          DynamicIslandExpandedRegion(.center) {
+                              HStack {
+                                  Text(String(format: "%.1f", context.state.glucoseMMOL))
+                                      .font(.system(size: 26, weight: .bold, design: .rounded))
+                                      .foregroundColor(glucoseColor(context.state))
+                                  Text(context.state.trend).font(.title2)
+                                  Text(context.state.delta).foregroundColor(.secondary)
+                                  Spacer()
+                                  Text("mmol/L").font(.caption).foregroundColor(.secondary)
+                              }
+                          }
+                      } compactLeading: {
+                          Text(String(format: "%.1f", context.state.glucoseMMOL))
+                              .bold().foregroundColor(glucoseColor(context.state))
+                      } compactTrailing: {
+                          Text(context.state.trend)
+                      } minimal: {
+                          Text(String(format: "%.1f", context.state.glucoseMMOL))
+                              .font(.caption2).foregroundColor(glucoseColor(context.state))
+                      }
+                  }
+              }
+          }
+
+          @available(iOS 16.2, *)
+          func glucoseColor(_ s: GlucoDashAttributes.ContentState) -> Color {
+              s.isLow ? .red : s.isHigh ? .orange : .green
+          }
+          SWIFT
+
+          # ---- File 4: GlucoDashLockScreenView.swift (widget target) ----
+          cat > "ios/App/GlucoDashWidget/GlucoDashLockScreenView.swift" << 'SWIFT'
+          import SwiftUI
+          import ActivityKit
+
+          @available(iOS 16.2, *)
+          struct GlucoDashLockScreenView: View {
+              let state: GlucoDashAttributes.ContentState
+              var color: Color { state.isLow ? .red : state.isHigh ? .orange : .green }
+              var body: some View {
+                  HStack(spacing: 16) {
+                      VStack(alignment: .leading, spacing: 2) {
+                          Text("GlucoDash").font(.caption2).foregroundColor(.secondary)
+                          HStack(alignment: .firstTextBaseline, spacing: 6) {
+                              Text(String(format: "%.1f", state.glucoseMMOL))
+                                  .font(.system(size: 38, weight: .bold, design: .rounded))
+                                  .foregroundColor(color)
+                              VStack(alignment: .leading, spacing: 0) {
+                                  Text(state.trend).font(.title).foregroundColor(color)
+                                  if !state.delta.isEmpty {
+                                      Text(state.delta).font(.caption).foregroundColor(.secondary)
+                                  }
+                              }
+                          }
+                          Text("mmol/L").font(.caption2).foregroundColor(.secondary)
+                      }
+                      Spacer()
+                      VStack(alignment: .trailing, spacing: 4) {
+                          Text(state.updatedAt, style: .time).font(.caption).foregroundColor(.secondary)
+                          if state.isLow {
+                              Text("LAAG ⚠️").font(.caption).bold().foregroundColor(.red)
+                          } else if state.isHigh {
+                              Text("HOOG").font(.caption).bold().foregroundColor(.orange)
+                          }
+                      }
+                  }
+                  .padding(.horizontal, 20).padding(.vertical, 14)
+                  .activityBackgroundTint(Color.black.opacity(0.8))
+                  .activitySystemActionForegroundColor(.white)
+              }
+          }
+          SWIFT
+
+          # ---- File 5: Widget Info.plist ----
+          cat > "ios/App/GlucoDashWidget/Info.plist" << 'PLIST'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>NSExtension</key>
+              <dict>
+                  <key>NSExtensionPointIdentifier</key>
+                  <string>com.apple.widgetkit-extension</string>
+              </dict>
+          </dict>
+          </plist>
+          PLIST
+
+          # ---- File 6: Widget entitlements (met TEAMID) ----
+          cat > "ios/App/GlucoDashWidget/GlucoDashWidget.entitlements" << ENTITLEMENTS
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+          </dict>
+          </plist>
+          ENTITLEMENTS
+
+          echo "Live Activity Swift bestanden aangemaakt"
+
+      - name: Configureer Xcode project voor Live Activity widget
+        env:
+          TEAMID: ${{ secrets.TEAMID }}
+        run: |
+          bundle exec ruby << 'RUBY'
+          require 'xcodeproj'
+
+          proj_path = 'ios/App/App.xcodeproj'
+          project   = Xcodeproj::Project.open(proj_path)
+          team_id   = ENV['TEAMID']
+
+          app_target = project.targets.find { |t| t.name == 'App' }
+          raise "App target niet gevonden!" unless app_target
+
+          # ---- Voeg ActivityKit toe aan de app target ----
+          unless app_target.frameworks_build_phase.files_references.any? { |f| f.path&.include?('ActivityKit') }
+            actkit_ref = project.frameworks_group.new_file('System/Library/Frameworks/ActivityKit.framework')
+            actkit_ref.source_tree = 'SDKROOT'
+            app_target.frameworks_build_phase.add_file_reference(actkit_ref)
+            puts "ActivityKit.framework toegevoegd aan App target"
+          end
+
+          # ---- Voeg GlucoDashAttributes.swift + LiveActivityPlugin.swift toe aan App target ----
+          app_group = project.main_group['App']
+          ['GlucoDashAttributes.swift', 'LiveActivityPlugin.swift'].each do |swift_file|
+            unless app_group.files.any? { |f| f.path == swift_file }
+              file_ref = app_group.new_file(swift_file)
+              app_target.source_build_phase.add_file_reference(file_ref)
+              puts "#{swift_file} toegevoegd aan App target"
+            else
+              puts "#{swift_file} al aanwezig in App target"
+            end
+          end
+
+          # ---- Maak of zoek widget target ----
+          widget_target = project.targets.find { |t| t.name == 'GlucoDashWidget' }
+
+          unless widget_target
+            puts "Widget target aanmaken..."
+            widget_target = project.new_target(
+              :app_extension,
+              'GlucoDashWidget',
+              :ios,
+              '16.2',
+              project.products_group,
+              :swift
+            )
+            widget_target.product_type = 'com.apple.product-type.app-extension.widget-kit'
+            puts "Widget target aangemaakt"
+          end
+
+          # ---- Build settings voor widget target ----
+          widget_target.build_configurations.each do |config|
+            config.build_settings['PRODUCT_BUNDLE_IDENTIFIER'] = "com.#{team_id}.glucodash.widget"
+            config.build_settings['SWIFT_VERSION']             = '5.0'
+            config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '16.2'
+            config.build_settings['INFOPLIST_FILE']            = 'GlucoDashWidget/Info.plist'
+            config.build_settings['CODE_SIGN_ENTITLEMENTS']   = 'GlucoDashWidget/GlucoDashWidget.entitlements'
+            config.build_settings['SKIP_INSTALL']             = 'YES'
+            config.build_settings['CODE_SIGN_STYLE']          = 'Manual'
+            config.build_settings['DEVELOPMENT_TEAM']         = team_id
+            config.build_settings['CODE_SIGN_IDENTITY']       = 'iPhone Distribution'
+            config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = "match AppStore com.#{team_id}.glucodash.widget"
+          end
+
+          # ---- Maak of zoek widget file group ----
+          widget_group = project.main_group.groups.find { |g| g.name == 'GlucoDashWidget' || g.path == 'GlucoDashWidget' }
+          unless widget_group
+            widget_group = project.main_group.new_group('GlucoDashWidget', 'GlucoDashWidget')
+            puts "Widget file group aangemaakt"
+          end
+
+          # ---- Voeg widget Swift bestanden toe aan widget group + target ----
+          widget_files = [
+            'GlucoDashWidgetBundle.swift',
+            'GlucoDashLockScreenView.swift'
+          ]
+          widget_files.each do |wf|
+            unless widget_group.files.any? { |f| f.path == wf }
+              file_ref = widget_group.new_file(wf)
+              widget_target.source_build_phase.add_file_reference(file_ref)
+              puts "#{wf} toegevoegd aan widget target"
+            else
+              puts "#{wf} al aanwezig"
+            end
+          end
+
+          # ---- Voeg GlucoDashAttributes.swift toe aan widget target (shared) ----
+          attrs_ref = app_group.files.find { |f| f.path == 'GlucoDashAttributes.swift' }
+          if attrs_ref
+            unless widget_target.source_build_phase.files_references.include?(attrs_ref)
+              widget_target.source_build_phase.add_file_reference(attrs_ref)
+              puts "GlucoDashAttributes.swift ook aan widget target toegevoegd"
+            end
+          end
+
+          # ---- Frameworks voor widget target ----
+          [
+            'System/Library/Frameworks/WidgetKit.framework',
+            'System/Library/Frameworks/SwiftUI.framework',
+            'System/Library/Frameworks/ActivityKit.framework'
+          ].each do |fw_path|
+            fw_name = File.basename(fw_path)
+            unless widget_target.frameworks_build_phase.files_references.any? { |f| f.path&.include?(fw_name) }
+              fw_ref = project.frameworks_group.new_file(fw_path)
+              fw_ref.source_tree = 'SDKROOT'
+              widget_target.frameworks_build_phase.add_file_reference(fw_ref)
+              puts "#{fw_name} toegevoegd aan widget target"
+            end
+          end
+
+          # ---- Embed Foundation Extensions build phase in app target ----
+          embed_phase = app_target.build_phases.find do |phase|
+            phase.is_a?(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase) &&
+              phase.dst_subfolder_spec == '13'
+          end
+          unless embed_phase
+            embed_phase = app_target.new_copy_files_build_phase('Embed Foundation Extensions')
+            embed_phase.dst_subfolder_spec = '13'
+            embed_phase.dst_path          = ''
+            puts "Embed Foundation Extensions build phase aangemaakt"
+          end
+
+          # ---- Voeg widget product toe aan embed phase ----
+          widget_product_ref = widget_target.product_reference
+          unless embed_phase.files_references.include?(widget_product_ref)
+            embed_file = embed_phase.add_file_reference(widget_product_ref)
+            embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+            puts "Widget product toegevoegd aan Embed Foundation Extensions"
+          end
+
+          project.save
+          puts "Xcode project opgeslagen"
+          RUBY
+
       - name: Add HealthKit usage to Info.plist
         run: |
           /usr/libexec/PlistBuddy -c "Add :NSHealthShareUsageDescription string 'GlucoDash leest je glucose en insuline data.'" ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :NSHealthUpdateUsageDescription string 'GlucoDash heeft schrijftoegang nodig voor HealthKit.'" ios/App/App/Info.plist
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSSupportsLiveActivities bool true" ios/App/App/Info.plist 2>/dev/null || true
+          /usr/libexec/PlistBuddy -c "Add :NSSupportsLiveActivitiesFrequently bool true" ios/App/App/Info.plist 2>/dev/null || true
 
       - name: Configureer bundler (vendor/bundle + OpenSSL 3)
         run: |

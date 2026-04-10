@@ -81,8 +81,73 @@ platform :ios do
       else
         UI.important("App ID #{bid_str} niet gevonden! Response: #{res.code} #{res.body[0..200]}")
       end
+
+      # ---- Widget Bundle ID registreren + WidgetKit capability inschakelen ----
+      widget_bid_str = "com.#{team_id}.glucodash.widget"
+      UI.message("Zoek/maak widget App ID: #{widget_bid_str}")
+
+      uri_w = URI("https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]=#{widget_bid_str}")
+      req_w = Net::HTTP::Get.new(uri_w)
+      req_w['Authorization'] = "Bearer #{jwt}"
+      res_w = Net::HTTP.start(uri_w.hostname, uri_w.port, use_ssl: true) { |h| h.request(req_w) }
+      data_w = JSON.parse(res_w.body)
+      widget_bid = data_w['data']&.first
+
+      unless widget_bid
+        UI.message("Widget App ID niet gevonden, aanmaken...")
+        create_body = JSON.generate({
+          data: {
+            type: "bundleIds",
+            attributes: {
+              identifier: widget_bid_str,
+              name: "GlucoDash Widget",
+              platform: "IOS"
+            }
+          }
+        })
+        uri_c = URI("https://api.appstoreconnect.apple.com/v1/bundleIds")
+        req_c = Net::HTTP::Post.new(uri_c)
+        req_c['Authorization'] = "Bearer #{jwt}"
+        req_c['Content-Type']  = 'application/json'
+        req_c.body = create_body
+        res_c = Net::HTTP.start(uri_c.hostname, uri_c.port, use_ssl: true) { |h| h.request(req_c) }
+        if res_c.code.to_i == 201
+          widget_bid = JSON.parse(res_c.body)['data']
+          UI.success("Widget App ID aangemaakt: #{widget_bid['id']}")
+        else
+          UI.important("Widget App ID aanmaken mislukt #{res_c.code}: #{res_c.body[0..300]}")
+        end
+      else
+        UI.message("Widget App ID gevonden: #{widget_bid['id']}")
+      end
+
+      if widget_bid
+        # WidgetKit capability inschakelen op widget bundle ID
+        wk_body = JSON.generate({
+          data: {
+            type: "bundleIdCapabilities",
+            attributes: { capabilityType: "WIDGET_KIT", settings: [] },
+            relationships: { bundleId: { data: { id: widget_bid['id'], type: "bundleIds" } } }
+          }
+        })
+        uri_wk = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
+        req_wk = Net::HTTP::Post.new(uri_wk)
+        req_wk['Authorization'] = "Bearer #{jwt}"
+        req_wk['Content-Type']  = 'application/json'
+        req_wk.body = wk_body
+        res_wk = Net::HTTP.start(uri_wk.hostname, uri_wk.port, use_ssl: true) { |h| h.request(req_wk) }
+        case res_wk.code.to_i
+        when 201
+          UI.success("WidgetKit capability INGESCHAKELD op widget App ID!")
+        when 409
+          UI.success("WidgetKit was al ingeschakeld op widget App ID.")
+        else
+          UI.important("WidgetKit response #{res_wk.code}: #{res_wk.body[0..300]}")
+        end
+      end
+
     rescue => e
-      UI.important("HealthKit enable fout: #{e.message}\n#{e.backtrace.first(3).join("\n")}")
+      UI.important("HealthKit/Widget enable fout: #{e.message}\n#{e.backtrace.first(3).join("\n")}")
     end
 
     keychain_name = "build.keychain"
@@ -104,7 +169,7 @@ platform :ios do
     match(
       type: "appstore",
       api_key: api_key,
-      app_identifier: "com.#{ENV['TEAMID']}.glucodash",
+      app_identifier: ["com.#{ENV['TEAMID']}.glucodash", "com.#{ENV['TEAMID']}.glucodash.widget"],
       keychain_name: keychain_name,
       keychain_password: keychain_pass,
       readonly: false,
@@ -148,6 +213,18 @@ platform :ios do
       code_sign_identity: "iPhone Distribution"
     )
 
+    widget_profile_name = ENV["sigh_com.#{ENV['TEAMID']}.glucodash.widget_appstore_profile-name"] ||
+                          "match AppStore com.#{ENV['TEAMID']}.glucodash.widget"
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      team_id: ENV["TEAMID"],
+      path: "ios/App/App.xcodeproj",
+      targets: ["GlucoDashWidget"],
+      profile_name: widget_profile_name,
+      code_sign_identity: "iPhone Distribution"
+    )
+
     # 8. Versie en build number instellen
     increment_version_number(
       version_number: APP_VERSION,
@@ -167,7 +244,8 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.#{ENV['TEAMID']}.glucodash" => profile_name
+          "com.#{ENV['TEAMID']}.glucodash"        => profile_name,
+          "com.#{ENV['TEAMID']}.glucodash.widget" => "match AppStore com.#{ENV['TEAMID']}.glucodash.widget"
         }
       }
     )

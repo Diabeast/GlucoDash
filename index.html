@@ -1445,6 +1445,22 @@
             el.className = type === 'ok' ? 'status-ok' : type === 'error' ? 'status-error' : '';
         }
 
+        // ============= LIVE ACTIVITY =============
+
+        async function updateLiveActivity(glucose, trend, delta) {
+            const LA = window.Capacitor?.Plugins?.LiveActivityPlugin;
+            if (!LA) return;
+            try {
+                await LA.start({
+                    glucose: glucose,
+                    trend: trend,
+                    delta: delta || ''
+                });
+            } catch(e) {
+                console.warn('[LA]', e?.message || e);
+            }
+        }
+
         // ============= DATA PROCESSING =============
 
         function processGlucoseData(entries) {
@@ -1585,6 +1601,20 @@
                 periodStats // Include all period stats for AI
             };
             
+            // ---- Update Live Activity op het lock screen ----
+            const latestEntry = entries[0];
+            const latestMmol  = parseFloat((latestEntry.sgv / 18.018).toFixed(1));
+            const latestTrend = document.getElementById('trend-arrow')?.innerText || '→';
+            const latestDelta = (() => {
+                if (entries[1]) {
+                    const diff = parseFloat((latestMmol - (entries[1].sgv / 18.018)).toFixed(1));
+                    if (diff > 0) return '+' + diff;
+                    if (diff < 0) return '' + diff;
+                }
+                return '';
+            })();
+            updateLiveActivity(latestMmol, latestTrend, latestDelta);
+
             triggerAI();
         }
 

@@ -13,11 +13,83 @@ platform :ios do
       key_filepath: File.expand_path("../api_key.p8", __dir__)
     )
 
+    # 2. Activeer HealthKit capability op de App ID (direct voor match)
+    require 'openssl'
+    require 'base64'
+    require 'json'
+    require 'net/http'
+
+    begin
+      key_path    = File.expand_path("../api_key.p8", __dir__)
+      key_content = File.binread(key_path)
+      pkey        = OpenSSL::PKey.read(key_content)
+      kid         = ENV['FASTLANE_KEY_ID']
+      iss         = ENV['FASTLANE_ISSUER_ID']
+      now         = Time.now.to_i
+
+      hdr = Base64.urlsafe_encode64(JSON.generate({alg:'ES256',kid:kid,typ:'JWT'}), padding: false)
+      pld = Base64.urlsafe_encode64(JSON.generate({iss:iss,iat:now,exp:now+1200,aud:'appstoreconnect-v1'}), padding: false)
+      si  = "#{hdr}.#{pld}"
+      der = pkey.sign(OpenSSL::Digest::SHA256.new, si)
+      asn = OpenSSL::ASN1.decode(der)
+      r   = asn.value[0].value.to_s(2).rjust(32, "\x00").bytes.last(32).pack('C*')
+      s   = asn.value[1].value.to_s(2).rjust(32, "\x00").bytes.last(32).pack('C*')
+      jwt = "#{si}.#{Base64.urlsafe_encode64(r + s, padding: false)}"
+
+      team_id = ENV['TEAMID']
+      bid_str = "com.#{team_id}.glucodash"
+      UI.message("Zoek App ID: #{bid_str}")
+
+      # Zoek het Bundle ID resource ID op
+      uri = URI("https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]=#{bid_str}")
+      req = Net::HTTP::Get.new(uri)
+      req['Authorization'] = "Bearer #{jwt}"
+      res = Net::HTTP.start(uri.hostname, uri.port, use_ssl: true) { |h| h.request(req) }
+      data = JSON.parse(res.body)
+      bid  = data['data']&.first
+
+      if bid
+        UI.message("App ID gevonden: #{bid['id']}")
+
+        hk_body = JSON.generate({
+          data: {
+            type: "bundleIdCapabilities",
+            attributes: { capabilityType: "HEALTH_KIT", settings: [] },
+            relationships: { bundleId: { data: { id: bid['id'], type: "bundleIds" } } }
+          }
+        })
+
+        uri2 = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
+        req2 = Net::HTTP::Post.new(uri2)
+        req2['Authorization'] = "Bearer #{jwt}"
+        req2['Content-Type']  = 'application/json'
+        req2.body = hk_body
+        res2 = Net::HTTP.start(uri2.hostname, uri2.port, use_ssl: true) { |h| h.request(req2) }
+
+        case res2.code.to_i
+        when 201
+          UI.success("HealthKit capability INGESCHAKELD op App ID!")
+        when 409
+          UI.success("HealthKit was al ingeschakeld op App ID.")
+        else
+          UI.important("HealthKit response #{res2.code}: #{res2.body[0..300]}")
+        end
+
+        # Wacht 8 seconden zodat Apple de wijziging kan propageren naar provisioning
+        UI.message("Wacht 8s voor Apple propagatie...")
+        sleep(8)
+      else
+        UI.important("App ID #{bid_str} niet gevonden! Response: #{res.code} #{res.body[0..200]}")
+      end
+    rescue => e
+      UI.important("HealthKit enable fout: #{e.message}\n#{e.backtrace.first(3).join("\n")}")
+    end
+
     keychain_name = "build.keychain"
     keychain_path = File.expand_path("~/Library/Keychains/build.keychain-db")
     keychain_pass = "buildpass"
 
-    # 2. Maak tijdelijke keychain aan voor CI (GitHub Actions)
+    # 3. Maak tijdelijke keychain aan voor CI (GitHub Actions)
     create_keychain(
       name: keychain_name,
       password: keychain_pass,
@@ -27,7 +99,8 @@ platform :ios do
       lock_when_sleeps: false
     )
 
-    # 3. Match: Certificaten en Provisioning Profiles ophalen
+    # 4. Match: haal certificaten en provisioning profiles op
+    #    force: true → genereert altijd een NIEUW profiel (pikt HealthKit op)
     match(
       type: "appstore",
       api_key: api_key,
@@ -38,7 +111,24 @@ platform :ios do
       force: true
     )
 
-    # 4. Keychain permissies goedzetten voor codesign
+    # 5. Controleer of HealthKit in het provisioning profile zit
+    profile_path = ENV["sigh_com.#{ENV['TEAMID']}.glucodash_appstore_profile-path"] ||
+                   Dir.glob(File.expand_path("~/Library/MobileDevice/Provisioning Profiles/*.mobileprovision")).
+                     select { |f| File.mtime(f) > Time.now - 120 }.first
+
+    if profile_path && File.exist?(profile_path.to_s)
+      plist_xml = `security cms -D -i "#{profile_path}" 2>/dev/null`
+      if plist_xml.include?('healthkit')
+        UI.success("✅ Provisioning profile bevat HealthKit!")
+      else
+        UI.error("❌ Provisioning profile MIST HealthKit!")
+        UI.message("Profile entitlements sectie: #{plist_xml.scan(/Entitlements.*?<\/dict>/m).first.to_s[0..500]}")
+      end
+    else
+      UI.important("Kon provisioning profile niet vinden voor verificatie.")
+    end
+
+    # 6. Keychain permissies goedzetten voor codesign
     sh("security set-key-partition-list -S apple-tool:,apple: -s -k '#{keychain_pass}' '#{keychain_path}' 2>/dev/null || true")
 
     update_app_identifier(
@@ -49,7 +139,7 @@ platform :ios do
 
     profile_name = ENV["sigh_com.#{ENV['TEAMID']}.glucodash_appstore_profile-name"] || "match AppStore com.#{ENV['TEAMID']}.glucodash"
 
-    # 5. Code signing instellingen bijwerken
+    # 7. Code signing instellingen bijwerken
     update_code_signing_settings(
       use_automatic_signing: false,
       team_id: ENV["TEAMID"],
@@ -58,7 +148,7 @@ platform :ios do
       code_sign_identity: "iPhone Distribution"
     )
 
-    # 6. Versie en build number instellen
+    # 8. Versie en build number instellen
     increment_version_number(
       version_number: APP_VERSION,
       xcodeproj: "ios/App/App.xcodeproj"
@@ -69,7 +159,7 @@ platform :ios do
       xcodeproj: "ios/App/App.xcodeproj"
     )
 
-    # 7. De .ipa file builden
+    # 9. De .ipa file builden
     build_app(
       workspace: "ios/App/App.xcworkspace",
       scheme: "App",
@@ -82,7 +172,7 @@ platform :ios do
       }
     )
 
-    # 8. Uploaden naar TestFlight en distribueren naar interne groep "Testers"
+    # 10. Uploaden naar TestFlight
     upload_to_testflight(
       api_key: api_key,
       skip_waiting_for_build_processing: false,

@@ -1046,7 +1046,7 @@
             try {
                 await HK.requestAuthorization({
                     all: ['bloodGlucose', 'insulinDelivery', 'dietaryCarbohydrates'],
-                    read: HK_AUTH_TYPES.filter(t => !['bloodGlucose','insulinDelivery','dietaryCarbohydrates'].includes(t)),
+                    read: [],
                     write: []
                 });
                 if (btn) btn.innerText = '✅ Toestemming verleend!';
@@ -1265,7 +1265,7 @@
             try {
                 await HK.requestAuthorization({
                     all: ['bloodGlucose', 'insulinDelivery', 'dietaryCarbohydrates'],
-                    read: HK_AUTH_TYPES.filter(t => !['bloodGlucose','insulinDelivery','dietaryCarbohydrates'].includes(t)),
+                    read: [],
                     write: []
                 });
                 console.log("[HK] Toestemming OK");
@@ -1314,16 +1314,16 @@
                 direction: 'Flat'
             })).sort((a, b) => b.date - a.date);
 
-            // ---- Stap 3: overige types parallel opvragen (incl. insuline) ----
-            const extraTypes = HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose');
+            // ---- Stap 3: insuline + koolhydraten opvragen ----
+            const extraTypes = ['insulinDelivery', 'dietaryCarbohydrates'];
             const extraResults = await Promise.all(extraTypes.map(type =>
                 HK.queryHKitSampleType({
                     sampleName: type,
-                    startDate: (type === 'weight' || type === 'bodyFat') ? start7d.toISOString() : start48h.toISOString(),
+                    startDate: start48h.toISOString(),
                     endDate: now.toISOString(),
                     limit: 200
                 }).then(r => ({ type, data: r.resultData || r.output || [] }))
-                  .catch(() => ({ type, data: [] }))
+                  .catch(e => { console.warn("[HK] Query fout voor", type, e?.message || e); return { type, data: [] }; })
             ));
 
             const byType = { bloodGlucose: glucoseRaw };

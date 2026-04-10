@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GlucoDash</title>
+    <title>GlucoDash v1.1</title>
     
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
@@ -667,7 +667,7 @@
                 }
                 @import url('https://fonts.googleapis.com/css2?family=Nunito:wght@900&amp;display=swap');
             </style>
-            <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" class="logo-text">GlucoDash</text>
+            <text x="50%" y="55%" text-anchor="middle" dominant-baseline="middle" class="logo-text">GlucoDash v1.1</text>
         </svg>
     </header>
 
@@ -1023,9 +1023,18 @@
         async function fetchData() {
             console.log("[GlucoDash] Start fetch, bron:", getDataSource());
 
-            // ---- HEALTHKIT MODUS (iAPS) ----
+            // ---- iAPS / HEALTHKIT MODUS ----
             if (getDataSource() === 'healthkit') {
-                await fetchFromHealthKit();
+                // Probeer eerst iAPS App Group (directe JSON), dan HealthKit als fallback
+                const iapsData = await fetchFromIAPS();
+                if (iapsData && iapsData.entries.length > 0) {
+                    saveToCache(iapsData.entries, iapsData.treatments);
+                    processGlucoseData(iapsData.entries);
+                    updateStatus(`✅ iAPS: ${iapsData.entries.length} metingen geladen`, "ok");
+                    document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
+                } else {
+                    await fetchFromHealthKit();
+                }
                 return;
             }
 
@@ -1151,25 +1160,71 @@
             workoutType:           { label: '💪 Training',       unit: '',       decimals: 0 }
         };
 
-        function showHKDebug(lines) {
-            let el = document.getElementById('hk-debug');
-            if (!el) {
-                el = document.createElement('div');
-                el.id = 'hk-debug';
-                el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#111;color:#0f0;font-size:11px;font-family:monospace;padding:8px;max-height:40vh;overflow-y:auto;z-index:9999;white-space:pre-wrap;';
-                document.body.appendChild(el);
+        // ============= iAPS APP GROUP — directe JSON lezer =============
+        async function fetchFromIAPS() {
+            updateStatus("iAPS data ophalen...", "neutral");
+            const plugin = window.Capacitor?.Plugins?.IAPSPlugin;
+            if (!plugin) {
+                console.warn("[iAPS] Plugin niet beschikbaar, val terug op HealthKit");
+                return null;
             }
-            el.textContent = lines.join('\n');
+            try {
+                const result = await plugin.readAll();
+                console.log("[iAPS] Bestanden geladen:", result.files);
+                console.log("[iAPS] Container pad:", result.containerPath);
+
+                const data = result.data || {};
+                const out = { entries: [], treatments: [], prefs: null };
+
+                // glucose.json → CGM entries
+                const glucoseRaw = data['glucose.json'];
+                if (Array.isArray(glucoseRaw)) {
+                    out.entries = glucoseRaw.map(g => ({
+                        sgv: g.sgv || Math.round((g.glucose || g.value || 0) * 18.018),
+                        date: new Date(g.date || g.dateString || g.startDate).getTime(),
+                        dateString: g.dateString || g.date || g.startDate,
+                        direction: g.direction || g.trend || 'Flat'
+                    })).filter(e => e.sgv > 0).sort((a,b) => b.date - a.date);
+                }
+
+                // pumpHistory.json → behandelingen (bolus/basaal)
+                const pumpRaw = data['pumpHistory.json'];
+                if (Array.isArray(pumpRaw)) {
+                    out.treatments = pumpRaw
+                        .filter(e => e._type === 'Bolus' || e.eventType === 'Bolus')
+                        .map(e => ({
+                            eventType: 'Bolus',
+                            insulin: e.amount || e.insulin || 0,
+                            created_at: e.timestamp || e.date,
+                            date: new Date(e.timestamp || e.date).getTime()
+                        }));
+                }
+
+                // carbHistory.json → koolhydraten
+                const carbRaw = data['carbHistory.json'];
+                if (Array.isArray(carbRaw)) {
+                    const carbs = carbRaw.map(e => ({
+                        eventType: 'Meal Bolus',
+                        carbs: e.carbs || e.amount || 0,
+                        created_at: e.date || e.createdAt,
+                        date: new Date(e.date || e.createdAt).getTime()
+                    }));
+                    out.treatments = [...out.treatments, ...carbs];
+                }
+
+                // preferences
+                out.prefs = data['settings/preferences.json'] || null;
+
+                return out;
+            } catch (e) {
+                console.warn("[iAPS] readAll fout:", e.message);
+                return null;
+            }
         }
 
         async function fetchFromHealthKit() {
             updateStatus("HealthKit data ophalen...", "neutral");
             const HK = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHealthkit;
-            const dbg = [];
-            dbg.push('=== HealthKit Debug ===');
-            dbg.push('Capacitor: ' + (window.Capacitor ? 'OK' : 'NIET BESCHIKBAAR'));
-            dbg.push('Plugin: ' + (HK ? 'OK' : 'NIET GEVONDEN'));
-            showHKDebug(dbg);
 
             if (!HK) {
                 updateStatus("HealthKit niet beschikbaar (alleen in iOS app)", "error");
@@ -1180,28 +1235,20 @@
             // Stap 1: probeer auth voor alle quantity-types (sleep/workout zijn andere HK-klassen)
             try {
                 await HK.requestAuthorization({ all: [], read: HK_AUTH_TYPES, write: [] });
-                dbg.push('Auth: OK (' + HK_AUTH_TYPES.length + ' types)');
                 console.log("[GlucoDash] HealthKit auth OK voor", HK_AUTH_TYPES.length, "types");
             } catch (authErr) {
-                dbg.push('Auth FOUT: ' + authErr.message);
                 console.warn("[GlucoDash] Batch auth mislukt, fallback naar alleen glucose:", authErr.message);
-                // Fallback: vraag alleen glucose-toestemming
                 try {
                     await HK.requestAuthorization({ all: [], read: ['bloodGlucose'], write: [] });
-                    dbg.push('Auth fallback bloodGlucose: OK');
-                    console.log("[GlucoDash] HealthKit auth fallback: alleen bloodGlucose");
                 } catch (e2) {
-                    dbg.push('Auth fallback FOUT: ' + e2.message);
                     console.error("[GlucoDash] Zelfs glucose auth mislukt:", e2.message);
                 }
             }
-            showHKDebug(dbg);
 
             const endDate = new Date();
             const startDate24h = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
             const startDate7d  = new Date(endDate.getTime() - 7  * 24 * 60 * 60 * 1000);
 
-            // Query alle types parallel — fouten per type opvangen
             const queries = HK_ALL_TYPES.map(type =>
                 HK.queryHKitSampleType({
                     sampleName: type,
@@ -1212,17 +1259,9 @@
                   .catch(e => { console.warn(`[HK] ${type} fout:`, e.message); return { type, data: [] }; })
             );
 
-            dbg.push('Queries gestart: ' + HK_ALL_TYPES.length);
-            showHKDebug(dbg);
-
             const results = await Promise.all(queries);
             const byType = {};
-            results.forEach(r => {
-                byType[r.type] = r.data;
-                if (r.data.length > 0) dbg.push('✅ ' + r.type + ': ' + r.data.length + ' records');
-                else dbg.push('○ ' + r.type + ': leeg');
-            });
-            showHKDebug(dbg);
+            results.forEach(r => { byType[r.type] = r.data; });
 
             // ---- GLUCOSE (primair) ----
             const glucoseRaw = byType['bloodGlucose'] || [];

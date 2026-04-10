@@ -61,7 +61,7 @@ jobs:
           cp appicon.png resources/icon.png
           npx @capacitor/assets generate --ios
 
-      - name: Add HealthKit entitlement
+      - name: Add HealthKit + AppGroup entitlements
         run: |
           ENTITLEMENTS="ios/App/App/App.entitlements"
           cat > "$ENTITLEMENTS" << 'EOF'
@@ -71,9 +71,98 @@ jobs:
           <dict>
             <key>com.apple.developer.healthkit</key>
             <true/>
+            <key>com.apple.security.application-groups</key>
+            <array>
+              <string>group.org.nightscout.iaps</string>
+            </array>
           </dict>
           </plist>
           EOF
+
+      - name: Voeg iAPS native plugin toe
+        run: |
+          PLUGIN_FILE="ios/App/App/IAPSPlugin.swift"
+          cat > "$PLUGIN_FILE" << 'SWIFT'
+          import Capacitor
+          import Foundation
+
+          @objc(IAPSPlugin)
+          public class IAPSPlugin: CAPPlugin {
+
+              let appGroup = "group.org.nightscout.iaps"
+
+              // Lees alle beschikbare iAPS bestanden uit de App Group container
+              @objc func readAll(_ call: CAPPluginCall) {
+                  guard let containerURL = FileManager.default.containerURL(
+                      forSecurityApplicationGroupIdentifier: appGroup) else {
+                      call.reject("App Group niet beschikbaar: \(appGroup)")
+                      return
+                  }
+
+                  let files = [
+                      "glucose.json",
+                      "pumpHistory.json",
+                      "carbHistory.json",
+                      "devicestatus.json",
+                      "settings/preferences.json",
+                      "settings/profile.json",
+                      "openapssuggest.json"
+                  ]
+
+                  var result: [String: Any] = [:]
+                  var found: [String] = []
+
+                  for file in files {
+                      let url = containerURL.appendingPathComponent(file)
+                      if let data = try? Data(contentsOf: url),
+                         let json = try? JSONSerialization.jsonObject(with: data) {
+                          result[file] = json
+                          found.append(file)
+                      }
+                  }
+
+                  // Scan root voor alle .json bestanden die we niet kenden
+                  if let contents = try? FileManager.default.contentsOfDirectory(
+                      at: containerURL, includingPropertiesForKeys: nil) {
+                      for item in contents where item.pathExtension == "json" {
+                          let name = item.lastPathComponent
+                          if result[name] == nil,
+                             let data = try? Data(contentsOf: item),
+                             let json = try? JSONSerialization.jsonObject(with: data) {
+                              result[name] = json
+                              found.append(name)
+                          }
+                      }
+                  }
+
+                  call.resolve([
+                      "data": result,
+                      "files": found,
+                      "containerPath": containerURL.path
+                  ])
+              }
+          }
+          SWIFT
+
+          # Voeg het Swift-bestand toe aan het Xcode-project
+          ruby << 'RUBY'
+          require 'xcodeproj'
+          proj_path = 'ios/App/App.xcodeproj'
+          project = Xcodeproj::Project.open(proj_path)
+          app_target = project.targets.find { |t| t.name == 'App' }
+          app_group = project.main_group['App']
+
+          swift_file = 'IAPSPlugin.swift'
+          existing = app_group.files.find { |f| f.path == swift_file }
+          unless existing
+            file_ref = app_group.new_file(swift_file)
+            app_target.source_build_phase.add_file_reference(file_ref)
+            puts "IAPSPlugin.swift toegevoegd aan Xcode project"
+          else
+            puts "IAPSPlugin.swift al aanwezig"
+          end
+          project.save
+          RUBY
 
       - name: Add HealthKit usage to Info.plist
         run: |

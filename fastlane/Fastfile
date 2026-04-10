@@ -33,7 +33,7 @@ platform :ios do
       keychain_name: keychain_name,
       keychain_password: keychain_pass,
       readonly: false,
-      force: false
+      force: true
     )
 
     # 4. Keychain permissies goedzetten voor codesign

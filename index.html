@@ -20,15 +20,17 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root {
-            --bg-color: #f4f7f6;
-            --text-color: #2c3e50;
+            --bg-color: #eef2f7;
+            --text-color: #1a2535;
+            --subtext-color: #4a5568;
             --card-bg: #ffffff;
-            --card-shadow: 0 8px 16px rgba(0,0,0,0.05);
-            --primary-color: #3498db;
-            --accent-color: #2ecc71;
-            --danger-color: #e74c3c;
-            --warning-color: #f39c12;
-            --info-color: #9b59b6;
+            --card-shadow: 0 4px 12px rgba(0,0,0,0.10);
+            --card-border: 1px solid rgba(0,0,0,0.08);
+            --primary-color: #2563eb;
+            --accent-color: #16a34a;
+            --danger-color: #dc2626;
+            --warning-color: #d97706;
+            --info-color: #7c3aed;
             --modal-bg: rgba(0,0,0,0.5);
         }
 
@@ -36,13 +38,15 @@
             :root {
                 --bg-color: #121212;
                 --text-color: #e0e0e0;
+                --subtext-color: #9ca3af;
                 --card-bg: #1e1e1e;
                 --card-shadow: 0 8px 16px rgba(0,0,0,0.3);
-                --primary-color: #2980b9;
-                --accent-color: #27ae60;
-                --danger-color: #c0392b;
-                --warning-color: #e67e22;
-                --info-color: #8e44ad;
+                --card-border: 1px solid rgba(255,255,255,0.06);
+                --primary-color: #3b82f6;
+                --accent-color: #22c55e;
+                --danger-color: #ef4444;
+                --warning-color: #f59e0b;
+                --info-color: #a78bfa;
                 --modal-bg: rgba(255,255,255,0.1);
             }
         }
@@ -111,7 +115,7 @@
         }
         .datasource-option input { display: none; }
         .datasource-option span { font-weight: bold; font-size: 1rem; }
-        .datasource-option small { color: #7f8c8d; font-size: 0.8rem; }
+        .datasource-option small { color: var(--subtext-color); font-size: 0.8rem; }
 
         /* ===== HAMBURGER MENU ===== */
         .hamburger-btn {
@@ -244,11 +248,12 @@
             padding: 14px;
             text-align: center;
             box-shadow: var(--card-shadow);
+            border: var(--card-border);
             border-left: 3px solid var(--info-color);
         }
-        .hk-card .hk-label { font-size: 0.75rem; color: #7f8c8d; margin-bottom: 4px; }
-        .hk-card .hk-value { font-size: 1.4rem; font-weight: bold; }
-        .hk-card .hk-unit { font-size: 0.7rem; color: #7f8c8d; }
+        .hk-card .hk-label { font-size: 0.75rem; color: var(--subtext-color); margin-bottom: 4px; }
+        .hk-card .hk-value { font-size: 1.4rem; font-weight: bold; color: var(--text-color); }
+        .hk-card .hk-unit { font-size: 0.7rem; color: var(--subtext-color); }
 
         /* ===== GRAFIEKEN VIEW ===== */
         #charts-view { display: none; }
@@ -258,6 +263,7 @@
             padding: 20px;
             margin-bottom: 20px;
             box-shadow: var(--card-shadow);
+            border: var(--card-border);
         }
         .chart-section h3 {
             margin: 0 0 16px 0;
@@ -300,6 +306,7 @@
             padding: 40px;
             text-align: center;
             box-shadow: var(--card-shadow);
+            border: var(--card-border);
             margin-bottom: 30px;
         }
 
@@ -327,7 +334,7 @@
         .trend-arrow svg {
             flex-shrink: 0;
         }
-        .GlucoDash-unit { font-size: 1.2rem; color: #7f8c8d; }
+        .GlucoDash-unit { font-size: 1.2rem; color: var(--subtext-color); }
         
         .delta {
             font-size: 1.2rem;
@@ -891,14 +898,14 @@
             else if (glucoseValue > 10) color = "#f39c12";
             
             const arrows = {
-                "DoubleUp": "⬆⬆",
-                "SingleUp": "⬆",
+                "DoubleUp": "↑↑",
+                "SingleUp": "↑",
                 "FortyFiveUp": "↗",
                 "Flat": "→",
                 "Right": "→",
                 "FortyFiveDown": "↘",
-                "SingleDown": "⬇",
-                "DoubleDown": "⬇⬆"
+                "SingleDown": "↓",
+                "DoubleDown": "↓↓"
             };
             
             // Probeer exact match

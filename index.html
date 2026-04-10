@@ -1045,8 +1045,8 @@
 
             try {
                 await HK.requestAuthorization({
-                    all: ['bloodGlucose'],
-                    read: HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose'),
+                    all: ['bloodGlucose', 'insulinDelivery', 'dietaryCarbohydrates'],
+                    read: HK_AUTH_TYPES.filter(t => !['bloodGlucose','insulinDelivery','dietaryCarbohydrates'].includes(t)),
                     write: []
                 });
                 if (btn) btn.innerText = '✅ Toestemming verleend!';
@@ -1151,6 +1151,8 @@
         // Alle ondersteunde types in @perfood/capacitor-healthkit v1.3
         const HK_ALL_TYPES = [
             'bloodGlucose',
+            'insulinDelivery',          // bolus + basaal insuline (iAPS schrijft dit)
+            'dietaryCarbohydrates',     // koolhydraten
             'heartRate', 'restingHeartRate', 'respiratoryRate',
             'oxygenSaturation', 'bodyTemperature', 'basalBodyTemperature',
             'bloodPressureSystolic', 'bloodPressureDiastolic',
@@ -1159,7 +1161,6 @@
             'activeEnergyBurned', 'basalEnergyBurned', 'appleExerciseTime',
             'flightsClimbed', 'sleepAnalysis', 'workoutType'
         ];
-        // Alleen HKQuantityType-types mogen in requestAuthorization read[].
         // sleepAnalysis = HKCategoryType, workoutType = HKWorkoutType → weglaten uit auth
         const HK_AUTH_TYPES = HK_ALL_TYPES.filter(t => t !== 'sleepAnalysis' && t !== 'workoutType');
 
@@ -1263,8 +1264,8 @@
             // 'all' voor bloodGlucose = lees + schrijf → toont het beste toestemmingsvenster
             try {
                 await HK.requestAuthorization({
-                    all: ['bloodGlucose'],
-                    read: HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose'),
+                    all: ['bloodGlucose', 'insulinDelivery', 'dietaryCarbohydrates'],
+                    read: HK_AUTH_TYPES.filter(t => !['bloodGlucose','insulinDelivery','dietaryCarbohydrates'].includes(t)),
                     write: []
                 });
                 console.log("[HK] Toestemming OK");
@@ -1313,10 +1314,7 @@
                 direction: 'Flat'
             })).sort((a, b) => b.date - a.date);
 
-            saveToCache(entries, (loadFromCache() || {}).treatments || []);
-            processGlucoseData(entries);
-
-            // ---- Stap 3: overige types parallel opvragen ----
+            // ---- Stap 3: overige types parallel opvragen (incl. insuline) ----
             const extraTypes = HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose');
             const extraResults = await Promise.all(extraTypes.map(type =>
                 HK.queryHKitSampleType({
@@ -1351,12 +1349,39 @@
                 }
             } catch (_) {}
 
+            // ---- Verwerk insuline + koolhydraten als treatments ----
+            const insulineRaw = byType['insulinDelivery'] || [];
+            const carbsRaw    = byType['dietaryCarbohydrates'] || [];
+
+            const treatments = [
+                ...insulineRaw.map(r => ({
+                    eventType: r.metadata?.HKInsulinDeliveryReason === 1 ? 'Temp Basal' : 'Bolus',
+                    insulin: parseFloat((r.value || 0).toFixed(2)),
+                    created_at: r.startDate,
+                    date: new Date(r.startDate).getTime()
+                })).filter(t => t.insulin > 0),
+                ...carbsRaw.map(r => ({
+                    eventType: 'Meal Bolus',
+                    carbs: parseFloat((r.value || 0).toFixed(0)),
+                    created_at: r.startDate,
+                    date: new Date(r.startDate).getTime()
+                })).filter(t => t.carbs > 0)
+            ];
+
+            if (treatments.length > 0) {
+                saveToCache(entries, treatments);
+                processInsulinData(treatments);
+            } else {
+                saveToCache(entries, []);
+            }
+            processGlucoseData(entries);
+
             renderHKCards(byType);
 
             const loaded = Object.entries(byType).filter(([k, v]) => k !== '_sleepHours' && Array.isArray(v) && v.length > 0).map(([k]) => k);
             document.getElementById('last-update').innerText = `HealthKit: ${now.toLocaleTimeString()}`;
             updateStatus(`✅ ${loaded.length} typen geladen uit HealthKit`, "ok");
-            console.log("[HK] Geladen types:", loaded);
+            console.log("[HK] Geladen types:", loaded, "| insuline:", insulineRaw.length, "| koolhydraten:", carbsRaw.length);
         }
 
         function renderHKCards(byType) {

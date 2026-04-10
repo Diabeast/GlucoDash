@@ -83,65 +83,71 @@ jobs:
         run: |
           PLUGIN_FILE="ios/App/App/IAPSPlugin.swift"
           cat > "$PLUGIN_FILE" << 'SWIFT'
-          import Capacitor
-          import Foundation
+import Capacitor
+import Foundation
 
-          @objc(IAPSPlugin)
-          public class IAPSPlugin: CAPPlugin {
+// Capacitor 6: CAPBridgedPlugin vereist voor JS-registratie
+@objc(IAPSPlugin)
+public class IAPSPlugin: CAPPlugin, CAPBridgedPlugin {
 
-              let appGroup = "group.com.9CGZ7BWVXT.loopkit.LoopGroup"
+    public let identifier = "IAPSPlugin"
+    public let jsName = "IAPSPlugin"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "readAll", returnType: CAPPluginReturnPromise)
+    ]
 
-              // Lees alle beschikbare iAPS bestanden uit de App Group container
-              @objc func readAll(_ call: CAPPluginCall) {
-                  guard let containerURL = FileManager.default.containerURL(
-                      forSecurityApplicationGroupIdentifier: appGroup) else {
-                      call.reject("App Group niet beschikbaar: \(appGroup)")
-                      return
-                  }
+    let appGroup = "group.com.9CGZ7BWVXT.loopkit.LoopGroup"
 
-                  let files = [
-                      "glucose.json",
-                      "pumpHistory.json",
-                      "carbHistory.json",
-                      "devicestatus.json",
-                      "settings/preferences.json",
-                      "settings/profile.json",
-                      "openapssuggest.json"
-                  ]
+    @objc func readAll(_ call: CAPPluginCall) {
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: appGroup) else {
+            call.reject("App Group niet beschikbaar: \(appGroup)")
+            return
+        }
 
-                  var result: [String: Any] = [:]
-                  var found: [String] = []
+        let files = [
+            "glucose.json",
+            "pumpHistory.json",
+            "carbHistory.json",
+            "devicestatus.json",
+            "settings/preferences.json",
+            "settings/profile.json",
+            "openapssuggest.json"
+        ]
 
-                  for file in files {
-                      let url = containerURL.appendingPathComponent(file)
-                      if let data = try? Data(contentsOf: url),
-                         let json = try? JSONSerialization.jsonObject(with: data) {
-                          result[file] = json
-                          found.append(file)
-                      }
-                  }
+        var result: [String: Any] = [:]
+        var found: [String] = []
 
-                  // Scan root voor alle .json bestanden die we niet kenden
-                  if let contents = try? FileManager.default.contentsOfDirectory(
-                      at: containerURL, includingPropertiesForKeys: nil) {
-                      for item in contents where item.pathExtension == "json" {
-                          let name = item.lastPathComponent
-                          if result[name] == nil,
-                             let data = try? Data(contentsOf: item),
-                             let json = try? JSONSerialization.jsonObject(with: data) {
-                              result[name] = json
-                              found.append(name)
-                          }
-                      }
-                  }
+        for file in files {
+            let url = containerURL.appendingPathComponent(file)
+            if let data = try? Data(contentsOf: url),
+               let json = try? JSONSerialization.jsonObject(with: data) {
+                result[file] = json
+                found.append(file)
+            }
+        }
 
-                  call.resolve([
-                      "data": result,
-                      "files": found,
-                      "containerPath": containerURL.path
-                  ])
-              }
-          }
+        // Scan root voor alle .json bestanden die we niet kenden
+        if let contents = try? FileManager.default.contentsOfDirectory(
+            at: containerURL, includingPropertiesForKeys: nil) {
+            for item in contents where item.pathExtension == "json" {
+                let name = item.lastPathComponent
+                if result[name] == nil,
+                   let data = try? Data(contentsOf: item),
+                   let json = try? JSONSerialization.jsonObject(with: data) {
+                    result[name] = json
+                    found.append(name)
+                }
+            }
+        }
+
+        call.resolve([
+            "data": result,
+            "files": found,
+            "containerPath": containerURL.path
+        ])
+    }
+}
           SWIFT
 
           # Voeg het Swift-bestand toe aan het Xcode-project

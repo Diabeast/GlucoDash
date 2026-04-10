@@ -3,7 +3,8 @@
   "appName": "GlucoDash",
   "webDir": "www",
   "plugins": {
-    "CapacitorHealthkit": {}
+    "CapacitorHealthkit": {},
+    "IAPSPlugin": {}
   },
   "ios": {
     "contentInset": "automatic"

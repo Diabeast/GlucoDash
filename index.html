@@ -708,15 +708,9 @@
                 <label class="datasource-option">
                     <input type="radio" name="datasource" id="src-iaps" value="iaps" onchange="setDataSource('iaps')">
                     <span>📲 iAPS</span>
-                    <small>Directe data van iAPS app</small>
-                </label>
-                <label class="datasource-option">
-                    <input type="radio" name="datasource" id="src-local" value="local" onchange="setDataSource('local')">
-                    <span>📱 Lokale cache</span>
-                    <small>Offline — laatste opgeslagen data</small>
+                    <small>Via HealthKit — zet "Use Apple Health" aan in iAPS</small>
                 </label>
             </div>
-            <div id="cache-info" style="font-size:0.8rem;opacity:0.6;margin-top:8px;"></div>
         </div>
     </div>
 
@@ -971,8 +965,8 @@
 
         function getDataSource() {
             const src = localStorage.getItem(DATA_SOURCE_KEY) || 'nightscout';
-            // Migreer oude 'healthkit' waarde naar 'iaps'
-            if (src === 'healthkit') { localStorage.setItem(DATA_SOURCE_KEY, 'iaps'); return 'iaps'; }
+            // Migreer oude waarden
+            if (src === 'healthkit' || src === 'local') { localStorage.setItem(DATA_SOURCE_KEY, 'iaps'); return 'iaps'; }
             return src;
         }
 
@@ -1043,35 +1037,9 @@
         async function fetchData() {
             console.log("[GlucoDash] Start fetch, bron:", getDataSource());
 
-            // ---- iAPS MODUS ----
+            // ---- iAPS MODUS (via HealthKit) ----
             if (getDataSource() === 'iaps') {
-                const iapsData = await fetchFromIAPS();
-                if (iapsData && iapsData.entries.length > 0) {
-                    saveToCache(iapsData.entries, iapsData.treatments);
-                    processGlucoseData(iapsData.entries);
-                    processInsulinData(iapsData.treatments);
-                    updateStatus(`✅ iAPS: ${iapsData.entries.length} metingen geladen`, "ok");
-                    document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
-                } else {
-                    updateStatus("❌ iAPS App Group niet bereikbaar", "error");
-                    document.getElementById('ai-tip').innerText = "Kan iAPS data niet lezen. Controleer of de App Group correct is ingesteld en de iAPS app geïnstalleerd is.";
-                }
-                return;
-            }
-
-            // ---- LOKALE MODUS ----
-            if (getDataSource() === 'local') {
-                const cache = loadFromCache();
-                if (cache) {
-                    const d = new Date(cache.time);
-                    processGlucoseData(cache.entries);
-                    processInsulinData(cache.treatments);
-                    document.getElementById('last-update').innerText = `Cache: ${d.toLocaleTimeString()}`;
-                    updateStatus("📱 Lokale data", "ok");
-                } else {
-                    updateStatus("Geen lokale cache beschikbaar", "error");
-                    document.getElementById('ai-tip').innerText = "Schakel naar Nightscout om eerst data op te halen.";
-                }
+                await fetchFromHealthKit();
                 return;
             }
 
@@ -1248,8 +1216,8 @@
             const HK = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHealthkit;
 
             if (!HK) {
-                updateStatus("HealthKit niet beschikbaar (alleen in iOS app)", "error");
-                document.getElementById('ai-tip').innerText = "HealthKit werkt alleen in de iOS app. Gebruik Nightscout in de browser.";
+                updateStatus("iAPS data alleen beschikbaar in de iOS app", "error");
+                document.getElementById('ai-tip').innerText = "Gebruik Nightscout als databron in de browser. Op iPhone: zet 'Use Apple Health' aan in iAPS instellingen.";
                 return;
             }
 
@@ -1318,9 +1286,14 @@
             }
 
             const loaded = results.filter(r => r.data.length > 0).map(r => r.type);
-            document.getElementById('last-update').innerText = `HealthKit: ${new Date().toLocaleTimeString()}`;
-            updateStatus(`✅ ${loaded.length} typen geladen uit HealthKit`, "ok");
-            console.log("[GlucoDash] HealthKit types geladen:", loaded);
+            document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
+            if (loaded.length === 0) {
+                updateStatus("⚠️ Geen data — zet 'Use Apple Health' aan in iAPS", "error");
+                document.getElementById('ai-tip').innerText = "Ga in iAPS naar Instellingen → Nightscout en zet 'Use Apple Health' aan. iAPS schrijft dan glucose en insuline naar HealthKit zodat GlucoDash het kan lezen.";
+            } else {
+                updateStatus(`✅ iAPS: ${loaded.length} typen geladen`, "ok");
+            }
+            console.log("[GlucoDash] iAPS/HealthKit types geladen:", loaded);
         }
 
         function renderHKCards(byType) {

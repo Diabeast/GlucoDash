@@ -1151,9 +1151,26 @@
             workoutType:           { label: '💪 Training',       unit: '',       decimals: 0 }
         };
 
+        function showHKDebug(lines) {
+            let el = document.getElementById('hk-debug');
+            if (!el) {
+                el = document.createElement('div');
+                el.id = 'hk-debug';
+                el.style.cssText = 'position:fixed;bottom:0;left:0;right:0;background:#111;color:#0f0;font-size:11px;font-family:monospace;padding:8px;max-height:40vh;overflow-y:auto;z-index:9999;white-space:pre-wrap;';
+                document.body.appendChild(el);
+            }
+            el.textContent = lines.join('\n');
+        }
+
         async function fetchFromHealthKit() {
             updateStatus("HealthKit data ophalen...", "neutral");
             const HK = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHealthkit;
+            const dbg = [];
+            dbg.push('=== HealthKit Debug ===');
+            dbg.push('Capacitor: ' + (window.Capacitor ? 'OK' : 'NIET BESCHIKBAAR'));
+            dbg.push('Plugin: ' + (HK ? 'OK' : 'NIET GEVONDEN'));
+            showHKDebug(dbg);
+
             if (!HK) {
                 updateStatus("HealthKit niet beschikbaar (alleen in iOS app)", "error");
                 document.getElementById('ai-tip').innerText = "HealthKit werkt alleen in de iOS app. Gebruik Nightscout in de browser.";
@@ -1163,17 +1180,22 @@
             // Stap 1: probeer auth voor alle quantity-types (sleep/workout zijn andere HK-klassen)
             try {
                 await HK.requestAuthorization({ all: [], read: HK_AUTH_TYPES, write: [] });
+                dbg.push('Auth: OK (' + HK_AUTH_TYPES.length + ' types)');
                 console.log("[GlucoDash] HealthKit auth OK voor", HK_AUTH_TYPES.length, "types");
             } catch (authErr) {
+                dbg.push('Auth FOUT: ' + authErr.message);
                 console.warn("[GlucoDash] Batch auth mislukt, fallback naar alleen glucose:", authErr.message);
                 // Fallback: vraag alleen glucose-toestemming
                 try {
                     await HK.requestAuthorization({ all: [], read: ['bloodGlucose'], write: [] });
+                    dbg.push('Auth fallback bloodGlucose: OK');
                     console.log("[GlucoDash] HealthKit auth fallback: alleen bloodGlucose");
                 } catch (e2) {
+                    dbg.push('Auth fallback FOUT: ' + e2.message);
                     console.error("[GlucoDash] Zelfs glucose auth mislukt:", e2.message);
                 }
             }
+            showHKDebug(dbg);
 
             const endDate = new Date();
             const startDate24h = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
@@ -1190,9 +1212,17 @@
                   .catch(e => { console.warn(`[HK] ${type} fout:`, e.message); return { type, data: [] }; })
             );
 
+            dbg.push('Queries gestart: ' + HK_ALL_TYPES.length);
+            showHKDebug(dbg);
+
             const results = await Promise.all(queries);
             const byType = {};
-            results.forEach(r => { byType[r.type] = r.data; });
+            results.forEach(r => {
+                byType[r.type] = r.data;
+                if (r.data.length > 0) dbg.push('✅ ' + r.type + ': ' + r.data.length + ' records');
+                else dbg.push('○ ' + r.type + ': leeg');
+            });
+            showHKDebug(dbg);
 
             // ---- GLUCOSE (primair) ----
             const glucoseRaw = byType['bloodGlucose'] || [];

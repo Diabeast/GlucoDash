@@ -997,33 +997,11 @@
             } catch(e) { return null; }
         }
 
-        function openDataSourceModal() {
-            const source = getDataSource();
-            document.getElementById('src-' + source).checked = true;
-            const cache = loadFromCache();
-            const infoEl = document.getElementById('cache-info');
-            if (cache && cache.time) {
-                const d = new Date(cache.time);
-                infoEl.innerText = `Cache: ${d.toLocaleString('nl-NL')}`;
-            } else {
-                infoEl.innerText = 'Nog geen lokale cache beschikbaar';
-            }
-            document.getElementById('datasource-modal').style.display = 'flex';
-        }
-
         // ============= MENU =============
         function openMenu() {
             const source = getDataSource();
             const radio = document.getElementById('src-' + source);
             if (radio) radio.checked = true;
-            const cache = loadFromCache();
-            const infoEl = document.getElementById('cache-info');
-            if (cache && cache.time) {
-                const d = new Date(cache.time);
-                infoEl.innerText = `Cache: ${d.toLocaleString('nl-NL')}`;
-            } else {
-                infoEl.innerText = 'Nog geen lokale cache beschikbaar';
-            }
             document.getElementById('menu-overlay').classList.add('open');
             document.getElementById('menu-panel').classList.add('open');
         }
@@ -1212,88 +1190,113 @@
         }
 
         async function fetchFromHealthKit() {
-            updateStatus("HealthKit data ophalen...", "neutral");
-            const HK = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHealthkit;
+            updateStatus("HealthKit verbinden...", "neutral");
+            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
 
             if (!HK) {
-                updateStatus("iAPS data alleen beschikbaar in de iOS app", "error");
-                document.getElementById('ai-tip').innerText = "Gebruik Nightscout als databron in de browser. Op iPhone: zet 'Use Apple Health' aan in iAPS instellingen.";
+                updateStatus("HealthKit alleen beschikbaar in de iOS app", "error");
+                document.getElementById('ai-tip').innerText = "Open GlucoDash via de TestFlight iOS app op je iPhone.";
                 return;
             }
 
-            // Stap 1: probeer auth voor alle quantity-types (sleep/workout zijn andere HK-klassen)
+            // ---- Stap 1: vraag toestemming ----
+            // 'all' voor bloodGlucose = lees + schrijf → toont het beste toestemmingsvenster
             try {
-                await HK.requestAuthorization({ all: [], read: HK_AUTH_TYPES, write: [] });
-                console.log("[GlucoDash] HealthKit auth OK voor", HK_AUTH_TYPES.length, "types");
+                await HK.requestAuthorization({
+                    all: ['bloodGlucose'],
+                    read: HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose'),
+                    write: []
+                });
+                console.log("[HK] Toestemming OK");
             } catch (authErr) {
-                console.warn("[GlucoDash] Batch auth mislukt, fallback naar alleen glucose:", authErr.message);
-                try {
-                    await HK.requestAuthorization({ all: [], read: ['bloodGlucose'], write: [] });
-                } catch (e2) {
-                    console.error("[GlucoDash] Zelfs glucose auth mislukt:", e2.message);
-                }
+                console.warn("[HK] Auth fout (gaat toch door):", authErr?.message || authErr);
             }
 
-            const endDate = new Date();
-            const startDate24h = new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-            const startDate7d  = new Date(endDate.getTime() - 7  * 24 * 60 * 60 * 1000);
+            // ---- Stap 2: query glucose (48u venster) ----
+            const now = new Date();
+            const start48h = new Date(now - 48 * 3600000);
+            const start7d  = new Date(now - 7 * 86400000);
 
-            const queries = HK_ALL_TYPES.map(type =>
+            let glucoseRaw = [];
+            try {
+                const r = await HK.queryHKitSampleType({
+                    sampleName: 'bloodGlucose',
+                    startDate: start48h.toISOString(),
+                    endDate: now.toISOString(),
+                    limit: 2000
+                });
+                glucoseRaw = r.resultData || r.output || [];
+                console.log("[HK] Glucose ontvangen:", glucoseRaw.length, "— eerste:", glucoseRaw[0]);
+            } catch (e) {
+                console.error("[HK] Glucose query fout:", e?.message || e);
+                updateStatus("❌ HealthKit query mislukt: " + (e?.message || e), "error");
+                return;
+            }
+
+            if (glucoseRaw.length === 0) {
+                updateStatus("⚠️ Geen glucose in HealthKit", "error");
+                document.getElementById('ai-tip').innerText =
+                    "GlucoDash kan geen glucosedata vinden. Controleer:\n" +
+                    "1. iPhone → Instellingen → Gezondheid → Gegevenstoegang → GlucoDash → sta 'Bloedsuiker lezen' toe.\n" +
+                    "2. Zet 'Use Apple Health' aan in iAPS (Instellingen → Nightscout).\n" +
+                    "3. Zorg dat je CGM-app (Dexcom/LibreLink) ook naar Gezondheid schrijft.";
+                return;
+            }
+
+            // ---- Verwerk glucose ----
+            const entries = glucoseRaw.map(r => ({
+                sgv: (r.unitName === 'mg/dL' || r.unit === 'mg/dL')
+                    ? Math.round(r.value)
+                    : Math.round((r.value || 0) * 18.018),
+                date: new Date(r.startDate || r.date).getTime(),
+                dateString: r.startDate || r.date,
+                direction: 'Flat'
+            })).sort((a, b) => b.date - a.date);
+
+            saveToCache(entries, (loadFromCache() || {}).treatments || []);
+            processGlucoseData(entries);
+
+            // ---- Stap 3: overige types parallel opvragen ----
+            const extraTypes = HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose');
+            const extraResults = await Promise.all(extraTypes.map(type =>
                 HK.queryHKitSampleType({
                     sampleName: type,
-                    startDate: (type === 'weight' || type === 'bodyFat') ? startDate7d.toISOString() : startDate24h.toISOString(),
-                    endDate: endDate.toISOString(),
-                    limit: type === 'bloodGlucose' ? 2000 : 200
+                    startDate: (type === 'weight' || type === 'bodyFat') ? start7d.toISOString() : start48h.toISOString(),
+                    endDate: now.toISOString(),
+                    limit: 200
                 }).then(r => ({ type, data: r.resultData || r.output || [] }))
-                  .catch(e => { console.warn(`[HK] ${type} fout:`, e.message); return { type, data: [] }; })
-            );
+                  .catch(() => ({ type, data: [] }))
+            ));
 
-            const results = await Promise.all(queries);
-            const byType = {};
-            results.forEach(r => { byType[r.type] = r.data; });
+            const byType = { bloodGlucose: glucoseRaw };
+            extraResults.forEach(r => { byType[r.type] = r.data; });
 
-            // ---- GLUCOSE (primair) ----
-            const glucoseRaw = byType['bloodGlucose'] || [];
-            if (glucoseRaw.length > 0) {
-                const entries = glucoseRaw.map(r => ({
-                    sgv: (r.unitName === 'mg/dL' || r.unit === 'mg/dL')
-                        ? Math.round(r.value)
-                        : Math.round((r.value || 0) * 18.018),
-                    date: new Date(r.startDate || r.date).getTime(),
-                    dateString: r.startDate || r.date,
-                    direction: 'Flat'
-                })).sort((a, b) => b.date - a.date);
+            // Slaap apart (HKCategoryType)
+            try {
+                const sleepR = await HK.queryHKitSampleType({
+                    sampleName: 'sleepAnalysis',
+                    startDate: start48h.toISOString(),
+                    endDate: now.toISOString(),
+                    limit: 100
+                });
+                const sleepRaw = sleepR.resultData || sleepR.output || [];
+                if (sleepRaw.length > 0) {
+                    let ms = 0;
+                    sleepRaw.forEach(s => {
+                        const d = new Date(s.endDate || s.startDate).getTime() - new Date(s.startDate).getTime();
+                        if (d > 0) ms += d;
+                    });
+                    byType['sleepAnalysis'] = sleepRaw;
+                    byType['_sleepHours'] = ms / 3600000;
+                }
+            } catch (_) {}
 
-                // Bewaar in cache voor offline + grafiek
-                const cachedTreatments = (loadFromCache() || {}).treatments || [];
-                saveToCache(entries, cachedTreatments);
-                processGlucoseData(entries);
-            }
-
-            // ---- EXTRA HEALTHKIT KAARTEN ----
             renderHKCards(byType);
 
-            // ---- SLAAP: bereken totale uren ----
-            const sleepRaw = byType['sleepAnalysis'] || [];
-            if (sleepRaw.length > 0) {
-                let sleepMs = 0;
-                sleepRaw.forEach(s => {
-                    const start = new Date(s.startDate).getTime();
-                    const end   = new Date(s.endDate   || s.startDate).getTime();
-                    if (end > start) sleepMs += end - start;
-                });
-                byType['_sleepHours'] = sleepMs / 3600000;
-            }
-
-            const loaded = results.filter(r => r.data.length > 0).map(r => r.type);
-            document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
-            if (loaded.length === 0) {
-                updateStatus("⚠️ Geen data — zet 'Use Apple Health' aan in iAPS", "error");
-                document.getElementById('ai-tip').innerText = "Ga in iAPS naar Instellingen → Nightscout en zet 'Use Apple Health' aan. iAPS schrijft dan glucose en insuline naar HealthKit zodat GlucoDash het kan lezen.";
-            } else {
-                updateStatus(`✅ iAPS: ${loaded.length} typen geladen`, "ok");
-            }
-            console.log("[GlucoDash] iAPS/HealthKit types geladen:", loaded);
+            const loaded = Object.entries(byType).filter(([k, v]) => k !== '_sleepHours' && Array.isArray(v) && v.length > 0).map(([k]) => k);
+            document.getElementById('last-update').innerText = `HealthKit: ${now.toLocaleTimeString()}`;
+            updateStatus(`✅ ${loaded.length} typen geladen uit HealthKit`, "ok");
+            console.log("[HK] Geladen types:", loaded);
         }
 
         function renderHKCards(byType) {

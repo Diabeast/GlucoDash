@@ -176,6 +176,7 @@ jobs:
 
           # ---- File 2: LiveActivityPlugin.swift (alleen app target) ----
           cat > "ios/App/App/LiveActivityPlugin.swift" << 'SWIFT'
+          import ActivityKit
           import Capacitor
           import Foundation
 
@@ -412,15 +413,17 @@ jobs:
           unless widget_target
             puts "Widget target aanmaken..."
             widget_target = project.new_target(
-              :app_extension,
+              :app_extension,   # ← standaard app-extension, werkt in Xcode 26.2
               'GlucoDashWidget',
               :ios,
               '16.2',
               project.products_group,
               :swift
             )
-            widget_target.product_type = 'com.apple.product-type.app-extension.widget-kit'
-            puts "Widget target aangemaakt"
+            # GEEN widget_target.product_type override: 'com.apple.product-type.app-extension.widget-kit'
+            # bestaat niet meer in Xcode 26.2. iOS herkent de WidgetKit extensie via
+            # NSExtensionPointIdentifier='com.apple.widgetkit-extension' in Info.plist.
+            puts "Widget target aangemaakt (app-extension, WidgetKit via Info.plist)"
           end
 
           # ---- Build settings voor widget target ----
@@ -497,12 +500,25 @@ jobs:
             end
           end
 
-          # ---- Embed Foundation Extensions: TIJDELIJK UITGESCHAKELD ----
-          # Xcode 26.2 kan 'com.apple.product-type.app-extension.widget-kit' niet resolven.
-          # De widget TARGET bestaat wel in het project (voor de Swift-bestanden en code-signing),
-          # maar wordt NIET geëmbed → xcodebuild bouwt hem niet als dependency van App.
-          # Zodra we de juiste product-type identifier voor Xcode 26 weten, zetten we dit terug.
-          puts "Widget NIET geëmbed (Xcode 26.2 compat - zie 'Zoek Xcode 26 WidgetKit product type' stap)"
+          # ---- Embed Foundation Extensions build phase in app target ----
+          embed_phase = app_target.build_phases.find do |phase|
+            phase.is_a?(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase) &&
+              phase.dst_subfolder_spec == '13'
+          end
+          unless embed_phase
+            embed_phase = app_target.new_copy_files_build_phase('Embed Foundation Extensions')
+            embed_phase.dst_subfolder_spec = '13'
+            embed_phase.dst_path          = ''
+            puts "Embed Foundation Extensions build phase aangemaakt"
+          end
+
+          # ---- Voeg widget product toe aan embed phase ----
+          widget_product_ref = widget_target.product_reference
+          unless embed_phase.files_references.include?(widget_product_ref)
+            embed_file = embed_phase.add_file_reference(widget_product_ref)
+            embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
+            puts "Widget product toegevoegd aan Embed Foundation Extensions"
+          end
 
           project.save
           puts "Xcode project opgeslagen"

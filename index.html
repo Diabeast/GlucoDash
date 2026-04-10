@@ -322,13 +322,15 @@
             gap: 15px;
         }
 
-        .trend-arrow { 
-            display: flex; 
-            align-items: center; 
+        .trend-arrow {
+            display: flex;
+            align-items: center;
             justify-content: center;
             min-width: 50px;
             font-size: 30px;
             color: #2ecc71;
+            font-family: Arial, Helvetica, sans-serif;
+            font-variant-emoji: text;
         }
         
         .trend-arrow svg {
@@ -704,9 +706,9 @@
                     <small>Live data via Nightscout</small>
                 </label>
                 <label class="datasource-option">
-                    <input type="radio" name="datasource" id="src-healthkit" value="healthkit" onchange="setDataSource('healthkit')">
-                    <span>❤️ iAPS (HealthKit)</span>
-                    <small>Directe data van iPhone</small>
+                    <input type="radio" name="datasource" id="src-iaps" value="iaps" onchange="setDataSource('iaps')">
+                    <span>📲 iAPS</span>
+                    <small>Directe data van iAPS app</small>
                 </label>
                 <label class="datasource-option">
                     <input type="radio" name="datasource" id="src-local" value="local" onchange="setDataSource('local')">
@@ -780,9 +782,9 @@
             </div>
         </div>
 
-        <!-- HEALTHKIT EXTRA DATA (alleen zichtbaar bij iAPS modus) -->
+        <!-- IAPS EXTRA DATA -->
         <div id="hk-section" class="hk-section" style="display:none;">
-            <h2>❤️ HealthKit — lokale data</h2>
+            <h2>📲 iAPS — extra data</h2>
             <div class="hk-grid" id="hk-grid"></div>
         </div>
 
@@ -897,15 +899,17 @@
             if (glucoseValue < 3.9) color = "#e74c3c";
             else if (glucoseValue > 10) color = "#f39c12";
             
+            // \uFE0E = variation selector 15: forceer tekst-weergave (geen emoji) op iOS
+            const T = "\uFE0E";
             const arrows = {
-                "DoubleUp": "↑↑",
-                "SingleUp": "↑",
-                "FortyFiveUp": "↗",
-                "Flat": "→",
-                "Right": "→",
-                "FortyFiveDown": "↘",
-                "SingleDown": "↓",
-                "DoubleDown": "↓↓"
+                "DoubleUp":    "\u2191\uFE0E\u2191\uFE0E",
+                "SingleUp":    "\u2191\uFE0E",
+                "FortyFiveUp": "\u2197\uFE0E",
+                "Flat":        "\u2192\uFE0E",
+                "Right":       "\u2192\uFE0E",
+                "FortyFiveDown": "\u2198\uFE0E",
+                "SingleDown":  "\u2193\uFE0E",
+                "DoubleDown":  "\u2193\uFE0E\u2193\uFE0E"
             };
             
             // Probeer exact match
@@ -966,7 +970,10 @@
         const CACHE_TIME_KEY = 'glucodash_cache_time';
 
         function getDataSource() {
-            return localStorage.getItem(DATA_SOURCE_KEY) || 'nightscout';
+            const src = localStorage.getItem(DATA_SOURCE_KEY) || 'nightscout';
+            // Migreer oude 'healthkit' waarde naar 'iaps'
+            if (src === 'healthkit') { localStorage.setItem(DATA_SOURCE_KEY, 'iaps'); return 'iaps'; }
+            return src;
         }
 
         function setDataSource(source) {
@@ -1036,17 +1043,18 @@
         async function fetchData() {
             console.log("[GlucoDash] Start fetch, bron:", getDataSource());
 
-            // ---- iAPS / HEALTHKIT MODUS ----
-            if (getDataSource() === 'healthkit') {
-                // Probeer eerst iAPS App Group (directe JSON), dan HealthKit als fallback
+            // ---- iAPS MODUS ----
+            if (getDataSource() === 'iaps') {
                 const iapsData = await fetchFromIAPS();
                 if (iapsData && iapsData.entries.length > 0) {
                     saveToCache(iapsData.entries, iapsData.treatments);
                     processGlucoseData(iapsData.entries);
+                    processInsulinData(iapsData.treatments);
                     updateStatus(`✅ iAPS: ${iapsData.entries.length} metingen geladen`, "ok");
                     document.getElementById('last-update').innerText = `iAPS: ${new Date().toLocaleTimeString()}`;
                 } else {
-                    await fetchFromHealthKit();
+                    updateStatus("❌ iAPS App Group niet bereikbaar", "error");
+                    document.getElementById('ai-tip').innerText = "Kan iAPS data niet lezen. Controleer of de App Group correct is ingesteld en de iAPS app geïnstalleerd is.";
                 }
                 return;
             }
@@ -2239,7 +2247,12 @@
             });
 
             // --- Insuline data ---
-            const insulinData = treatments
+            // Gebruik zowel window.latestTreatments als de meegegeven treatments parameter
+            const allTreatments = (window.latestTreatments && window.latestTreatments.length > 0)
+                ? window.latestTreatments
+                : treatments;
+
+            const insulinData = allTreatments
                 .filter(t => getTimestamp(t) >= ago24 && t.insulin && parseFloat(t.insulin) > 0)
                 .sort((a, b) => getTimestamp(a) - getTimestamp(b));
 
@@ -2251,37 +2264,47 @@
             // --- Insuline chart ---
             const ctxInsulin = document.getElementById('chart-insulin');
             if (window._chartInsulin) window._chartInsulin.destroy();
-            window._chartInsulin = new Chart(ctxInsulin, {
-                type: 'bar',
-                data: {
-                    labels: insulinLabels,
-                    datasets: [
-                        {
-                            label: 'Insuline (U)',
-                            data: insulinValues,
-                            backgroundColor: 'rgba(155,89,182,0.60)',
-                            borderColor: 'rgba(155,89,182,0.85)',
-                            borderWidth: 1,
-                            borderRadius: 3
-                        }
-                    ]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    interaction: { mode: 'index', intersect: false },
-                    plugins: {
-                        legend: { display: true, labels: { font: { size: 11 } } }
+
+            if (insulinData.length === 0) {
+                // Geen data — toon melding in canvas
+                const ctx2d = ctxInsulin.getContext('2d');
+                ctx2d.clearRect(0, 0, ctxInsulin.width, ctxInsulin.height);
+                ctx2d.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--subtext-color') || '#888';
+                ctx2d.font = '14px Arial';
+                ctx2d.textAlign = 'center';
+                ctx2d.fillText('Geen insuline data beschikbaar', ctxInsulin.width / 2, ctxInsulin.height / 2);
+            } else {
+                window._chartInsulin = new Chart(ctxInsulin, {
+                    type: 'bar',
+                    data: {
+                        labels: insulinLabels,
+                        datasets: [
+                            {
+                                label: 'Insuline (U)',
+                                data: insulinValues,
+                                backgroundColor: 'rgba(155,89,182,0.60)',
+                                borderColor: 'rgba(155,89,182,0.85)',
+                                borderWidth: 1
+                            }
+                        ]
                     },
-                    scales: {
-                        x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
-                        y: {
-                            beginAtZero: true,
-                            ticks: { font: { size: 10 }, callback: v => v + ' U' }
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        interaction: { mode: 'index', intersect: false },
+                        plugins: {
+                            legend: { display: true, labels: { font: { size: 11 } } }
+                        },
+                        scales: {
+                            x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
+                            y: {
+                                beginAtZero: true,
+                                ticks: { font: { size: 10 }, callback: v => v + ' U' }
+                            }
                         }
                     }
-                }
-            });
+                });
+            }
         }
 
         // ============= INIT =============

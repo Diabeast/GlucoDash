@@ -355,6 +355,23 @@ jobs:
 
           echo "Live Activity Swift bestanden aangemaakt"
 
+      - name: Zoek Xcode 26 WidgetKit product type
+        run: |
+          echo "=== WidgetKit spec files in Xcode 26.2 ==="
+          find /Applications/Xcode_26.2.app/Contents/Developer/Platforms/iPhoneOS.platform \
+            -name "*.xcspec" 2>/dev/null | \
+            xargs grep -l -i "widget" 2>/dev/null | head -10 || echo "Geen xcspec gevonden"
+          echo "=== Widget-gerelateerde product types ==="
+          find /Applications/Xcode_26.2.app/Contents/Developer/Platforms/iPhoneOS.platform \
+            -name "*.xcspec" 2>/dev/null | \
+            xargs grep -h -i "widget" 2>/dev/null | \
+            grep -i '"Identifier"\|product-type\|com\.apple\.product' | sort -u | head -30 || true
+          echo "=== Alle app-extension product types in Xcode 26.2 ==="
+          find /Applications/Xcode_26.2.app/Contents/Developer/Platforms/iPhoneOS.platform \
+            -name "*.xcspec" 2>/dev/null | \
+            xargs grep -h "app-extension" 2>/dev/null | \
+            grep '"Identifier"\|com\.apple\.product-type' | sort -u | head -30 || true
+
       - name: Configureer Xcode project voor Live Activity widget
         env:
           TEAMID: ${{ secrets.TEAMID }}
@@ -480,25 +497,12 @@ jobs:
             end
           end
 
-          # ---- Embed Foundation Extensions build phase in app target ----
-          embed_phase = app_target.build_phases.find do |phase|
-            phase.is_a?(Xcodeproj::Project::Object::PBXCopyFilesBuildPhase) &&
-              phase.dst_subfolder_spec == '13'
-          end
-          unless embed_phase
-            embed_phase = app_target.new_copy_files_build_phase('Embed Foundation Extensions')
-            embed_phase.dst_subfolder_spec = '13'
-            embed_phase.dst_path          = ''
-            puts "Embed Foundation Extensions build phase aangemaakt"
-          end
-
-          # ---- Voeg widget product toe aan embed phase ----
-          widget_product_ref = widget_target.product_reference
-          unless embed_phase.files_references.include?(widget_product_ref)
-            embed_file = embed_phase.add_file_reference(widget_product_ref)
-            embed_file.settings = { 'ATTRIBUTES' => ['RemoveHeadersOnCopy'] }
-            puts "Widget product toegevoegd aan Embed Foundation Extensions"
-          end
+          # ---- Embed Foundation Extensions: TIJDELIJK UITGESCHAKELD ----
+          # Xcode 26.2 kan 'com.apple.product-type.app-extension.widget-kit' niet resolven.
+          # De widget TARGET bestaat wel in het project (voor de Swift-bestanden en code-signing),
+          # maar wordt NIET geëmbed → xcodebuild bouwt hem niet als dependency van App.
+          # Zodra we de juiste product-type identifier voor Xcode 26 weten, zetten we dit terug.
+          puts "Widget NIET geëmbed (Xcode 26.2 compat - zie 'Zoek Xcode 26 WidgetKit product type' stap)"
 
           project.save
           puts "Xcode project opgeslagen"

@@ -73,7 +73,7 @@ jobs:
             <true/>
             <key>com.apple.security.application-groups</key>
             <array>
-              <string>group.org.nightscout.iaps</string>
+              <string>group.org.nightscout.9CGZ7BWVXT.trio.trio-app-group</string>
             </array>
           </dict>
           </plist>
@@ -89,7 +89,7 @@ jobs:
           @objc(IAPSPlugin)
           public class IAPSPlugin: CAPPlugin {
 
-              let appGroup = "group.org.nightscout.iaps"
+              let appGroup = "group.org.nightscout.9CGZ7BWVXT.trio.trio-app-group"
 
               // Lees alle beschikbare iAPS bestanden uit de App Group container
               @objc func readAll(_ call: CAPPluginCall) {
@@ -307,3 +307,4 @@ jobs:
           echo ""
           echo "=== SPACESHIP DEBUG ==="
           find /tmp -name "*.log" -newer /tmp/fastlane_output.txt 2>/dev/null | head -5 | xargs cat 2>/dev/null | tail -30 || true
+

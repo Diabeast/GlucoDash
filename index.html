@@ -708,9 +708,23 @@
                 <label class="datasource-option">
                     <input type="radio" name="datasource" id="src-iaps" value="iaps" onchange="setDataSource('iaps')">
                     <span>📲 iAPS</span>
-                    <small>Via HealthKit — zet "Use Apple Health" aan in iAPS</small>
+                    <small>Leest glucose via HealthKit</small>
                 </label>
             </div>
+            <button id="hk-permission-btn" onclick="requestHealthKitPermission()" style="
+                display: none;
+                width: 100%;
+                margin-top: 14px;
+                padding: 12px;
+                background: var(--primary-color);
+                color: white;
+                border: none;
+                border-radius: 10px;
+                font-size: 0.95rem;
+                font-weight: 600;
+                cursor: pointer;
+            ">❤️ Geef HealthKit toestemming</button>
+            <p id="hk-permission-status" style="font-size:0.8rem; margin-top:8px; opacity:0.7; display:none;"></p>
         </div>
     </div>
 
@@ -973,6 +987,11 @@
         function setDataSource(source) {
             localStorage.setItem(DATA_SOURCE_KEY, source);
             document.getElementById('src-' + source).checked = true;
+            // Toon/verberg HealthKit knop
+            const hkBtn = document.getElementById('hk-permission-btn');
+            const hkStatus = document.getElementById('hk-permission-status');
+            if (hkBtn) hkBtn.style.display = source === 'iaps' ? 'block' : 'none';
+            if (hkStatus) { hkStatus.innerText = ''; hkStatus.style.display = 'none'; }
             closeMenu();
             fetchData();
         }
@@ -1002,8 +1021,49 @@
             const source = getDataSource();
             const radio = document.getElementById('src-' + source);
             if (radio) radio.checked = true;
+            // Toon HealthKit knop alleen bij iAPS
+            const hkBtn = document.getElementById('hk-permission-btn');
+            const hkStatus = document.getElementById('hk-permission-status');
+            if (hkBtn) hkBtn.style.display = source === 'iaps' ? 'block' : 'none';
+            if (hkStatus) hkStatus.style.display = 'none';
             document.getElementById('menu-overlay').classList.add('open');
             document.getElementById('menu-panel').classList.add('open');
+        }
+
+        async function requestHealthKitPermission() {
+            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            const btn = document.getElementById('hk-permission-btn');
+            const statusEl = document.getElementById('hk-permission-status');
+
+            if (!HK) {
+                if (statusEl) { statusEl.innerText = '⚠️ HealthKit is alleen beschikbaar in de iOS app.'; statusEl.style.display = 'block'; }
+                return;
+            }
+
+            if (btn) btn.innerText = 'Bezig...';
+            if (statusEl) { statusEl.innerText = ''; statusEl.style.display = 'none'; }
+
+            try {
+                await HK.requestAuthorization({
+                    all: ['bloodGlucose'],
+                    read: HK_AUTH_TYPES.filter(t => t !== 'bloodGlucose'),
+                    write: []
+                });
+                if (btn) btn.innerText = '✅ Toestemming verleend!';
+                if (statusEl) {
+                    statusEl.innerText = 'HealthKit toestemming is ingesteld. Sluit het menu en laad de data opnieuw.';
+                    statusEl.style.display = 'block';
+                }
+                setTimeout(() => {
+                    if (btn) btn.innerText = '❤️ Geef HealthKit toestemming';
+                }, 3000);
+            } catch (e) {
+                if (btn) btn.innerText = '❤️ Geef HealthKit toestemming';
+                if (statusEl) {
+                    statusEl.innerText = 'Fout: ' + (e?.message || e) + '. Ga naar iPhone Instellingen → Gezondheid → Gegevenstoegang → GlucoDash.';
+                    statusEl.style.display = 'block';
+                }
+            }
         }
 
         function closeMenu() {

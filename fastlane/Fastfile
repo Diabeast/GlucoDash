@@ -13,10 +13,17 @@ platform :ios do
       key_filepath: File.expand_path("../api_key.p8", __dir__)
     )
 
+    # Lees de correcte bundle ID direct uit capacitor.config.json
+    require 'json'
+    cap_cfg          = JSON.parse(File.read(File.expand_path("../capacitor.config.json", __dir__)))
+    app_bundle_id    = cap_cfg['appId']                    # bijv. "com.9CGZ7BWVXT.glucodash"
+    widget_bundle_id = "#{app_bundle_id}.widget"           # bijv. "com.9CGZ7BWVXT.glucodash.widget"
+    UI.message("App bundle ID (uit capacitor.config.json): #{app_bundle_id}")
+    UI.message("Widget bundle ID: #{widget_bundle_id}")
+
     # 2. Activeer HealthKit capability op de App ID (direct voor match)
     require 'openssl'
     require 'base64'
-    require 'json'
     require 'net/http'
 
     begin
@@ -36,8 +43,7 @@ platform :ios do
       s   = asn.value[1].value.to_s(2).rjust(32, "\x00").bytes.last(32).pack('C*')
       jwt = "#{si}.#{Base64.urlsafe_encode64(r + s, padding: false)}"
 
-      team_id = ENV['TEAMID']
-      bid_str = "com.#{team_id}.glucodash"
+      bid_str = app_bundle_id
       UI.message("Zoek App ID: #{bid_str}")
 
       # Zoek het Bundle ID resource ID op
@@ -83,7 +89,7 @@ platform :ios do
       end
 
       # ---- Widget Bundle ID registreren + WidgetKit capability inschakelen ----
-      widget_bid_str = "com.#{team_id}.glucodash.widget"
+      widget_bid_str = widget_bundle_id
       UI.message("Zoek/maak widget App ID: #{widget_bid_str}")
 
       uri_w = URI("https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]=#{widget_bid_str}")
@@ -169,7 +175,7 @@ platform :ios do
     match(
       type: "appstore",
       api_key: api_key,
-      app_identifier: ["com.#{ENV['TEAMID']}.glucodash", "com.#{ENV['TEAMID']}.glucodash.widget"],
+      app_identifier: [app_bundle_id, widget_bundle_id],
       keychain_name: keychain_name,
       keychain_password: keychain_pass,
       readonly: false,
@@ -177,7 +183,7 @@ platform :ios do
     )
 
     # 5. Controleer of HealthKit in het provisioning profile zit
-    profile_path = ENV["sigh_com.#{ENV['TEAMID']}.glucodash_appstore_profile-path"] ||
+    profile_path = ENV["sigh_#{app_bundle_id}_appstore_profile-path"] ||
                    Dir.glob(File.expand_path("~/Library/MobileDevice/Provisioning Profiles/*.mobileprovision")).
                      select { |f| File.mtime(f) > Time.now - 120 }.first
 
@@ -199,10 +205,10 @@ platform :ios do
     update_app_identifier(
       xcodeproj: "ios/App/App.xcodeproj",
       plist_path: "App/Info.plist",
-      app_identifier: "com.#{ENV['TEAMID']}.glucodash"
+      app_identifier: app_bundle_id
     )
 
-    profile_name = ENV["sigh_com.#{ENV['TEAMID']}.glucodash_appstore_profile-name"] || "match AppStore com.#{ENV['TEAMID']}.glucodash"
+    profile_name = ENV["sigh_#{app_bundle_id}_appstore_profile-name"] || "match AppStore #{app_bundle_id}"
 
     # 7. Code signing instellingen bijwerken
     update_code_signing_settings(
@@ -213,8 +219,8 @@ platform :ios do
       code_sign_identity: "iPhone Distribution"
     )
 
-    widget_profile_name = ENV["sigh_com.#{ENV['TEAMID']}.glucodash.widget_appstore_profile-name"] ||
-                          "match AppStore com.#{ENV['TEAMID']}.glucodash.widget"
+    widget_profile_name = ENV["sigh_#{widget_bundle_id}_appstore_profile-name"] ||
+                          "match AppStore #{widget_bundle_id}"
 
     update_code_signing_settings(
       use_automatic_signing: false,
@@ -244,8 +250,8 @@ platform :ios do
       export_method: "app-store",
       export_options: {
         provisioningProfiles: {
-          "com.#{ENV['TEAMID']}.glucodash"        => profile_name,
-          "com.#{ENV['TEAMID']}.glucodash.widget" => "match AppStore com.#{ENV['TEAMID']}.glucodash.widget"
+          app_bundle_id    => profile_name,
+          widget_bundle_id => widget_profile_name
         }
       }
     )

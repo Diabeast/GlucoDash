@@ -379,10 +379,16 @@ jobs:
         run: |
           bundle exec ruby << 'RUBY'
           require 'xcodeproj'
+          require 'json'
 
-          proj_path = 'ios/App/App.xcodeproj'
-          project   = Xcodeproj::Project.open(proj_path)
-          team_id   = ENV['TEAMID']
+          proj_path        = 'ios/App/App.xcodeproj'
+          project          = Xcodeproj::Project.open(proj_path)
+          team_id          = ENV['TEAMID']
+          cap_cfg          = JSON.parse(File.read('capacitor.config.json'))
+          app_bundle_id    = cap_cfg['appId']                   # "com.9CGZ7BWVXT.glucodash"
+          widget_bundle_id = "#{app_bundle_id}.widget"          # "com.9CGZ7BWVXT.glucodash.widget"
+          puts "App bundle ID (uit capacitor.config.json): #{app_bundle_id}"
+          puts "Widget bundle ID: #{widget_bundle_id}"
 
           app_target = project.targets.find { |t| t.name == 'App' }
           raise "App target niet gevonden!" unless app_target
@@ -428,7 +434,7 @@ jobs:
 
           # ---- Build settings voor widget target ----
           widget_target.build_configurations.each do |config|
-            config.build_settings['PRODUCT_BUNDLE_IDENTIFIER']      = "com.#{team_id}.glucodash.widget"
+            config.build_settings['PRODUCT_BUNDLE_IDENTIFIER']      = widget_bundle_id
             config.build_settings['PRODUCT_NAME']                   = 'GlucoDashWidget'
             config.build_settings['SWIFT_VERSION']                  = '5.0'
             # Verplicht voor Xcode 26: expliciete SDK + platform settings
@@ -444,7 +450,7 @@ jobs:
             config.build_settings['CODE_SIGN_STYLE']               = 'Manual'
             config.build_settings['DEVELOPMENT_TEAM']              = team_id
             config.build_settings['CODE_SIGN_IDENTITY']            = 'iPhone Distribution'
-            config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = "match AppStore com.#{team_id}.glucodash.widget"
+            config.build_settings['PROVISIONING_PROFILE_SPECIFIER'] = "match AppStore #{widget_bundle_id}"
           end
 
           # ---- Zorg dat product file reference correct is ----
@@ -686,8 +692,9 @@ jobs:
           sig = Base64.urlsafe_encode64(r + s, padding: false)
           jwt = signing_input + '.' + sig
 
-          team_id = ENV['TEAMID']
-          bundle_identifier = "com.#{team_id}.glucodash"
+          require 'json'
+          cap_cfg = JSON.parse(File.read('capacitor.config.json'))
+          bundle_identifier = cap_cfg['appId']   # "com.9CGZ7BWVXT.glucodash"
           puts "Zoek App ID voor: #{bundle_identifier}"
 
           uri = URI("https://api.appstoreconnect.apple.com/v1/bundleIds?filter[identifier]=#{bundle_identifier}")

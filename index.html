@@ -711,6 +711,27 @@
                     <small>Leest glucose via HealthKit</small>
                 </label>
             </div>
+
+            <!-- HealthKit sectie -->
+            <h3 style="margin-top:20px;">HealthKit</h3>
+            <div id="hk-status-box" style="background:var(--card-bg);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:0.85rem;color:var(--subtext-color);">
+                <span id="hk-status-label">Controleren...</span>
+            </div>
+            <button onclick="menuRequestHKPermission()" style="width:100%;padding:11px;background:var(--primary-color);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
+                Vraag HealthKit toestemming
+            </button>
+
+            <!-- Live Activity sectie -->
+            <h3 style="margin-top:20px;">Live Activity</h3>
+            <div id="la-status-box" style="background:var(--card-bg);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:0.85rem;color:var(--subtext-color);">
+                <span id="la-status-label">Niet gestart</span>
+            </div>
+            <button onclick="menuStartLiveActivity()" style="width:100%;padding:11px;background:#30d158;color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
+                Start Live Activity
+            </button>
+            <button onclick="menuStopLiveActivity()" style="width:100%;padding:11px;background:var(--card-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:10px;font-size:0.95rem;cursor:pointer;">
+                Stop Live Activity
+            </button>
         </div>
     </div>
 
@@ -1004,12 +1025,85 @@
             if (radio) radio.checked = true;
             document.getElementById('menu-overlay').classList.add('open');
             document.getElementById('menu-panel').classList.add('open');
+            updateMenuOnOpen();
         }
 
 
         function closeMenu() {
             document.getElementById('menu-overlay').classList.remove('open');
             document.getElementById('menu-panel').classList.remove('open');
+        }
+
+        // ============= HEALTHKIT MENU FUNCTIES =============
+        async function menuRequestHKPermission() {
+            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            const lbl = document.getElementById('hk-status-label');
+            if (!HK) {
+                lbl.textContent = '❌ Alleen beschikbaar in iOS app';
+                return;
+            }
+            lbl.textContent = '⏳ Toestemming aanvragen...';
+            try {
+                await HK.requestAuthorization({
+                    all: ['bloodGlucose'],
+                    read: ['dietaryCarbohydrates'],
+                    write: []
+                });
+                lbl.textContent = '✅ Toestemming verleend — zie Gezondheid app';
+            } catch(e) {
+                lbl.textContent = '❌ Mislukt: ' + (e?.message || e);
+                console.warn('[HK menu]', e);
+            }
+        }
+
+        async function checkHKStatusForMenu() {
+            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            const lbl = document.getElementById('hk-status-label');
+            if (!lbl) return;
+            if (!HK) {
+                lbl.textContent = '⚠️ Alleen beschikbaar in iOS app';
+                return;
+            }
+            lbl.textContent = '✅ HealthKit plugin beschikbaar — druk om toestemming te vragen';
+        }
+
+        // ============= LIVE ACTIVITY MENU FUNCTIES =============
+        async function menuStartLiveActivity() {
+            const LA = window.Capacitor?.Plugins?.LiveActivityPlugin;
+            const lbl = document.getElementById('la-status-label');
+            if (!LA) {
+                lbl.textContent = '❌ Alleen beschikbaar in iOS app (16.2+)';
+                return;
+            }
+            // Gebruik de laatste bekende glucose waarde
+            const currentBG = parseFloat(document.getElementById('current-bg')?.innerText) || 5.5;
+            const trend = document.getElementById('trend-arrow')?.innerText || '→';
+            const delta = document.getElementById('delta')?.innerText || '';
+            lbl.textContent = '⏳ Starten...';
+            try {
+                await LA.start({ glucose: currentBG, trend: trend, delta: delta });
+                lbl.textContent = `✅ Actief — ${currentBG} mmol/L ${trend} ${delta}`;
+            } catch(e) {
+                lbl.textContent = '❌ Fout: ' + (e?.message || e);
+                console.warn('[LA menu start]', e);
+            }
+        }
+
+        async function menuStopLiveActivity() {
+            const LA = window.Capacitor?.Plugins?.LiveActivityPlugin;
+            const lbl = document.getElementById('la-status-label');
+            if (!LA) { lbl.textContent = '❌ Niet beschikbaar'; return; }
+            try {
+                await LA.stop({});
+                lbl.textContent = 'Gestopt';
+            } catch(e) {
+                lbl.textContent = '❌ Stop fout: ' + (e?.message || e);
+                console.warn('[LA menu stop]', e);
+            }
+        }
+
+        function updateMenuOnOpen() {
+            checkHKStatusForMenu();
         }
 
         // ============= MAIN FETCH =============
@@ -2359,7 +2453,26 @@
         const _radio = document.getElementById('src-' + _src);
         if (_radio) _radio.checked = true;
 
-        // Start
+        // Start — vraag HealthKit toestemming bij launch (iOS app),
+        // zodat GlucoDash verschijnt in Gezondheid → Databronnen.
+        // Dit is een stille aanvraag; de gebruiker ziet het dialoogvenster
+        // alleen de allereerste keer.
+        (async () => {
+            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            if (HK) {
+                try {
+                    await HK.requestAuthorization({
+                        all: ['bloodGlucose'],
+                        read: ['dietaryCarbohydrates'],
+                        write: []
+                    });
+                    console.log('[HK] Startup auth OK — app zichtbaar in Gezondheid');
+                } catch(e) {
+                    console.warn('[HK] Startup auth fout:', e?.message || e);
+                }
+            }
+        })();
+
         fetchData();
         // Ververs de hele pagina elke 2 minuten
         setInterval(() => {

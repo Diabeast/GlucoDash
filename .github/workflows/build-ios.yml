@@ -165,8 +165,9 @@ jobs:
               override open func capacitorDidLoad() {
                   // Capacitor 6: expliciete registratie verplicht voor inline plugins.
                   // Methode: registerPlugin(_ pluginType: CAPPlugin.Type)
-                  bridge?.registerPlugin(LiveActivityPlugin.self)
                   bridge?.registerPlugin(HealthKitPlugin.self)
+                  bridge?.registerPlugin(LiveActivityPlugin.self)
+                  bridge?.registerPlugin(IAPSPlugin.self)
               }
           }
           SWIFT

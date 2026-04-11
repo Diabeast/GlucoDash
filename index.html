@@ -878,26 +878,43 @@
     </div>
 
     <script>
-        // ============= CAPACITOR INLINE PLUGIN REGISTRATIE =============
-        // Capacitor 6 verwijderde ObjC runtime auto-discovery. Inline plugins
-        // (niet via npm) moeten op BEIDE kanten geregistreerd worden:
-        //   - Native: ViewController.swift bridge?.registerPlugin(X.self)
-        //   - JS:     window.Capacitor.registerPlugin('X') hieronder
-        (function registerInlinePlugins() {
-            if (!window.Capacitor?.isNativePlatform?.()) return;
-            const reg = window.Capacitor.registerPlugin?.bind(window.Capacitor);
-            if (typeof reg !== 'function') {
-                console.warn('[Cap] registerPlugin niet beschikbaar op window.Capacitor');
-                return;
+        // ============= CAPACITOR INLINE PLUGIN LAZY GETTERS =============
+        // Capacitor 6: window.Capacitor.Plugins is read-only → directe assignment
+        // mislukt stilletjes. Gebruik lazy getters die pas aangemaakt worden wanneer
+        // de bridge al volledig geïnitialiseerd is (niet bij script-load).
+        // Native kant: ViewController.swift → bridge?.registerPlugin(X.self)
+        window.__glucodash_hk = null;
+        window.__glucodash_la = null;
+
+        function getHKPlugin() {
+            if (!window.__glucodash_hk) {
+                const cap = window.Capacitor;
+                if (cap && typeof cap.registerPlugin === 'function') {
+                    try {
+                        window.__glucodash_hk = cap.registerPlugin('HealthKitPlugin');
+                        console.log('[Cap] HealthKitPlugin proxy aangemaakt:', typeof window.__glucodash_hk);
+                    } catch(e) {
+                        console.warn('[Cap] HealthKitPlugin registratie fout:', e);
+                    }
+                }
             }
-            try {
-                window.Capacitor.Plugins.HealthKitPlugin    = reg('HealthKitPlugin');
-                window.Capacitor.Plugins.LiveActivityPlugin = reg('LiveActivityPlugin');
-                console.log('[Cap] Inline plugins geregistreerd: HealthKitPlugin, LiveActivityPlugin');
-            } catch(e) {
-                console.warn('[Cap] Plugin registratie fout:', e);
+            return window.__glucodash_hk || null;
+        }
+
+        function getLAPlugin() {
+            if (!window.__glucodash_la) {
+                const cap = window.Capacitor;
+                if (cap && typeof cap.registerPlugin === 'function') {
+                    try {
+                        window.__glucodash_la = cap.registerPlugin('LiveActivityPlugin');
+                        console.log('[Cap] LiveActivityPlugin proxy aangemaakt:', typeof window.__glucodash_la);
+                    } catch(e) {
+                        console.warn('[Cap] LiveActivityPlugin registratie fout:', e);
+                    }
+                }
             }
-        })();
+            return window.__glucodash_la || null;
+        }
 
         // ============= CONFIGURATIE =============
         const NS_URL = "https://arinelis.10be.de";
@@ -1057,7 +1074,7 @@
 
         // ============= HEALTHKIT MENU FUNCTIES =============
         async function menuRequestHKPermission() {
-            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
+            const HK = getHKPlugin();
             const lbl = document.getElementById('hk-status-label');
             if (!HK) {
                 lbl.textContent = '❌ Alleen beschikbaar in iOS app (TestFlight)';
@@ -1078,11 +1095,16 @@
         }
 
         async function checkHKStatusForMenu() {
-            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
+            const HK = getHKPlugin();
             const lbl = document.getElementById('hk-status-label');
             if (!lbl) return;
             if (!HK) {
-                lbl.textContent = '⚠️ Alleen beschikbaar in iOS app (TestFlight)';
+                // Diagnostics: toon exacte staat van window.Capacitor
+                const cap = window.Capacitor;
+                const capType = typeof cap;
+                const isNative = cap?.isNativePlatform?.();
+                const regType = typeof cap?.registerPlugin;
+                lbl.textContent = `❌ Plugin null | Cap:${capType} native:${isNative} reg:${regType}`;
                 return;
             }
             try {
@@ -1091,16 +1113,17 @@
                     ? '✅ Plugin geladen — druk om toestemming te vragen'
                     : '❌ HealthKit niet beschikbaar op dit apparaat';
             } catch(e) {
-                lbl.textContent = '✅ Plugin aanwezig';
+                lbl.textContent = `✅ Plugin aanwezig (isAvailable fout: ${e?.message})`;
             }
         }
 
         // ============= LIVE ACTIVITY MENU FUNCTIES =============
         async function menuStartLiveActivity() {
-            const LA = window.Capacitor?.Plugins?.LiveActivityPlugin;
+            const LA = getLAPlugin();
             const lbl = document.getElementById('la-status-label');
             if (!LA) {
-                lbl.textContent = '❌ Alleen beschikbaar in iOS app (16.2+)';
+                const cap = window.Capacitor;
+                lbl.textContent = `❌ LA null | Cap:${typeof cap} native:${cap?.isNativePlatform?.()} reg:${typeof cap?.registerPlugin}`;
                 return;
             }
             // Gebruik de laatste bekende glucose waarde
@@ -1118,7 +1141,7 @@
         }
 
         async function menuStopLiveActivity() {
-            const LA = window.Capacitor?.Plugins?.LiveActivityPlugin;
+            const LA = getLAPlugin();
             const lbl = document.getElementById('la-status-label');
             if (!LA) { lbl.textContent = '❌ Niet beschikbaar'; return; }
             try {
@@ -1319,7 +1342,7 @@
             // Gebruik eigen HealthKitPlugin (custom inline Capacitor 6 plugin).
             // @perfood/capacitor-healthkit@1.3.2 ondersteunt dietaryCarbohydrates NIET
             // en vraagt onnodige schrijftoegang aan die 'could not get permission' veroorzaakt.
-            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
+            const HK = getHKPlugin();
 
             if (!HK) {
                 updateStatus("HealthKit plugin niet geladen — alleen beschikbaar in iOS app", "error");
@@ -1486,7 +1509,7 @@
         // ============= LIVE ACTIVITY =============
 
         async function updateLiveActivity(glucose, trend, delta) {
-            const LA = window.Capacitor?.Plugins?.LiveActivityPlugin;
+            const LA = getLAPlugin();
             if (!LA) return;
             try {
                 await LA.start({
@@ -2454,7 +2477,7 @@
         // Zorgt dat GlucoDash verschijnt in Gezondheid → Databronnen.
         // Gebruikt de eigen HealthKitPlugin (read-only, geen write-rechten).
         (async () => {
-            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
+            const HK = getHKPlugin();
             if (HK) {
                 try {
                     await HK.requestAuthorization({});

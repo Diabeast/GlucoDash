@@ -152,6 +152,133 @@ jobs:
           project.save
           RUBY
 
+      - name: Voeg native plugins toe (HealthKit + LiveActivity)
+        run: |
+          # ---- ViewController.swift: registreert inline Capacitor 6 plugins ----
+          # Capacitor 6 heeft ObjC runtime auto-discovery verwijderd voor inline plugins.
+          # Expliciete registratie via capacitorDidLoad() is verplicht.
+          cat > "ios/App/App/ViewController.swift" << 'SWIFT'
+          import UIKit
+          import Capacitor
+
+          class ViewController: CAPBridgeViewController {
+              override open func capacitorDidLoad() {
+                  bridge?.registerPluginInstance(LiveActivityPlugin())
+                  bridge?.registerPluginInstance(HealthKitPlugin())
+              }
+          }
+          SWIFT
+
+          # ---- HealthKitPlugin.swift: eigen plugin (vervangt @perfood limitaties) ----
+          # @perfood/capacitor-healthkit@1.3.2 ondersteunt dietaryCarbohydrates NIET
+          # en requestAuthorization met 'all' vraagt onnodige WRITE-toegang aan.
+          # Deze plugin vraagt alleen READ-toegang en ondersteunt alle benodigde types.
+          cat > "ios/App/App/HealthKitPlugin.swift" << 'SWIFT'
+          import Foundation
+          import Capacitor
+          import HealthKit
+
+          @objc(HealthKitPlugin)
+          public class HealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
+              public let identifier = "HealthKitPlugin"
+              public let jsName = "HealthKitPlugin"
+              public let pluginMethods: [CAPPluginMethod] = [
+                  CAPPluginMethod(name: "requestAuthorization", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "queryBloodGlucose", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "queryCarbs", returnType: CAPPluginReturnPromise),
+              ]
+
+              private let healthStore = HKHealthStore()
+              private let isoFmt: ISO8601DateFormatter = {
+                  let f = ISO8601DateFormatter()
+                  f.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                  return f
+              }()
+
+              @objc func isAvailable(_ call: CAPPluginCall) {
+                  call.resolve(["available": HKHealthStore.isHealthDataAvailable()])
+              }
+
+              @objc func requestAuthorization(_ call: CAPPluginCall) {
+                  guard HKHealthStore.isHealthDataAvailable() else {
+                      call.reject("HealthKit niet beschikbaar op dit apparaat")
+                      return
+                  }
+                  var readTypes = Set<HKObjectType>()
+                  if let t = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) { readTypes.insert(t) }
+                  if let t = HKQuantityType.quantityType(forIdentifier: .dietaryCarbohydrates) { readTypes.insert(t) }
+                  // toShare: nil = alleen lezen, geen schrijfrechten nodig
+                  healthStore.requestAuthorization(toShare: nil, read: readTypes) { success, error in
+                      if let error = error {
+                          call.reject("Autorisatie fout: \(error.localizedDescription)")
+                          return
+                      }
+                      call.resolve(["authorized": success])
+                  }
+              }
+
+              @objc func queryBloodGlucose(_ call: CAPPluginCall) {
+                  guard let type = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) else {
+                      call.reject("BloodGlucose type niet beschikbaar"); return
+                  }
+                  let limit    = call.getInt("limit") ?? 2000
+                  let startDate = isoFmt.date(from: call.getString("startDate") ?? "")
+                                  ?? Date().addingTimeInterval(-48 * 3600)
+                  let endDate  = isoFmt.date(from: call.getString("endDate") ?? "") ?? Date()
+                  let pred     = HKQuery.predicateForSamples(withStart: startDate, end: endDate,
+                                                             options: .strictStartDate)
+                  let sort     = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+                  let query    = HKSampleQuery(sampleType: type, predicate: pred,
+                                              limit: limit, sortDescriptors: [sort]) { [weak self] _, samples, err in
+                      guard let self = self else { return }
+                      if let err = err { call.reject("Query fout: \(err.localizedDescription)"); return }
+                      let unit    = HKUnit(from: "mg/dL")
+                      let results = (samples as? [HKQuantitySample] ?? []).map { s -> [String: Any] in
+                          ["value": s.quantity.doubleValue(for: unit),
+                           "unit": "mg/dL",
+                           "startDate": self.isoFmt.string(from: s.startDate),
+                           "endDate":   self.isoFmt.string(from: s.endDate),
+                           "sourceName": s.sourceRevision.source.name,
+                           "uuid": s.uuid.uuidString]
+                      }
+                      call.resolve(["samples": results])
+                  }
+                  healthStore.execute(query)
+              }
+
+              @objc func queryCarbs(_ call: CAPPluginCall) {
+                  guard let type = HKQuantityType.quantityType(forIdentifier: .dietaryCarbohydrates) else {
+                      call.reject("DietaryCarbohydrates type niet beschikbaar"); return
+                  }
+                  let limit    = call.getInt("limit") ?? 200
+                  let startDate = isoFmt.date(from: call.getString("startDate") ?? "")
+                                  ?? Date().addingTimeInterval(-48 * 3600)
+                  let endDate  = isoFmt.date(from: call.getString("endDate") ?? "") ?? Date()
+                  let pred     = HKQuery.predicateForSamples(withStart: startDate, end: endDate,
+                                                             options: .strictStartDate)
+                  let sort     = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+                  let query    = HKSampleQuery(sampleType: type, predicate: pred,
+                                              limit: limit, sortDescriptors: [sort]) { [weak self] _, samples, err in
+                      guard let self = self else { return }
+                      if let err = err { call.reject("Query fout: \(err.localizedDescription)"); return }
+                      let unit    = HKUnit.gram()
+                      let results = (samples as? [HKQuantitySample] ?? []).map { s -> [String: Any] in
+                          ["value": s.quantity.doubleValue(for: unit),
+                           "unit": "g",
+                           "startDate": self.isoFmt.string(from: s.startDate),
+                           "endDate":   self.isoFmt.string(from: s.endDate),
+                           "sourceName": s.sourceRevision.source.name]
+                      }
+                      call.resolve(["samples": results])
+                  }
+                  healthStore.execute(query)
+              }
+          }
+          SWIFT
+
+          echo "ViewController.swift en HealthKitPlugin.swift aangemaakt"
+
       - name: Voeg Live Activity toe
         env:
           TEAMID: ${{ secrets.TEAMID }}
@@ -415,9 +542,21 @@ jobs:
             puts "ActivityKit.framework toegevoegd aan App target"
           end
 
-          # ---- Voeg GlucoDashAttributes.swift + LiveActivityPlugin.swift toe aan App target ----
+          # ---- Zorg dat CODE_SIGN_ENTITLEMENTS correct gezet is ----
+          app_target.build_configurations.each do |config|
+            config.build_settings['CODE_SIGN_ENTITLEMENTS'] ||= 'App/App.entitlements'
+          end
+          puts "CODE_SIGN_ENTITLEMENTS gezet op App/App.entitlements"
+
+          # ---- Voeg inline plugin Swift bestanden toe aan App target ----
           app_group = project.main_group['App']
-          ['GlucoDashAttributes.swift', 'LiveActivityPlugin.swift'].each do |swift_file|
+          inline_files = [
+            'GlucoDashAttributes.swift',
+            'LiveActivityPlugin.swift',
+            'HealthKitPlugin.swift',
+          ]
+          # ViewController.swift is al aanwezig (overschreven), niet opnieuw toevoegen
+          inline_files.each do |swift_file|
             unless app_group.files.any? { |f| f.path == swift_file }
               file_ref = app_group.new_file(swift_file)
               app_target.source_build_phase.add_file_reference(file_ref)

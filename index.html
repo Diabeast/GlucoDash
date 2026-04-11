@@ -1036,20 +1036,20 @@
 
         // ============= HEALTHKIT MENU FUNCTIES =============
         async function menuRequestHKPermission() {
-            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
             const lbl = document.getElementById('hk-status-label');
             if (!HK) {
-                lbl.textContent = '❌ Alleen beschikbaar in iOS app';
+                lbl.textContent = '❌ Alleen beschikbaar in iOS app (TestFlight)';
                 return;
             }
             lbl.textContent = '⏳ Toestemming aanvragen...';
             try {
-                await HK.requestAuthorization({
-                    all: ['bloodGlucose'],
-                    read: ['dietaryCarbohydrates'],
-                    write: []
-                });
-                lbl.textContent = '✅ Toestemming verleend — zie Gezondheid app';
+                const avail = await HK.isAvailable();
+                if (!avail.available) { lbl.textContent = '❌ HealthKit niet beschikbaar'; return; }
+                const auth = await HK.requestAuthorization({});
+                lbl.textContent = auth.authorized
+                    ? '✅ Toestemming verleend — zie Gezondheid app'
+                    : '⚠️ Dialog getoond — controleer Gezondheid app';
             } catch(e) {
                 lbl.textContent = '❌ Mislukt: ' + (e?.message || e);
                 console.warn('[HK menu]', e);
@@ -1057,14 +1057,21 @@
         }
 
         async function checkHKStatusForMenu() {
-            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
             const lbl = document.getElementById('hk-status-label');
             if (!lbl) return;
             if (!HK) {
-                lbl.textContent = '⚠️ Alleen beschikbaar in iOS app';
+                lbl.textContent = '⚠️ Alleen beschikbaar in iOS app (TestFlight)';
                 return;
             }
-            lbl.textContent = '✅ HealthKit plugin beschikbaar — druk om toestemming te vragen';
+            try {
+                const avail = await HK.isAvailable();
+                lbl.textContent = avail.available
+                    ? '✅ Plugin geladen — druk om toestemming te vragen'
+                    : '❌ HealthKit niet beschikbaar op dit apparaat';
+            } catch(e) {
+                lbl.textContent = '✅ Plugin aanwezig';
+            }
         }
 
         // ============= LIVE ACTIVITY MENU FUNCTIES =============
@@ -1287,51 +1294,55 @@
 
         async function fetchFromHealthKit() {
             updateStatus("HealthKit verbinden...", "neutral");
-            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+
+            // Gebruik eigen HealthKitPlugin (custom inline Capacitor 6 plugin).
+            // @perfood/capacitor-healthkit@1.3.2 ondersteunt dietaryCarbohydrates NIET
+            // en vraagt onnodige schrijftoegang aan die 'could not get permission' veroorzaakt.
+            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
 
             if (!HK) {
-                updateStatus("HealthKit alleen beschikbaar in de iOS app", "error");
+                updateStatus("HealthKit plugin niet geladen — alleen beschikbaar in iOS app", "error");
                 document.getElementById('ai-tip').innerText = "Open GlucoDash via de TestFlight iOS app op je iPhone.";
                 return;
             }
 
-            // ---- Stap 1: vraag toestemming ----
-            // ALLEEN bloodGlucose en dietaryCarbohydrates in requestAuthorization.
-            // insulinDelivery vereist speciale Apple-entitlement — inclusief in de auth-call
-            // gooit een fout waardoor de HELE aanvraag faalt (ook bloodGlucose).
-            // Insuline wordt daarna alsnog via queryHKitSampleType opgehaald (geeft leeg terug
-            // als niet beschikbaar, maar crasht niet).
+            // ---- Stap 1: beschikbaarheid controleren ----
             try {
-                await HK.requestAuthorization({
-                    all: ['bloodGlucose'],
-                    read: ['dietaryCarbohydrates'],
-                    write: []
-                });
-                console.log("[HK] Toestemming OK");
+                const avail = await HK.isAvailable();
+                if (!avail.available) {
+                    updateStatus("❌ HealthKit niet beschikbaar op dit apparaat", "error");
+                    return;
+                }
+            } catch(e) {
+                console.warn("[HK] isAvailable fout:", e?.message || e);
+            }
+
+            // ---- Stap 2: toestemming (read-only, geen schrijfrechten nodig) ----
+            try {
+                const auth = await HK.requestAuthorization({});
+                console.log("[HK] Auth resultaat:", auth);
             } catch (authErr) {
                 console.warn("[HK] Auth fout:", authErr?.message || authErr);
                 updateStatus("❌ HealthKit toestemming mislukt: " + (authErr?.message || authErr), "error");
                 return;
             }
 
-            // ---- Stap 2: query glucose (48u venster) ----
-            const now = new Date();
+            // ---- Stap 3: glucose query (48 uur) ----
+            const now     = new Date();
             const start48h = new Date(now - 48 * 3600000);
-            const start7d  = new Date(now - 7 * 86400000);
 
             let glucoseRaw = [];
             try {
-                const r = await HK.queryHKitSampleType({
-                    sampleName: 'bloodGlucose',
+                const r = await HK.queryBloodGlucose({
                     startDate: start48h.toISOString(),
-                    endDate: now.toISOString(),
-                    limit: 2000
+                    endDate:   now.toISOString(),
+                    limit:     2000
                 });
-                glucoseRaw = r.resultData || r.output || [];
-                console.log("[HK] Glucose ontvangen:", glucoseRaw.length, "— eerste:", glucoseRaw[0]);
+                glucoseRaw = r.samples || [];
+                console.log("[HK] Glucose ontvangen:", glucoseRaw.length);
             } catch (e) {
                 console.error("[HK] Glucose query fout:", e?.message || e);
-                updateStatus("❌ HealthKit query mislukt: " + (e?.message || e), "error");
+                updateStatus("❌ HealthKit glucose query mislukt: " + (e?.message || e), "error");
                 return;
             }
 
@@ -1345,69 +1356,35 @@
                 return;
             }
 
-            // ---- Verwerk glucose ----
-            const entries = glucoseRaw.map(r => ({
-                sgv: (r.unitName === 'mg/dL' || r.unit === 'mg/dL')
-                    ? Math.round(r.value)
-                    : Math.round((r.value || 0) * 18.018),
-                date: new Date(r.startDate || r.date).getTime(),
-                dateString: r.startDate || r.date,
-                direction: 'Flat'
+            // ---- Verwerk glucose (samples zijn al in mg/dL) ----
+            const entries = glucoseRaw.map(s => ({
+                sgv:         Math.round(s.value),   // altijd mg/dL uit onze plugin
+                date:        new Date(s.startDate).getTime(),
+                dateString:  s.startDate,
+                direction:   'Flat',
+                source:      s.sourceName || ''
             })).sort((a, b) => b.date - a.date);
 
-            // ---- Stap 3: insuline + koolhydraten opvragen ----
-            const extraTypes = ['insulinDelivery', 'dietaryCarbohydrates'];
-            const extraResults = await Promise.all(extraTypes.map(type =>
-                HK.queryHKitSampleType({
-                    sampleName: type,
-                    startDate: start48h.toISOString(),
-                    endDate: now.toISOString(),
-                    limit: 200
-                }).then(r => ({ type, data: r.resultData || r.output || [] }))
-                  .catch(e => { console.warn("[HK] Query fout voor", type, e?.message || e); return { type, data: [] }; })
-            ));
-
-            const byType = { bloodGlucose: glucoseRaw };
-            extraResults.forEach(r => { byType[r.type] = r.data; });
-
-            // Slaap apart (HKCategoryType)
+            // ---- Stap 4: koolhydraten query ----
+            let carbsRaw = [];
             try {
-                const sleepR = await HK.queryHKitSampleType({
-                    sampleName: 'sleepAnalysis',
+                const cr = await HK.queryCarbs({
                     startDate: start48h.toISOString(),
-                    endDate: now.toISOString(),
-                    limit: 100
+                    endDate:   now.toISOString(),
+                    limit:     200
                 });
-                const sleepRaw = sleepR.resultData || sleepR.output || [];
-                if (sleepRaw.length > 0) {
-                    let ms = 0;
-                    sleepRaw.forEach(s => {
-                        const d = new Date(s.endDate || s.startDate).getTime() - new Date(s.startDate).getTime();
-                        if (d > 0) ms += d;
-                    });
-                    byType['sleepAnalysis'] = sleepRaw;
-                    byType['_sleepHours'] = ms / 3600000;
-                }
-            } catch (_) {}
+                carbsRaw = cr.samples || [];
+                console.log("[HK] Koolhydraten ontvangen:", carbsRaw.length);
+            } catch (e) {
+                console.warn("[HK] Carbs query fout:", e?.message || e);
+            }
 
-            // ---- Verwerk insuline + koolhydraten als treatments ----
-            const insulineRaw = byType['insulinDelivery'] || [];
-            const carbsRaw    = byType['dietaryCarbohydrates'] || [];
-
-            const treatments = [
-                ...insulineRaw.map(r => ({
-                    eventType: r.metadata?.HKInsulinDeliveryReason === 1 ? 'Temp Basal' : 'Bolus',
-                    insulin: parseFloat((r.value || 0).toFixed(2)),
-                    created_at: r.startDate,
-                    date: new Date(r.startDate).getTime()
-                })).filter(t => t.insulin > 0),
-                ...carbsRaw.map(r => ({
-                    eventType: 'Meal Bolus',
-                    carbs: parseFloat((r.value || 0).toFixed(0)),
-                    created_at: r.startDate,
-                    date: new Date(r.startDate).getTime()
-                })).filter(t => t.carbs > 0)
-            ];
+            const treatments = carbsRaw.map(s => ({
+                eventType:  'Meal Bolus',
+                carbs:      parseFloat((s.value || 0).toFixed(0)),
+                created_at: s.startDate,
+                date:       new Date(s.startDate).getTime()
+            })).filter(t => t.carbs > 0);
 
             if (treatments.length > 0) {
                 saveToCache(entries, treatments);
@@ -1417,12 +1394,11 @@
             }
             processGlucoseData(entries);
 
+            const byType = { bloodGlucose: glucoseRaw, dietaryCarbohydrates: carbsRaw };
             renderHKCards(byType);
 
-            const loaded = Object.entries(byType).filter(([k, v]) => k !== '_sleepHours' && Array.isArray(v) && v.length > 0).map(([k]) => k);
             document.getElementById('last-update').innerText = `HealthKit: ${now.toLocaleTimeString()}`;
-            updateStatus(`✅ ${loaded.length} typen geladen uit HealthKit`, "ok");
-            console.log("[HK] Geladen types:", loaded, "| insuline:", insulineRaw.length, "| koolhydraten:", carbsRaw.length);
+            updateStatus(`✅ ${entries.length} glucose + ${carbsRaw.length} carbs uit HealthKit`, "ok");
         }
 
         function renderHKCards(byType) {
@@ -2453,19 +2429,14 @@
         const _radio = document.getElementById('src-' + _src);
         if (_radio) _radio.checked = true;
 
-        // Start — vraag HealthKit toestemming bij launch (iOS app),
-        // zodat GlucoDash verschijnt in Gezondheid → Databronnen.
-        // Dit is een stille aanvraag; de gebruiker ziet het dialoogvenster
-        // alleen de allereerste keer.
+        // Start — vraag HealthKit toestemming bij launch (iOS app).
+        // Zorgt dat GlucoDash verschijnt in Gezondheid → Databronnen.
+        // Gebruikt de eigen HealthKitPlugin (read-only, geen write-rechten).
         (async () => {
-            const HK = window.Capacitor?.Plugins?.CapacitorHealthkit;
+            const HK = window.Capacitor?.Plugins?.HealthKitPlugin;
             if (HK) {
                 try {
-                    await HK.requestAuthorization({
-                        all: ['bloodGlucose'],
-                        read: ['dietaryCarbohydrates'],
-                        write: []
-                    });
+                    await HK.requestAuthorization({});
                     console.log('[HK] Startup auth OK — app zichtbaar in Gezondheid');
                 } catch(e) {
                     console.warn('[HK] Startup auth fout:', e?.message || e);

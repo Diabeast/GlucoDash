@@ -878,6 +878,27 @@
     </div>
 
     <script>
+        // ============= CAPACITOR INLINE PLUGIN REGISTRATIE =============
+        // Capacitor 6 verwijderde ObjC runtime auto-discovery. Inline plugins
+        // (niet via npm) moeten op BEIDE kanten geregistreerd worden:
+        //   - Native: ViewController.swift bridge?.registerPlugin(X.self)
+        //   - JS:     window.Capacitor.registerPlugin('X') hieronder
+        (function registerInlinePlugins() {
+            if (!window.Capacitor?.isNativePlatform?.()) return;
+            const reg = window.Capacitor.registerPlugin?.bind(window.Capacitor);
+            if (typeof reg !== 'function') {
+                console.warn('[Cap] registerPlugin niet beschikbaar op window.Capacitor');
+                return;
+            }
+            try {
+                window.Capacitor.Plugins.HealthKitPlugin    = reg('HealthKitPlugin');
+                window.Capacitor.Plugins.LiveActivityPlugin = reg('LiveActivityPlugin');
+                console.log('[Cap] Inline plugins geregistreerd: HealthKitPlugin, LiveActivityPlugin');
+            } catch(e) {
+                console.warn('[Cap] Plugin registratie fout:', e);
+            }
+        })();
+
         // ============= CONFIGURATIE =============
         const NS_URL = "https://arinelis.10be.de";
         const NS_TOKEN = "nsread-bf4271c2d5b495b4";

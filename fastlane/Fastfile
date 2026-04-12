@@ -150,87 +150,37 @@ platform :ios do
         else          UI.important("WidgetKit response #{res_wk.code}: #{res_wk.body[0..300]}")
         end
 
-        # App Groups capability inschakelen op widget bundle ID
-        ag_cap_body = JSON.generate({
-          data: {
-            type: "bundleIdCapabilities",
-            attributes: { capabilityType: "APP_GROUPS", settings: [] },
-            relationships: { bundleId: { data: { id: wid, type: "bundleIds" } } }
-          }
-        })
-        uri_agcap = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
-        req_agcap = Net::HTTP::Post.new(uri_agcap)
-        req_agcap['Authorization'] = "Bearer #{jwt}"
-        req_agcap['Content-Type']  = 'application/json'
-        req_agcap.body = ag_cap_body
-        res_agcap = Net::HTTP.start(uri_agcap.hostname, uri_agcap.port, use_ssl: true) { |h| h.request(req_agcap) }
-        case res_agcap.code.to_i
-        when 201 then UI.success("App Groups capability INGESCHAKELD op widget App ID!")
-        when 409 then UI.success("App Groups was al ingeschakeld op widget App ID.")
-        else          UI.important("App Groups capability response #{res_agcap.code}: #{res_agcap.body[0..300]}")
-        end
-
-        # De App Group bestaat al in het developer account (via de main app),
-        # maar /v1/appGroups filter werkt niet altijd. Haal de resource ID op
-        # via de MAIN APP's gekoppelde App Groups — die groep is al geassocieerd.
-        ag_target_id = "group.com.9CGZ7BWVXT.loopkit.LoopGroup"
-        ag_resource_id = nil
-
-        UI.message("Haal App Groups op van main app bundle ID: #{bid['id']}")
-        uri_mainag = URI("https://api.appstoreconnect.apple.com/v1/bundleIds/#{bid['id']}/appGroups")
-        req_mainag = Net::HTTP::Get.new(uri_mainag)
-        req_mainag['Authorization'] = "Bearer #{jwt}"
-        res_mainag = Net::HTTP.start(uri_mainag.hostname, uri_mainag.port, use_ssl: true) { |h| h.request(req_mainag) }
-        main_ag_data = JSON.parse(res_mainag.body)['data'] || []
-        UI.message("Main app App Groups: #{main_ag_data.map { |g| g.dig('attributes','identifier') }.inspect}")
-
-        loop_grp = main_ag_data.find { |g| g.dig('attributes', 'identifier') == ag_target_id }
-        if loop_grp
-          ag_resource_id = loop_grp['id']
-          UI.success("App Group resource ID gevonden via main app: #{ag_resource_id}")
-        else
-          # Fallback: probeer globale lijst
-          UI.message("Probeer globale /v1/appGroups lijst...")
-          uri_all = URI("https://api.appstoreconnect.apple.com/v1/appGroups?limit=200")
-          req_all = Net::HTTP::Get.new(uri_all)
-          req_all['Authorization'] = "Bearer #{jwt}"
-          res_all = Net::HTTP.start(uri_all.hostname, uri_all.port, use_ssl: true) { |h| h.request(req_all) }
-          all_ag = JSON.parse(res_all.body)['data'] || []
-          UI.message("Alle App Groups (#{all_ag.length}): #{all_ag.map { |g| g.dig('attributes','identifier') }.inspect}")
-          found = all_ag.find { |g| g.dig('attributes', 'identifier') == ag_target_id }
-          ag_resource_id = found['id'] if found
-        end
-
-        if ag_resource_id
-          UI.message("Koppel App Group #{ag_resource_id} aan widget bundle ID #{wid}")
-          assoc_body = JSON.generate({ data: [{ type: "appGroups", id: ag_resource_id }] })
-          uri_assoc = URI("https://api.appstoreconnect.apple.com/v1/bundleIds/#{wid}/relationships/appGroups")
-          req_assoc = Net::HTTP::Post.new(uri_assoc)
-          req_assoc['Authorization'] = "Bearer #{jwt}"
-          req_assoc['Content-Type']  = 'application/json'
-          req_assoc.body = assoc_body
-          res_assoc = Net::HTTP.start(uri_assoc.hostname, uri_assoc.port, use_ssl: true) { |h| h.request(req_assoc) }
-          case res_assoc.code.to_i
-          when 204 then UI.success("✅ App Group succesvol gekoppeld aan widget!")
-          when 409 then UI.success("✅ App Group was al gekoppeld aan widget.")
-          else          UI.important("App Group koppelen #{res_assoc.code}: #{res_assoc.body[0..500]}")
+        # Verwijder APP_GROUPS capability van widget bundle ID (voorkomt lege-array mismatch in profiel)
+        # Haal eerst de bundleIdCapabilities op voor dit widget bundle ID
+        uri_caps = URI("https://api.appstoreconnect.apple.com/v1/bundleIds/#{wid}/bundleIdCapabilities")
+        req_caps = Net::HTTP::Get.new(uri_caps)
+        req_caps['Authorization'] = "Bearer #{jwt}"
+        res_caps = Net::HTTP.start(uri_caps.hostname, uri_caps.port, use_ssl: true) { |h| h.request(req_caps) }
+        caps_data = JSON.parse(res_caps.body)['data'] || []
+        ag_cap = caps_data.find { |c| c.dig('attributes','capabilityType') == 'APP_GROUPS' }
+        if ag_cap
+          UI.message("APP_GROUPS capability gevonden op widget (id: #{ag_cap['id']}), verwijderen...")
+          uri_del = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities/#{ag_cap['id']}")
+          req_del = Net::HTTP::Delete.new(uri_del)
+          req_del['Authorization'] = "Bearer #{jwt}"
+          res_del = Net::HTTP.start(uri_del.hostname, uri_del.port, use_ssl: true) { |h| h.request(req_del) }
+          case res_del.code.to_i
+          when 204 then UI.success("✅ APP_GROUPS capability verwijderd van widget!")
+          else          UI.important("Delete APP_GROUPS #{res_del.code}: #{res_del.body[0..200]}")
           end
         else
-          UI.error("App Group resource ID niet gevonden — widget entitlements aanpassen naar leeg")
-          # Verwijder de App Group uit de widget entitlements zodat de build slaagt
-          widget_ent = 'ios/App/GlucoDashWidget/GlucoDashWidget.entitlements'
-          File.write(widget_ent, <<~PLIST)
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict/>
-            </plist>
-          PLIST
-          UI.important("Widget entitlements leeggemaakt — widget werkt zonder AppGroup data")
+          UI.message("APP_GROUPS capability niet aanwezig op widget — profiel wordt schoon gegenereerd.")
         end
 
-        UI.message("Wacht 10s zodat Apple de App Group propagatie kan verwerken...")
-        sleep(10)
+        # Widget entitlements is al leeg geschreven in de workflow (geen AppGroup)
+        # Zorg dat het bestand ook lokaal leeg is voor de zekerheid
+        widget_ent = File.expand_path("ios/App/GlucoDashWidget/GlucoDashWidget.entitlements", Dir.pwd)
+        UI.message("Widget entitlements pad: #{widget_ent} (bestaat: #{File.exist?(widget_ent)})")
+        File.write(widget_ent, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict/>\n</plist>\n")
+        UI.success("Widget entitlements leeggemaakt (geen AppGroup) — profiel komt overeen.")
+
+        UI.message("Wacht 5s voor Apple propagatie...")
+        sleep(5)
       end
 
     rescue => e

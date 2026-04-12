@@ -151,28 +151,78 @@ platform :ios do
         end
 
         # App Groups capability inschakelen op widget bundle ID
-        # Vereist zodat het widget glucose.json uit de iAPS AppGroup kan lezen
-        ag_body = JSON.generate({
+        ag_cap_body = JSON.generate({
           data: {
             type: "bundleIdCapabilities",
             attributes: { capabilityType: "APP_GROUPS", settings: [] },
             relationships: { bundleId: { data: { id: wid, type: "bundleIds" } } }
           }
         })
-        uri_ag = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
-        req_ag = Net::HTTP::Post.new(uri_ag)
-        req_ag['Authorization'] = "Bearer #{jwt}"
-        req_ag['Content-Type']  = 'application/json'
-        req_ag.body = ag_body
-        res_ag = Net::HTTP.start(uri_ag.hostname, uri_ag.port, use_ssl: true) { |h| h.request(req_ag) }
-        case res_ag.code.to_i
+        uri_agcap = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
+        req_agcap = Net::HTTP::Post.new(uri_agcap)
+        req_agcap['Authorization'] = "Bearer #{jwt}"
+        req_agcap['Content-Type']  = 'application/json'
+        req_agcap.body = ag_cap_body
+        res_agcap = Net::HTTP.start(uri_agcap.hostname, uri_agcap.port, use_ssl: true) { |h| h.request(req_agcap) }
+        case res_agcap.code.to_i
         when 201 then UI.success("App Groups capability INGESCHAKELD op widget App ID!")
         when 409 then UI.success("App Groups was al ingeschakeld op widget App ID.")
-        else          UI.important("App Groups response #{res_ag.code}: #{res_ag.body[0..300]}")
+        else          UI.important("App Groups capability response #{res_agcap.code}: #{res_agcap.body[0..300]}")
         end
 
-        UI.message("Wacht 8s zodat Apple App Groups kan propageren naar provisioning...")
-        sleep(8)
+        # Zoek de specifieke App Group resource in de developer account
+        # en koppel die aan het widget bundle ID zodat het profiel de groep bevat
+        ag_identifier = "group.com.9CGZ7BWVXT.loopkit.LoopGroup"
+        UI.message("Zoek App Group: #{ag_identifier}")
+        uri_ags = URI("https://api.appstoreconnect.apple.com/v1/appGroups?filter[identifier]=#{ag_identifier}")
+        req_ags = Net::HTTP::Get.new(uri_ags)
+        req_ags['Authorization'] = "Bearer #{jwt}"
+        res_ags = Net::HTTP.start(uri_ags.hostname, uri_ags.port, use_ssl: true) { |h| h.request(req_ags) }
+        ag_list = JSON.parse(res_ags.body)['data'] || []
+        UI.message("App Groups gevonden: #{ag_list.map{|g| g['id']}.inspect}")
+
+        if ag_list.empty?
+          # App Group bestaat nog niet in dit developer account — aanmaken
+          UI.message("App Group niet gevonden, aanmaken...")
+          create_ag_body = JSON.generate({
+            data: {
+              type: "appGroups",
+              attributes: { identifier: ag_identifier, name: "LoopKit LoopGroup" }
+            }
+          })
+          uri_agc = URI("https://api.appstoreconnect.apple.com/v1/appGroups")
+          req_agc = Net::HTTP::Post.new(uri_agc)
+          req_agc['Authorization'] = "Bearer #{jwt}"
+          req_agc['Content-Type']  = 'application/json'
+          req_agc.body = create_ag_body
+          res_agc = Net::HTTP.start(uri_agc.hostname, uri_agc.port, use_ssl: true) { |h| h.request(req_agc) }
+          if res_agc.code.to_i == 201
+            ag_list = [JSON.parse(res_agc.body)['data']]
+            UI.success("App Group aangemaakt: #{ag_list.first['id']}")
+          else
+            UI.important("App Group aanmaken mislukt #{res_agc.code}: #{res_agc.body[0..300]}")
+          end
+        end
+
+        if ag_list.any?
+          ag_resource_id = ag_list.first['id']
+          UI.message("Koppel App Group #{ag_resource_id} aan widget bundle ID #{wid}")
+          assoc_body = JSON.generate({ data: [{ type: "appGroups", id: ag_resource_id }] })
+          uri_assoc = URI("https://api.appstoreconnect.apple.com/v1/bundleIds/#{wid}/relationships/appGroups")
+          req_assoc = Net::HTTP::Post.new(uri_assoc)
+          req_assoc['Authorization'] = "Bearer #{jwt}"
+          req_assoc['Content-Type']  = 'application/json'
+          req_assoc.body = assoc_body
+          res_assoc = Net::HTTP.start(uri_assoc.hostname, uri_assoc.port, use_ssl: true) { |h| h.request(req_assoc) }
+          case res_assoc.code.to_i
+          when 204 then UI.success("App Group succesvol gekoppeld aan widget!")
+          when 409 then UI.success("App Group was al gekoppeld aan widget.")
+          else          UI.important("App Group koppelen #{res_assoc.code}: #{res_assoc.body[0..300]}")
+          end
+        end
+
+        UI.message("Wacht 10s zodat Apple de App Group propagatie kan verwerken...")
+        sleep(10)
       end
 
     rescue => e

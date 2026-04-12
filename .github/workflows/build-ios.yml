@@ -763,13 +763,25 @@ jobs:
               }
           }
 
+          // ---- iOS 16/17 compatibel container background ----
+          extension View {
+              @ViewBuilder
+              func glucoWidgetBackground() -> some View {
+                  if #available(iOS 17.0, *) {
+                      self.containerBackground(.fill.tertiary, for: .widget)
+                  } else {
+                      self.background(Color(UIColor.systemBackground))
+                  }
+              }
+          }
+
           // ---- Widget definitie met alle 3 maten ----
           struct GlucoDashHomeWidget: Widget {
               let kind = "GlucoDashHomeWidget"
               var body: some WidgetConfiguration {
                   StaticConfiguration(kind: kind, provider: GlucoseHomeProvider()) { entry in
                       GlucoDashHomeWidgetEntryView(entry: entry)
-                          .containerBackground(.fill.tertiary, for: .widget)
+                          .glucoWidgetBackground()
                   }
                   .configurationDisplayName("GlucoDash Glucose")
                   .description("Toont actuele glucosewaarde, trend en actief insuline.")

@@ -173,8 +173,8 @@ platform :ios do
         end
 
         # Widget entitlements is al leeg geschreven in de workflow (geen AppGroup)
-        # Zorg dat het bestand ook lokaal leeg is voor de zekerheid
-        widget_ent = File.expand_path("ios/App/GlucoDashWidget/GlucoDashWidget.entitlements", Dir.pwd)
+        # __dir__ = fastlane/, dus ../ = project root
+        widget_ent = File.expand_path("../ios/App/GlucoDashWidget/GlucoDashWidget.entitlements", __dir__)
         UI.message("Widget entitlements pad: #{widget_ent} (bestaat: #{File.exist?(widget_ent)})")
         File.write(widget_ent, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict/>\n</plist>\n")
         UI.success("Widget entitlements leeggemaakt (geen AppGroup) — profiel komt overeen.")

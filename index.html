@@ -878,42 +878,45 @@
     </div>
 
     <script>
-        // ============= CAPACITOR INLINE PLUGIN LAZY GETTERS =============
-        // Capacitor 6: window.Capacitor.Plugins is read-only → directe assignment
-        // mislukt stilletjes. Gebruik lazy getters die pas aangemaakt worden wanneer
-        // de bridge al volledig geïnitialiseerd is (niet bij script-load).
+        // ============= CAPACITOR NATIVE BRIDGE DIRECT CALLS =============
+        // Diagnose build #84: Cap:object  native:true  reg:undefined
+        // → window.Capacitor.registerPlugin bestaat NIET in de native bridge.
+        //   registerPlugin komt uit @capacitor/core npm-module (ES import).
+        //   Zonder bundler laadt die module nooit → altijd undefined.
+        //
+        // Oplossing: window.Capacitor.nativePromise(plugin, method, options)
+        //   Dit is de LOW-LEVEL bridge API die altijd aanwezig is in de native bridge.
+        //   We wikkelen het in eigen plugin-objecten met dezelfde interface.
+        //
         // Native kant: ViewController.swift → bridge?.registerPlugin(X.self)
-        window.__glucodash_hk = null;
-        window.__glucodash_la = null;
 
         function getHKPlugin() {
+            const cap = window.Capacitor;
+            if (!cap || typeof cap.nativePromise !== 'function') return null;
             if (!window.__glucodash_hk) {
-                const cap = window.Capacitor;
-                if (cap && typeof cap.registerPlugin === 'function') {
-                    try {
-                        window.__glucodash_hk = cap.registerPlugin('HealthKitPlugin');
-                        console.log('[Cap] HealthKitPlugin proxy aangemaakt:', typeof window.__glucodash_hk);
-                    } catch(e) {
-                        console.warn('[Cap] HealthKitPlugin registratie fout:', e);
-                    }
-                }
+                window.__glucodash_hk = {
+                    isAvailable:          ()    => cap.nativePromise('HealthKitPlugin', 'isAvailable', {}),
+                    requestAuthorization: (o)   => cap.nativePromise('HealthKitPlugin', 'requestAuthorization', o || {}),
+                    queryBloodGlucose:    (o)   => cap.nativePromise('HealthKitPlugin', 'queryBloodGlucose', o || {}),
+                    queryCarbs:           (o)   => cap.nativePromise('HealthKitPlugin', 'queryCarbs', o || {}),
+                };
+                console.log('[Cap] HealthKitPlugin via nativePromise aangemaakt');
             }
-            return window.__glucodash_hk || null;
+            return window.__glucodash_hk;
         }
 
         function getLAPlugin() {
+            const cap = window.Capacitor;
+            if (!cap || typeof cap.nativePromise !== 'function') return null;
             if (!window.__glucodash_la) {
-                const cap = window.Capacitor;
-                if (cap && typeof cap.registerPlugin === 'function') {
-                    try {
-                        window.__glucodash_la = cap.registerPlugin('LiveActivityPlugin');
-                        console.log('[Cap] LiveActivityPlugin proxy aangemaakt:', typeof window.__glucodash_la);
-                    } catch(e) {
-                        console.warn('[Cap] LiveActivityPlugin registratie fout:', e);
-                    }
-                }
+                window.__glucodash_la = {
+                    start:  (o) => cap.nativePromise('LiveActivityPlugin', 'start',  o || {}),
+                    update: (o) => cap.nativePromise('LiveActivityPlugin', 'update', o || {}),
+                    stop:   (o) => cap.nativePromise('LiveActivityPlugin', 'stop',   o || {}),
+                };
+                console.log('[Cap] LiveActivityPlugin via nativePromise aangemaakt');
             }
-            return window.__glucodash_la || null;
+            return window.__glucodash_la;
         }
 
         // ============= CONFIGURATIE =============
@@ -1099,12 +1102,9 @@
             const lbl = document.getElementById('hk-status-label');
             if (!lbl) return;
             if (!HK) {
-                // Diagnostics: toon exacte staat van window.Capacitor
                 const cap = window.Capacitor;
-                const capType = typeof cap;
-                const isNative = cap?.isNativePlatform?.();
-                const regType = typeof cap?.registerPlugin;
-                lbl.textContent = `❌ Plugin null | Cap:${capType} native:${isNative} reg:${regType}`;
+                const np = typeof cap?.nativePromise;
+                lbl.textContent = `❌ Plugin null | Cap:${typeof cap} native:${cap?.isNativePlatform?.()} nativePromise:${np}`;
                 return;
             }
             try {
@@ -1123,7 +1123,7 @@
             const lbl = document.getElementById('la-status-label');
             if (!LA) {
                 const cap = window.Capacitor;
-                lbl.textContent = `❌ LA null | Cap:${typeof cap} native:${cap?.isNativePlatform?.()} reg:${typeof cap?.registerPlugin}`;
+                lbl.textContent = `❌ LA null | nativePromise:${typeof cap?.nativePromise}`;
                 return;
             }
             // Gebruik de laatste bekende glucose waarde

@@ -1503,44 +1503,40 @@
                 console.log(`[NS] ${glucoseEntries.length} glucose (HK leeg)`);
             }
 
-            // ── IOB: Nightscout devicestatus primair, HealthKit berekend als fallback ──
-            let iobTotal = null; // null = niet gevonden; 0 = expliciete nul
-            let iobSource = 'geen';
+            // ── IOB: uitsluitend uit Nightscout devicestatus (geen HealthKit berekening) ──
+            let iobTotal = null;
             if (Array.isArray(nsDevstat) && nsDevstat[0]) {
                 const ds = nsDevstat[0];
-                // iAPS/OpenAPS/Trio/Loop — alle bekende paden
-                const nsVal = ds?.openaps?.iob?.iob
-                           ?? ds?.openaps?.enacted?.IOB
-                           ?? ds?.openaps?.suggested?.IOB
-                           ?? ds?.loop?.iob?.iob
-                           ?? ds?.loop?.iob?.value
-                           ?? ds?.iob?.iob
-                           ?? ds?.iob?.IOB
-                           ?? undefined;
-                if (nsVal !== undefined && nsVal !== null) {
-                    iobTotal = Math.max(0, parseFloat(nsVal) || 0);
-                    iobSource = 'Nightscout';
-                    console.log(`[IOB] NS: ${iobTotal.toFixed(2)}U (pad: openaps/loop/iob)`);
+                // Alle bekende paden: iAPS, Trio, OpenAPS, Loop, AndroidAPS
+                const candidates = [
+                    ds?.openaps?.iob?.iob,
+                    ds?.openaps?.enacted?.IOB,
+                    ds?.openaps?.suggested?.IOB,
+                    ds?.openaps?.iob?.bolussnooze,   // soms anders genaamd
+                    ds?.loop?.iob?.iob,
+                    ds?.loop?.iob?.value,
+                    ds?.aaps?.iob,
+                    ds?.iob?.iob,
+                    ds?.iob?.IOB,
+                    ds?.iob,                          // soms direct als getal
+                ];
+                console.log('[IOB] NS devicestatus paden:', JSON.stringify({
+                    openaps_iob: ds?.openaps?.iob,
+                    loop_iob: ds?.loop?.iob,
+                    iob: ds?.iob
+                }));
+                for (const v of candidates) {
+                    const n = parseFloat(v);
+                    if (!isNaN(n) && v !== null && v !== undefined && typeof v !== 'object') {
+                        iobTotal = Math.max(0, n);
+                        console.log(`[IOB] Gevonden: ${iobTotal.toFixed(2)}U`);
+                        break;
+                    }
                 }
             }
-            if (iobTotal === null) {
-                // HealthKit fallback: lineaire decay DIA=4u (240 min) — alleen bolus (reason=2)
-                const hkInsuRaw = hkInsuRes?.samples || [];
-                const nowMs = now.getTime();
-                let hkIob = 0;
-                hkInsuRaw.forEach(s => {
-                    const ageMin = (nowMs - new Date(s.startDate).getTime()) / 60000;
-                    if (ageMin < 240 && s.insulinReason === 2) { // alleen bolus, binnen DIA
-                        hkIob += (parseFloat(s.value) || 0) * Math.max(0, 1 - ageMin / 240);
-                    }
-                });
-                iobTotal = Math.round(hkIob * 100) / 100;
-                iobSource = 'HealthKit';
-                console.log(`[IOB] HK berekend: ${iobTotal.toFixed(2)}U (bolus-only decay)`);
-            }
-            window.__glucodash_iob = iobTotal;
+            window.__glucodash_iob = iobTotal ?? 0;
             const iobEl = document.getElementById('iob-val');
-            if (iobEl) iobEl.innerText = iobTotal > 0 ? iobTotal.toFixed(1) : '--';
+            if (iobEl) iobEl.innerText = iobTotal !== null ? iobTotal.toFixed(1) : '--';
 
             // ── Schrijf glucose + IOB naar widget gedeelde opslag ──
             if (HK?.writeSharedData && glucoseEntries.length > 0) {
@@ -2192,83 +2188,58 @@
         const MANUAL_SENSOR_START = false;
         
         function processSensorData(treatments, eventTypes) {
-            if (!treatments || !Array.isArray(treatments)) {
-                console.log("[GlucoDash] Geen treatments data");
+            const statusEl = document.getElementById('sensor-status');
+            if (!statusEl) return;
+
+            if (!treatments || !Array.isArray(treatments) || treatments.length === 0) {
+                console.log("[Sensor] Geen NS treatments beschikbaar");
+                statusEl.innerText = '--';
                 return;
             }
-            
-            let sensorStart = null;
-            
-            // ==== Auto-detect uit Nightscout ====
-            // Gebruik lowercase + includes voor maximale compatibiliteit met alle NS versies
-            const allSensorEvents = treatments.filter(t => {
+
+            // Zoek meest recente sensor-event uit Nightscout
+            // Alle bekende event type namen (case-insensitief)
+            const sensorEvents = treatments.filter(t => {
                 const et = (t.eventType || '').toLowerCase().trim();
-                return et.includes('sensor') || et.includes('cgm') ||
-                       et === 'insert sensor' || et === 'site change' ||
-                       et.includes('insert');
-            });
-            
-            allSensorEvents.sort((a, b) => getTimestamp(b, true) - getTimestamp(a, true));
-            
-            for (const evt of allSensorEvents) {
-                const ts = getTimestamp(evt, true);
-                const testDate = new Date(ts);
-                if (testDate.getFullYear() >= 2020 && testDate.getFullYear() <= 2030) {
-                    sensorStart = testDate;
-                    console.log("[GlucoDash] Sensor gevonden:", sensorStart);
-                    break;
-                }
+                return et.includes('sensor') || et.includes('cgm') || et.includes('insert');
+            }).map(t => {
+                // Gebruik created_at of date — kies het meest betrouwbare veld
+                const raw = t.created_at || t.date || t.dateString;
+                const ts = raw ? new Date(raw).getTime() : 0;
+                return { ...t, _ts: ts };
+            }).filter(t => t._ts > 0 && new Date(t._ts).getFullYear() >= 2020)
+              .sort((a, b) => b._ts - a._ts);
+
+            console.log(`[Sensor] ${sensorEvents.length} sensor events in NS:`,
+                sensorEvents.slice(0,3).map(t => `${t.eventType} @ ${new Date(t._ts).toLocaleDateString()}`));
+
+            if (sensorEvents.length === 0) {
+                statusEl.innerText = '--';
+                statusEl.style.color = 'var(--subtext-color)';
+                return;
             }
-            
-            // ==== Check localStorage ====
-            if (!sensorStart) {
-                const stored = localStorage.getItem('glucodash_sensor_start');
-                if (stored) {
-                    const storedDate = new Date(parseInt(stored));
-                    if (storedDate.getFullYear() >= 2020) {
-                        sensorStart = storedDate;
-                    }
-                }
-            }
-            
-            // ==== Als niks, gebruik nu ====
-            if (!sensorStart) {
-                sensorStart = new Date();
-            }
-            
-            localStorage.setItem('glucodash_sensor_start', sensorStart.getTime().toString());
-            
-            // ==== Bereken leeftijd ====
+
+            const sensorStart = new Date(sensorEvents[0]._ts);
             const now = new Date();
             const ageMs = now.getTime() - sensorStart.getTime();
-            const ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
-            const ageHours = Math.floor((ageMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            
-            // 10 dagen + 12u grace
-            const totalMs = (SENSOR_DAYS * 24 * 60 * 60 * 1000) + (SENSOR_GRACE_HOURS * 60 * 60 * 1000);
-            const replaceDate = new Date(sensorStart.getTime() + totalMs);
-            const timeLeftMs = replaceDate.getTime() - now.getTime();
-            const daysLeft = Math.max(0, Math.floor(timeLeftMs / (1000 * 60 * 60 * 24)));
-            const hoursLeft = Math.max(0, Math.floor((timeLeftMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)));
-            
-            const inGrace = ageDays >= SENSOR_DAYS && ageDays < (SENSOR_DAYS + 1);
-            
-            console.log(`[GlucoDash] Leeftijd: ${ageDays}d ${ageHours}u, Nog: ${daysLeft}d ${hoursLeft}u`);
-            
-            // ==== UI Update ====
-            const statusEl = document.getElementById('sensor-status');
-            
-            if (inGrace) {
-                statusEl.innerText = `Nog ${hoursLeft}u`;
+            const ageDays  = Math.floor(ageMs / 86400000);
+            const ageHours = Math.floor((ageMs % 86400000) / 3600000);
+
+            // Dag-teller + resterende tijd (aanname 10-daagse sensor)
+            const daysLeft  = Math.max(0, SENSOR_DAYS - ageDays);
+            const hoursLeft = daysLeft === 0 ? Math.max(0, SENSOR_GRACE_HOURS - ageHours) : 0;
+
+            console.log(`[Sensor] Start: ${sensorStart.toLocaleDateString()}, Dag ${ageDays + 1} van ${SENSOR_DAYS}`);
+
+            if (ageDays >= SENSOR_DAYS) {
+                // In grace periode of verlopen
+                statusEl.innerText = hoursLeft > 0 ? `Vervangen! (${hoursLeft}u grace)` : `Vervangen!`;
                 statusEl.style.color = 'var(--danger-color)';
-            } else if (daysLeft <= 1) {
-                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
-                statusEl.style.color = 'var(--danger-color)';
-            } else if (daysLeft <= 3) {
-                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
+            } else if (daysLeft <= 2) {
+                statusEl.innerText = `Dag ${ageDays + 1} · Nog ${daysLeft}d ${ageHours}u`;
                 statusEl.style.color = 'var(--warning-color)';
             } else {
-                statusEl.innerText = `Nog ${daysLeft}d ${hoursLeft}u`;
+                statusEl.innerText = `Dag ${ageDays + 1} van ${SENSOR_DAYS}`;
                 statusEl.style.color = 'var(--accent-color)';
             }
         }

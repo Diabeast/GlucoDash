@@ -1140,6 +1140,7 @@
                     queryBloodGlucose:    (o)   => cap.nativePromise('HealthKitPlugin', 'queryBloodGlucose', o || {}),
                     queryCarbs:           (o)   => cap.nativePromise('HealthKitPlugin', 'queryCarbs', o || {}),
                     queryInsulin:         (o)   => cap.nativePromise('HealthKitPlugin', 'queryInsulin', o || {}),
+                    writeSharedData:      (o)   => cap.nativePromise('HealthKitPlugin', 'writeSharedData', o || {}),
                 };
                 console.log('[Cap] HealthKitPlugin via nativePromise aangemaakt');
             }
@@ -1503,23 +1504,54 @@
             }
 
             // ── IOB: Nightscout devicestatus primair, HealthKit berekend als fallback ──
-            let iobTotal = 0;
+            let iobTotal = null; // null = niet gevonden; 0 = expliciete nul
+            let iobSource = 'geen';
             if (Array.isArray(nsDevstat) && nsDevstat[0]) {
                 const ds = nsDevstat[0];
-                iobTotal = ds?.openaps?.iob?.iob ?? ds?.loop?.iob?.iob ?? ds?.iob?.iob ?? 0;
+                // iAPS/OpenAPS/Trio/Loop — alle bekende paden
+                const nsVal = ds?.openaps?.iob?.iob
+                           ?? ds?.openaps?.enacted?.IOB
+                           ?? ds?.openaps?.suggested?.IOB
+                           ?? ds?.loop?.iob?.iob
+                           ?? ds?.loop?.iob?.value
+                           ?? ds?.iob?.iob
+                           ?? ds?.iob?.IOB
+                           ?? undefined;
+                if (nsVal !== undefined && nsVal !== null) {
+                    iobTotal = Math.max(0, parseFloat(nsVal) || 0);
+                    iobSource = 'Nightscout';
+                    console.log(`[IOB] NS: ${iobTotal.toFixed(2)}U (pad: openaps/loop/iob)`);
+                }
             }
-            if (!iobTotal) {
+            if (iobTotal === null) {
+                // HealthKit fallback: lineaire decay DIA=4u (240 min) — alleen bolus (reason=2)
                 const hkInsuRaw = hkInsuRes?.samples || [];
                 const nowMs = now.getTime();
+                let hkIob = 0;
                 hkInsuRaw.forEach(s => {
                     const ageMin = (nowMs - new Date(s.startDate).getTime()) / 60000;
-                    iobTotal += (parseFloat(s.value) || 0) * Math.max(0, 1 - ageMin / 240);
+                    if (ageMin < 240 && s.insulinReason === 2) { // alleen bolus, binnen DIA
+                        hkIob += (parseFloat(s.value) || 0) * Math.max(0, 1 - ageMin / 240);
+                    }
                 });
-                iobTotal = Math.round(iobTotal * 100) / 100;
+                iobTotal = Math.round(hkIob * 100) / 100;
+                iobSource = 'HealthKit';
+                console.log(`[IOB] HK berekend: ${iobTotal.toFixed(2)}U (bolus-only decay)`);
             }
             window.__glucodash_iob = iobTotal;
             const iobEl = document.getElementById('iob-val');
             if (iobEl) iobEl.innerText = iobTotal > 0 ? iobTotal.toFixed(1) : '--';
+
+            // ── Schrijf glucose + IOB naar widget gedeelde opslag ──
+            if (HK?.writeSharedData && glucoseEntries.length > 0) {
+                const bgDisplay = document.getElementById('current-bg')?.innerText;
+                const bgNum = parseFloat(bgDisplay);
+                if (bgNum > 0) {
+                    const { trend, delta } = getCleanTrendDelta();
+                    HK.writeSharedData({ glucose: bgNum, trend, delta, iob: iobTotal || 0 })
+                        .catch(e => console.warn('[SharedData widget]', e?.message));
+                }
+            }
 
             // ── Behandelingen: Nightscout primair (pomp, sensor, carbs), HK als fallback ──
             let treatments = [];
@@ -2168,11 +2200,12 @@
             let sensorStart = null;
             
             // ==== Auto-detect uit Nightscout ====
+            // Gebruik lowercase + includes voor maximale compatibiliteit met alle NS versies
             const allSensorEvents = treatments.filter(t => {
-                const et = t.eventType || '';
-                return et === 'Sensor Start' || et === 'sensor start' || 
-                       et === 'Sensor Change' || et === 'sensor change' ||
-                       et === 'Insert Sensor';
+                const et = (t.eventType || '').toLowerCase().trim();
+                return et.includes('sensor') || et.includes('cgm') ||
+                       et === 'insert sensor' || et === 'site change' ||
+                       et.includes('insert');
             });
             
             allSensorEvents.sort((a, b) => getTimestamp(b, true) - getTimestamp(a, true));

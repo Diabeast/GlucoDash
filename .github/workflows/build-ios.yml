@@ -74,6 +74,7 @@ jobs:
             <key>com.apple.security.application-groups</key>
             <array>
               <string>group.com.9CGZ7BWVXT.loopkit.LoopGroup</string>
+              <string>group.com.9CGZ7BWVXT.glucodash</string>
             </array>
           </dict>
           </plist>
@@ -180,6 +181,7 @@ jobs:
           import Foundation
           import Capacitor
           import HealthKit
+          import WidgetKit
 
           @objc(HealthKitPlugin)
           public class HealthKitPlugin: CAPPlugin, CAPBridgedPlugin {
@@ -191,6 +193,7 @@ jobs:
                   CAPPluginMethod(name: "queryBloodGlucose", returnType: CAPPluginReturnPromise),
                   CAPPluginMethod(name: "queryCarbs", returnType: CAPPluginReturnPromise),
                   CAPPluginMethod(name: "queryInsulin", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "writeSharedData", returnType: CAPPluginReturnPromise),
               ]
 
               private let healthStore = HKHealthStore()
@@ -309,6 +312,24 @@ jobs:
                       call.resolve(["samples": results])
                   }
                   healthStore.execute(query)
+              }
+
+              // ── Schrijft glucose + IOB naar gedeelde App Group voor homescreen widget ──
+              @objc func writeSharedData(_ call: CAPPluginCall) {
+                  let group = "group.com.9CGZ7BWVXT.glucodash"
+                  guard let ud = UserDefaults(suiteName: group) else {
+                      call.reject("App Group \(group) niet beschikbaar"); return
+                  }
+                  if let glucose = call.getDouble("glucose"), glucose > 0 {
+                      ud.set(glucose, forKey: "glucose")
+                  }
+                  if let trend = call.getString("trend") { ud.set(trend, forKey: "trend") }
+                  if let delta = call.getString("delta") { ud.set(delta, forKey: "delta") }
+                  if let iob = call.getDouble("iob") { ud.set(iob, forKey: "iob") }
+                  ud.set(Date().timeIntervalSince1970, forKey: "updatedAt")
+                  ud.synchronize()
+                  WidgetCenter.shared.reloadAllTimelines()
+                  call.resolve(["ok": true])
               }
           }
           SWIFT
@@ -534,12 +555,17 @@ jobs:
           </plist>
           PLIST
 
-          # ---- File 6: Widget entitlements (leeg - geen AppGroup, voorkomt provisioning mismatch) ----
+          # ---- File 6: Widget entitlements (eigen GlucoDash App Group voor live data) ----
           cat > "ios/App/GlucoDashWidget/GlucoDashWidget.entitlements" << 'ENTITLEMENTS'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
-          <dict/>
+          <dict>
+            <key>com.apple.security.application-groups</key>
+            <array>
+              <string>group.com.9CGZ7BWVXT.glucodash</string>
+            </array>
+          </dict>
           </plist>
           ENTITLEMENTS
 
@@ -561,9 +587,9 @@ jobs:
               let minutesAgo: Int
           }
 
-          // ---- Timeline provider: leest uit iAPS AppGroup ----
+          // ---- Timeline provider: leest uit GlucoDash eigen App Group (UserDefaults) ----
           struct GlucoseHomeProvider: TimelineProvider {
-              let appGroup = "group.com.9CGZ7BWVXT.loopkit.LoopGroup"
+              let groupId = "group.com.9CGZ7BWVXT.glucodash"
 
               func placeholder(in context: Context) -> GlucoseHomeEntry {
                   GlucoseHomeEntry(date: Date(), glucoseMMOL: 5.5, trend: "→", delta: "+0.1",
@@ -581,65 +607,28 @@ jobs:
               }
 
               private func loadEntry() -> GlucoseHomeEntry {
-                  let fallback = GlucoseHomeEntry(date: Date(), glucoseMMOL: 0, trend: "?", delta: "",
+                  let fallback = GlucoseHomeEntry(date: Date(), glucoseMMOL: 0, trend: "→", delta: "",
                                                   iob: 0, isHigh: false, isLow: false, isStale: true, minutesAgo: 99)
-                  guard let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
-                  else { return fallback }
+                  guard let ud = UserDefaults(suiteName: groupId) else { return fallback }
 
-                  // ---- Glucose uit glucose.json ----
-                  var glucoseMMOL = 0.0
-                  var trend = "→"
-                  var delta = ""
-                  var isStale = true
-                  var minutesAgo = 99
+                  let glucose    = ud.double(forKey: "glucose")   // mmol/L
+                  let trend      = ud.string(forKey: "trend")  ?? "→"
+                  let delta      = ud.string(forKey: "delta")  ?? ""
+                  let iob        = ud.double(forKey: "iob")
+                  let updatedAt  = ud.double(forKey: "updatedAt") // Unix timestamp
 
-                  let gUrl = base.appendingPathComponent("glucose.json")
-                  if let data = try? Data(contentsOf: gUrl),
-                     let arr  = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-                     let first = arr.first {
-                      let sgv = (first["sgv"] as? Double) ?? ((first["sgv"] as? Int).map { Double($0) } ?? 0)
-                      glucoseMMOL = sgv / 18.018
-                      trend = dirToArrow(first["direction"] as? String ?? "Flat")
-                      if arr.count > 1 {
-                          let prev = (arr[1]["sgv"] as? Double) ?? ((arr[1]["sgv"] as? Int).map { Double($0) } ?? 0)
-                          let diff = (sgv - prev) / 18.018
-                          delta = diff >= 0 ? String(format: "+%.1f", diff) : String(format: "%.1f", diff)
-                      }
-                      if let ms = (first["date"] as? Double) ?? (first["date"] as? Int).map({ Double($0) }) {
-                          let age = Date().timeIntervalSince1970 - ms / 1000
-                          isStale   = age > 600
-                          minutesAgo = Int(age / 60)
-                      }
-                  }
+                  guard glucose > 0 else { return fallback }
 
-                  // ---- IOB uit openapssuggest.json ----
-                  var iob = 0.0
-                  let iobUrl = base.appendingPathComponent("openapssuggest.json")
-                  if let data = try? Data(contentsOf: iobUrl),
-                     let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-                     let iobObj = json["iob"] as? [String: Any] {
-                      iob = (iobObj["iob"] as? Double) ?? 0.0
-                  }
+                  let age        = updatedAt > 0 ? Date().timeIntervalSince1970 - updatedAt : 9999
+                  let minutesAgo = Int(age / 60)
+                  let isStale    = age > 600
 
                   return GlucoseHomeEntry(
-                      date: Date(), glucoseMMOL: glucoseMMOL,
+                      date: Date(), glucoseMMOL: glucose,
                       trend: trend, delta: delta, iob: iob,
-                      isHigh: glucoseMMOL > 10.0, isLow: glucoseMMOL < 3.9,
+                      isHigh: glucose > 10.0, isLow: glucose < 3.9,
                       isStale: isStale, minutesAgo: minutesAgo
                   )
-              }
-
-              private func dirToArrow(_ dir: String) -> String {
-                  switch dir {
-                  case "DoubleUp":      return "↑↑"
-                  case "SingleUp":      return "↑"
-                  case "FortyFiveUp":   return "↗"
-                  case "Flat":          return "→"
-                  case "FortyFiveDown": return "↘"
-                  case "SingleDown":    return "↓"
-                  case "DoubleDown":    return "↓↓"
-                  default:              return "→"
-                  }
               }
           }
 

@@ -150,97 +150,12 @@ platform :ios do
         else          UI.important("WidgetKit response #{res_wk.code}: #{res_wk.body[0..300]}")
         end
 
-        # ── Maak GlucoDash eigen App Group aan + koppel aan hoofd-app en widget ──
-        gd_group_id  = "group.com.9CGZ7BWVXT.glucodash"
-        gd_ag_res_id = nil
-
-        # Stap 1: Probeer App Group te vinden via main app's gekoppelde groepen
-        if bid
-          uri_mag = URI("https://api.appstoreconnect.apple.com/v1/bundleIds/#{bid['id']}/appGroups")
-          req_mag = Net::HTTP::Get.new(uri_mag)
-          req_mag['Authorization'] = "Bearer #{jwt}"
-          res_mag = Net::HTTP.start(uri_mag.hostname, uri_mag.port, use_ssl: true) { |h| h.request(req_mag) }
-          main_ags = JSON.parse(res_mag.body)['data'] || []
-          found = main_ags.find { |g| g.dig('attributes','identifier') == gd_group_id }
-          gd_ag_res_id = found['id'] if found
-          UI.message("GlucoDash App Group via main app: #{gd_ag_res_id || 'niet gevonden'}")
-        end
-
-        # Stap 2: Aanmaken als het nog niet bestaat
-        if !gd_ag_res_id
-          UI.message("GlucoDash App Group aanmaken: #{gd_group_id}")
-          create_ag = JSON.generate({ data: { type: "appGroups", attributes: { identifier: gd_group_id, name: "GlucoDash" } } })
-          uri_cag = URI("https://api.appstoreconnect.apple.com/v1/appGroups")
-          req_cag = Net::HTTP::Post.new(uri_cag)
-          req_cag['Authorization'] = "Bearer #{jwt}"
-          req_cag['Content-Type']  = 'application/json'
-          req_cag.body = create_ag
-          res_cag = Net::HTTP.start(uri_cag.hostname, uri_cag.port, use_ssl: true) { |h| h.request(req_cag) }
-          case res_cag.code.to_i
-          when 201
-            gd_ag_res_id = JSON.parse(res_cag.body)['data']['id']
-            UI.success("✅ GlucoDash App Group aangemaakt: #{gd_ag_res_id}")
-          when 409
-            # Al aangemaakt — haal ID op via globale lijst
-            URI_all = URI("https://api.appstoreconnect.apple.com/v1/appGroups?limit=200")
-            req_all = Net::HTTP::Get.new(URI_all)
-            req_all['Authorization'] = "Bearer #{jwt}"
-            res_all = Net::HTTP.start(URI_all.hostname, URI_all.port, use_ssl: true) { |h| h.request(req_all) }
-            all_ags = JSON.parse(res_all.body)['data'] || []
-            found = all_ags.find { |g| g.dig('attributes','identifier') == gd_group_id }
-            gd_ag_res_id = found['id'] if found
-            UI.success("✅ GlucoDash App Group al bestaand: #{gd_ag_res_id}")
-          else
-            UI.important("App Group aanmaken mislukt #{res_cag.code}: #{res_cag.body[0..300]}")
-          end
-        end
-
-        if gd_ag_res_id
-          # Stap 3: Schakel APP_GROUPS capability in op beide bundle IDs
-          [bid&.dig('id'), wid].compact.each do |b_id|
-            cap_body = JSON.generate({ data: { type: "bundleIdCapabilities",
-              attributes: { capabilityType: "APP_GROUPS", settings: [] },
-              relationships: { bundleId: { data: { id: b_id, type: "bundleIds" } } } } })
-            uri_cap = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
-            req_cap = Net::HTTP::Post.new(uri_cap)
-            req_cap['Authorization'] = "Bearer #{jwt}"
-            req_cap['Content-Type']  = 'application/json'
-            req_cap.body = cap_body
-            res_cap = Net::HTTP.start(uri_cap.hostname, uri_cap.port, use_ssl: true) { |h| h.request(req_cap) }
-            UI.message("APP_GROUPS capability voor #{b_id}: #{res_cap.code}")
-          end
-
-          # Stap 4: Koppel App Group aan hoofd-app en widget
-          assoc = JSON.generate({ data: [{ type: "appGroups", id: gd_ag_res_id }] })
-          [bid&.dig('id'), wid].compact.each do |b_id|
-            uri_a = URI("https://api.appstoreconnect.apple.com/v1/bundleIds/#{b_id}/relationships/appGroups")
-            req_a = Net::HTTP::Post.new(uri_a)
-            req_a['Authorization'] = "Bearer #{jwt}"
-            req_a['Content-Type']  = 'application/json'
-            req_a.body = assoc
-            res_a = Net::HTTP.start(uri_a.hostname, uri_a.port, use_ssl: true) { |h| h.request(req_a) }
-            case res_a.code.to_i
-            when 204 then UI.success("✅ App Group gekoppeld aan #{b_id}")
-            when 409 then UI.success("✅ App Group al gekoppeld aan #{b_id}")
-            else          UI.important("Koppelen #{b_id} #{res_a.code}: #{res_a.body[0..200]}")
-            end
-          end
-
-          UI.message("Wacht 10s voor Apple App Group propagatie...")
-          sleep(10)
-        else
-          UI.error("GlucoDash App Group ID niet beschikbaar — widget krijgt geen live data")
-        end
-
-        # Schrijf widget entitlements met onze eigen App Group (__dir__ = fastlane/)
+        # Widget haalt data direct van Nightscout — geen App Group nodig
+        # Zorg dat entitlements leeg is (__dir__ = fastlane/, ../ = project root)
         widget_ent = File.expand_path("../ios/App/GlucoDashWidget/GlucoDashWidget.entitlements", __dir__)
-        UI.message("Widget entitlements: #{widget_ent} (bestaat: #{File.exist?(widget_ent)})")
-        if gd_ag_res_id
-          File.write(widget_ent, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict>\n  <key>com.apple.security.application-groups</key>\n  <array>\n    <string>#{gd_group_id}</string>\n  </array>\n</dict>\n</plist>\n")
-          UI.success("Widget entitlements gezet met #{gd_group_id}")
-        else
+        if File.exist?(widget_ent)
           File.write(widget_ent, "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\">\n<dict/>\n</plist>\n")
-          UI.important("Widget entitlements leeg (App Group niet beschikbaar)")
+          UI.success("Widget entitlements leeg — widget gebruikt Nightscout API direct")
         end
       end
 

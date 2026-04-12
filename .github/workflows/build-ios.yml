@@ -74,7 +74,6 @@ jobs:
             <key>com.apple.security.application-groups</key>
             <array>
               <string>group.com.9CGZ7BWVXT.loopkit.LoopGroup</string>
-              <string>group.com.9CGZ7BWVXT.glucodash</string>
             </array>
           </dict>
           </plist>
@@ -588,46 +587,89 @@ jobs:
           }
 
           // ---- Timeline provider: leest uit GlucoDash eigen App Group (UserDefaults) ----
+          // ---- Timeline provider: haalt glucose + IOB direct van Nightscout (geen App Group nodig) ----
           struct GlucoseHomeProvider: TimelineProvider {
-              let groupId = "group.com.9CGZ7BWVXT.glucodash"
+              let nsBase  = "https://arinelis.10be.de"
+              let nsToken = "nsread-bf4271c2d5b495b4"
 
               func placeholder(in context: Context) -> GlucoseHomeEntry {
                   GlucoseHomeEntry(date: Date(), glucoseMMOL: 5.5, trend: "→", delta: "+0.1",
-                                   iob: 2.5, isHigh: false, isLow: false, isStale: false, minutesAgo: 5)
+                                   iob: 0, isHigh: false, isLow: false, isStale: false, minutesAgo: 3)
               }
 
               func getSnapshot(in context: Context, completion: @escaping (GlucoseHomeEntry) -> Void) {
-                  completion(loadEntry())
+                  Task { completion(await fetchEntry()) }
               }
 
               func getTimeline(in context: Context, completion: @escaping (Timeline<GlucoseHomeEntry>) -> Void) {
-                  let entry = loadEntry()
-                  let next  = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
-                  completion(Timeline(entries: [entry], policy: .after(next)))
+                  Task {
+                      let entry = await fetchEntry()
+                      let next  = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
+                      completion(Timeline(entries: [entry], policy: .after(next)))
+                  }
               }
 
-              private func loadEntry() -> GlucoseHomeEntry {
+              private func fetchEntry() async -> GlucoseHomeEntry {
                   let fallback = GlucoseHomeEntry(date: Date(), glucoseMMOL: 0, trend: "→", delta: "",
                                                   iob: 0, isHigh: false, isLow: false, isStale: true, minutesAgo: 99)
-                  guard let ud = UserDefaults(suiteName: groupId) else { return fallback }
+                  let tok = "token=\(nsToken)&"
+                  guard let eUrl = URL(string: "\(nsBase)/api/v1/entries.json?\(tok)count=3"),
+                        let dUrl = URL(string: "\(nsBase)/api/v1/devicestatus.json?\(tok)count=1")
+                  else { return fallback }
 
-                  let glucose    = ud.double(forKey: "glucose")   // mmol/L
-                  let trend      = ud.string(forKey: "trend")  ?? "→"
-                  let delta      = ud.string(forKey: "delta")  ?? ""
-                  let iob        = ud.double(forKey: "iob")
-                  let updatedAt  = ud.double(forKey: "updatedAt") // Unix timestamp
+                  async let eTask = URLSession.shared.data(from: eUrl)
+                  async let dTask = URLSession.shared.data(from: dUrl)
 
-                  guard glucose > 0 else { return fallback }
+                  guard let (eData, _) = try? await eTask,
+                        let entries = try? JSONSerialization.jsonObject(with: eData) as? [[String: Any]],
+                        let first = entries.first
+                  else { return fallback }
 
-                  let age        = updatedAt > 0 ? Date().timeIntervalSince1970 - updatedAt : 9999
-                  let minutesAgo = Int(age / 60)
-                  let isStale    = age > 600
+                  let sgv = (first["sgv"] as? Double) ?? Double((first["sgv"] as? Int) ?? 0)
+                  guard sgv > 0 else { return fallback }
+                  let glucoseMMOL = sgv / 18.018
+
+                  let dir = first["direction"] as? String ?? "Flat"
+                  let trend: String = {
+                      switch dir {
+                      case "DoubleUp":      return "↑↑"
+                      case "SingleUp":      return "↑"
+                      case "FortyFiveUp":   return "↗"
+                      case "Flat":          return "→"
+                      case "FortyFiveDown": return "↘"
+                      case "SingleDown":    return "↓"
+                      case "DoubleDown":    return "↓↓"
+                      default:              return "→"
+                      }
+                  }()
+
+                  var delta = ""
+                  if entries.count > 1 {
+                      let prev = (entries[1]["sgv"] as? Double) ?? Double((entries[1]["sgv"] as? Int) ?? 0)
+                      let diff = (sgv - prev) / 18.018
+                      delta = diff >= 0 ? String(format: "+%.1f", diff) : String(format: "%.1f", diff)
+                  }
+
+                  let ms  = (first["date"] as? Double) ?? Double((first["date"] as? Int) ?? 0)
+                  let age = ms > 0 ? Date().timeIntervalSince1970 - ms / 1000.0 : 9999.0
+
+                  var iob = 0.0
+                  if let (dData, _) = try? await dTask,
+                     let devstats = try? JSONSerialization.jsonObject(with: dData) as? [[String: Any]],
+                     let ds = devstats.first,
+                     let oaps = ds["openaps"] as? [String: Any] {
+                      if let iobObj = oaps["iob"] as? [String: Any] {
+                          iob = (iobObj["iob"] as? Double) ?? 0
+                      } else if let enacted = oaps["enacted"] as? [String: Any] {
+                          iob = (enacted["IOB"] as? Double) ?? 0
+                      }
+                  }
 
                   return GlucoseHomeEntry(
-                      date: Date(), glucoseMMOL: glucose,
+                      date: Date(), glucoseMMOL: glucoseMMOL,
                       trend: trend, delta: delta, iob: iob,
-                      isHigh: glucose > 10.0, isLow: glucose < 3.9,
-                      isStale: isStale, minutesAgo: minutesAgo
+                      isHigh: glucoseMMOL > 10.0, isLow: glucoseMMOL < 3.9,
+                      isStale: age > 600, minutesAgo: Int(age / 60)
                   )
               }
           }

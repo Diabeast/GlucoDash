@@ -327,7 +327,9 @@ jobs:
                   if let iob = call.getDouble("iob") { ud.set(iob, forKey: "iob") }
                   ud.set(Date().timeIntervalSince1970, forKey: "updatedAt")
                   ud.synchronize()
-                  WidgetCenter.shared.reloadAllTimelines()
+                  if #available(iOS 14.0, *) {
+                      WidgetCenter.shared.reloadAllTimelines()
+                  }
                   call.resolve(["ok": true])
               }
           }

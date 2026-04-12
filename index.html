@@ -737,16 +737,7 @@
         }
 
         .status-bar {
-            background: var(--card-bg);
-            padding: 10px 20px;
-            border-radius: 10px;
-            margin-bottom: 20px;
-            font-size: 0.85rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 5px;
+            display: none !important;
         }
         .status-ok { color: var(--accent-color); }
         .status-error { color: var(--danger-color); }
@@ -793,10 +784,7 @@
         }
         
         @media (max-width: 400px) {
-            .status-bar {
-                font-size: 0.75rem;
-                padding: 8px 12px;
-            }
+            /* .status-bar verborgen, geen stijl nodig */
         }
     </style>
 </head>
@@ -1304,9 +1292,10 @@
             const dateValue = entry.date || entry.dateString || entry.created_at;
             if (!dateValue) return 0;
             
-            // Als het al een number is (ms)
+            // Als het al een number is: detecteer Unix seconden vs milliseconden
+            // Grens 1e10: waarden < 1e10 zijn seconden (max = jaar 2286), >= 1e10 zijn ms
             if (typeof dateValue === 'number') {
-                return dateValue;
+                return dateValue < 1e10 ? dateValue * 1000 : dateValue;
             }
             
             // Als het een string is
@@ -1458,6 +1447,8 @@
             const now     = new Date();
             const start48 = new Date(now - 48 * 3600000).toISOString();
             const nowIso  = now.toISOString();
+            const midnight = new Date(now); midnight.setHours(0, 0, 0, 0);
+            const midnightIso = midnight.toISOString();
 
             // ── Helperfunctie: Nightscout fetch met automatische proxy-fallback ──
             async function nsFetch(path) {
@@ -1472,14 +1463,17 @@
 
             // ── Parallel alle bronnen ophalen ──
             const tok = cfg.nsToken ? `token=${cfg.nsToken}&` : '';
-            const [hkGlucRes, hkInsuRes, nsEntries, nsTreats, nsDevstat] = await Promise.all([
+            // nsTreats  = alleen vandaag (voor insuline totaal) — tot 1000 om iAPS SMBs op te vangen
+            // nsSensorTreats = sensor-specifieke events (breed, laatste 50) voor sensor dag-teller
+            const [hkGlucRes, hkInsuRes, nsEntries, nsTreats, nsDevstat, nsSensorTreats] = await Promise.all([
                 hasHK ? HK.queryBloodGlucose({ startDate: start48, endDate: nowIso, limit: 2000 })
                             .catch(e => { console.warn('[HK glucose]', e?.message); return null; }) : null,
                 hasHK ? HK.queryInsulin({ startDate: start48, endDate: nowIso, limit: 500 })
                             .catch(e => { console.warn('[HK insulin]', e?.message); return null; }) : null,
                 nsFetch(`entries.json?${tok}count=2000`),
-                nsFetch(`treatments.json?${tok}count=500`),
+                nsFetch(`treatments.json?${tok}count=1000&find[created_at][$gte]=${midnightIso}`),
                 nsFetch(`devicestatus.json?${tok}count=1`),
+                nsFetch(`treatments.json?${tok}count=50&find[eventType][$regex]=ensor`),
             ]);
 
             // ── Glucose: HealthKit primair, Nightscout als fallback ──
@@ -1586,18 +1580,20 @@
 
             if (treatments.length > 0) processInsulinData(treatments);
 
+            // ── Sensor dag-teller: gebruik dedicated sensor fetch (gaat verder terug dan vandaag) ──
+            const sensorSource = (Array.isArray(nsSensorTreats) && nsSensorTreats.length > 0)
+                ? nsSensorTreats
+                : treatments;
+            processSensorData(sensorSource, [...new Set(sensorSource.map(t => t.eventType))]);
+
             // ── HealthKit extra (hartslag, stappen, etc.) ──
             if (hasHK && hkGlucRaw.length > 0) {
                 renderHKCards({ bloodGlucose: hkGlucRaw });
             }
 
             // ── Status bijwerken ──
-            const nsTreatsLabel = Array.isArray(nsTreats) && nsTreats.length > 0
-                ? ` · ${nsTreats.length} beh. (NS)` : '';
-            const iobLabel = iobTotal > 0 ? ` · IOB ${iobTotal.toFixed(1)}U` : '';
             const srcLabel = glucoseSource === 'HealthKit' ? '📲 HealthKit' : '🌐 Nightscout';
             document.getElementById('last-update').innerText = `${srcLabel}: ${now.toLocaleTimeString()}`;
-            updateStatus(`✅ ${glucoseEntries.length} glucose (${glucoseSource})${iobLabel}${nsTreatsLabel}`, "ok");
 
             const statusEl = document.getElementById('menu-source-status');
             if (statusEl) statusEl.textContent =
@@ -2120,9 +2116,6 @@
             const eventTypes = [...new Set(treatments.map(t => t.eventType))];
             console.log("[GlucoDash] Event types:", eventTypes);
 
-            // Process sensor data
-            processSensorData(treatments, eventTypes);
-
             // Filter en bereken insuline stats - LAATSTE 24 UUR
             const now = Date.now();
             const last24h = now - (24 * 60 * 60 * 1000);
@@ -2131,13 +2124,13 @@
             
             const insulinTreatments = treatments.filter(t => {
                 if (!t.insulin || parseFloat(t.insulin) <= 0) return false;
-                const ts = getTimestamp(t);
+                const ts = getTimestamp(t, true); // prefer created_at voor iAPS/NS treatments
                 return ts >= last24h;
             });
-            
+
             // Debug: toon alle insuline behandelingen
             insulinTreatments.forEach((t, i) => {
-                const d = new Date(getTimestamp(t));
+                const d = new Date(getTimestamp(t, true));
                 console.log(`[GlucoDash] Insuline ${i+1}:`, t.insulin, "type:", t.eventType, "tijd:", d.toISOString());
             });
             
@@ -2162,10 +2155,10 @@
                     const et = (t.eventType || '').toLowerCase();
                     return et.includes('bolus') && !et.includes('temp') && !et.includes('smb');
                 })
-                .sort((a, b) => getTimestamp(b) - getTimestamp(a));
+                .sort((a, b) => getTimestamp(b, true) - getTimestamp(a, true));
             if (bolusTreatments.length > 0) {
                 const lastBolus = bolusTreatments[0];
-                const bolusTime = new Date(getTimestamp(lastBolus));
+                const bolusTime = new Date(getTimestamp(lastBolus, true));
                 const hoursAgo = Math.round((new Date().getTime() - bolusTime.getTime()) / (1000 * 60 * 60) * 10) / 10;
                 const bolusLabel = (lastBolus.eventType || '').toLowerCase().includes('meal') ? 'maaltijd' :
                                    (lastBolus.eventType || '').toLowerCase().includes('correct') ? 'correctie' : '';
@@ -2198,17 +2191,36 @@
             }
 
             // Zoek meest recente sensor-event uit Nightscout
-            // Alle bekende event type namen (case-insensitief)
-            const sensorEvents = treatments.filter(t => {
-                const et = (t.eventType || '').toLowerCase().trim();
-                return et.includes('sensor') || et.includes('cgm') || et.includes('insert');
-            }).map(t => {
-                // Gebruik created_at of date — kies het meest betrouwbare veld
-                const raw = t.created_at || t.date || t.dateString;
-                const ts = raw ? new Date(raw).getTime() : 0;
+            // Prioriteit: echte start/change events boven calibraties en andere sensor events
+            const now_ts = Date.now();
+            const toSensorEntry = t => {
+                // Gebruik getTimestamp met created_at-voorkeur + seconden/ms-detectie
+                const ts = getTimestamp(t, true);
                 return { ...t, _ts: ts };
-            }).filter(t => t._ts > 0 && new Date(t._ts).getFullYear() >= 2020)
-              .sort((a, b) => b._ts - a._ts);
+            };
+            // Geldig: jaar >= 2020 én niet in de toekomst (geen corrupte timestamps)
+            const isValidSensor = t => t._ts > 0
+                && new Date(t._ts).getFullYear() >= 2020
+                && t._ts <= now_ts;
+
+            // Eerste poging: alleen echte start/change/insert events
+            const startEvents = treatments.filter(t => {
+                const et = (t.eventType || '').toLowerCase().trim();
+                return et === 'sensor start'  || et === 'sensor change' ||
+                       et === 'sensor insert' || et === 'cgm sensor start' ||
+                       et.includes('sensor start') || et.includes('sensor change');
+            }).map(toSensorEntry).filter(isValidSensor).sort((a, b) => b._ts - a._ts);
+
+            // Tweede poging als geen start/change gevonden: alle sensor-gerelateerde events
+            // (maar sluit calibraties en warmups uit)
+            const broadEvents = treatments.filter(t => {
+                const et = (t.eventType || '').toLowerCase().trim();
+                const isSensorLike = et.includes('sensor') || et.includes('cgm') || et.includes('insert');
+                const isCalibration = et.includes('calibrat') || et.includes('warm') || et.includes('bg check');
+                return isSensorLike && !isCalibration;
+            }).map(toSensorEntry).filter(isValidSensor).sort((a, b) => b._ts - a._ts);
+
+            const sensorEvents = startEvents.length > 0 ? startEvents : broadEvents;
 
             console.log(`[Sensor] ${sensorEvents.length} sensor events in NS:`,
                 sensorEvents.slice(0,3).map(t => `${t.eventType} @ ${new Date(t._ts).toLocaleDateString()}`));

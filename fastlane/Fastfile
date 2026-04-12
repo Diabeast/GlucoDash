@@ -128,12 +128,14 @@ platform :ios do
       end
 
       if widget_bid
+        wid = widget_bid['id']
+
         # WidgetKit capability inschakelen op widget bundle ID
         wk_body = JSON.generate({
           data: {
             type: "bundleIdCapabilities",
             attributes: { capabilityType: "WIDGET_KIT", settings: [] },
-            relationships: { bundleId: { data: { id: widget_bid['id'], type: "bundleIds" } } }
+            relationships: { bundleId: { data: { id: wid, type: "bundleIds" } } }
           }
         })
         uri_wk = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
@@ -143,13 +145,34 @@ platform :ios do
         req_wk.body = wk_body
         res_wk = Net::HTTP.start(uri_wk.hostname, uri_wk.port, use_ssl: true) { |h| h.request(req_wk) }
         case res_wk.code.to_i
-        when 201
-          UI.success("WidgetKit capability INGESCHAKELD op widget App ID!")
-        when 409
-          UI.success("WidgetKit was al ingeschakeld op widget App ID.")
-        else
-          UI.important("WidgetKit response #{res_wk.code}: #{res_wk.body[0..300]}")
+        when 201 then UI.success("WidgetKit capability INGESCHAKELD op widget App ID!")
+        when 409 then UI.success("WidgetKit was al ingeschakeld op widget App ID.")
+        else          UI.important("WidgetKit response #{res_wk.code}: #{res_wk.body[0..300]}")
         end
+
+        # App Groups capability inschakelen op widget bundle ID
+        # Vereist zodat het widget glucose.json uit de iAPS AppGroup kan lezen
+        ag_body = JSON.generate({
+          data: {
+            type: "bundleIdCapabilities",
+            attributes: { capabilityType: "APP_GROUPS", settings: [] },
+            relationships: { bundleId: { data: { id: wid, type: "bundleIds" } } }
+          }
+        })
+        uri_ag = URI("https://api.appstoreconnect.apple.com/v1/bundleIdCapabilities")
+        req_ag = Net::HTTP::Post.new(uri_ag)
+        req_ag['Authorization'] = "Bearer #{jwt}"
+        req_ag['Content-Type']  = 'application/json'
+        req_ag.body = ag_body
+        res_ag = Net::HTTP.start(uri_ag.hostname, uri_ag.port, use_ssl: true) { |h| h.request(req_ag) }
+        case res_ag.code.to_i
+        when 201 then UI.success("App Groups capability INGESCHAKELD op widget App ID!")
+        when 409 then UI.success("App Groups was al ingeschakeld op widget App ID.")
+        else          UI.important("App Groups response #{res_ag.code}: #{res_ag.body[0..300]}")
+        end
+
+        UI.message("Wacht 8s zodat Apple App Groups kan propageren naar provisioning...")
+        sleep(8)
       end
 
     rescue => e

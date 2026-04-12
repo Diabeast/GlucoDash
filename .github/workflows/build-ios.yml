@@ -190,6 +190,7 @@ jobs:
                   CAPPluginMethod(name: "isAvailable", returnType: CAPPluginReturnPromise),
                   CAPPluginMethod(name: "queryBloodGlucose", returnType: CAPPluginReturnPromise),
                   CAPPluginMethod(name: "queryCarbs", returnType: CAPPluginReturnPromise),
+                  CAPPluginMethod(name: "queryInsulin", returnType: CAPPluginReturnPromise),
               ]
 
               private let healthStore = HKHealthStore()
@@ -211,6 +212,7 @@ jobs:
                   var readTypes = Set<HKObjectType>()
                   if let t = HKQuantityType.quantityType(forIdentifier: .bloodGlucose) { readTypes.insert(t) }
                   if let t = HKQuantityType.quantityType(forIdentifier: .dietaryCarbohydrates) { readTypes.insert(t) }
+                  if let t = HKQuantityType.quantityType(forIdentifier: .insulinDelivery) { readTypes.insert(t) }
                   // toShare: nil = alleen lezen, geen schrijfrechten nodig
                   healthStore.requestAuthorization(toShare: nil, read: readTypes) { success, error in
                       if let error = error {
@@ -277,6 +279,37 @@ jobs:
                   }
                   healthStore.execute(query)
               }
+
+              @objc func queryInsulin(_ call: CAPPluginCall) {
+                  guard let type = HKQuantityType.quantityType(forIdentifier: .insulinDelivery) else {
+                      call.reject("InsulinDelivery type niet beschikbaar"); return
+                  }
+                  let limit     = call.getInt("limit") ?? 500
+                  let startDate = isoFmt.date(from: call.getString("startDate") ?? "")
+                                  ?? Date().addingTimeInterval(-48 * 3600)
+                  let endDate   = isoFmt.date(from: call.getString("endDate") ?? "") ?? Date()
+                  let pred      = HKQuery.predicateForSamples(withStart: startDate, end: endDate,
+                                                              options: .strictStartDate)
+                  let sort      = NSSortDescriptor(key: HKSampleSortIdentifierEndDate, ascending: false)
+                  let query     = HKSampleQuery(sampleType: type, predicate: pred,
+                                               limit: limit, sortDescriptors: [sort]) { [weak self] _, samples, err in
+                      guard let self = self else { return }
+                      if let err = err { call.reject("Insuline query fout: \(err.localizedDescription)"); return }
+                      let unit    = HKUnit.internationalUnit()
+                      let results = (samples as? [HKQuantitySample] ?? []).map { s -> [String: Any] in
+                          // insulinDeliveryReason: 1=basal, 2=bolus
+                          let reason = s.metadata?[HKMetadataKeyInsulinDeliveryReason] as? Int ?? 0
+                          return ["value":       s.quantity.doubleValue(for: unit),
+                                  "unit":        "IU",
+                                  "startDate":   self.isoFmt.string(from: s.startDate),
+                                  "endDate":     self.isoFmt.string(from: s.endDate),
+                                  "sourceName":  s.sourceRevision.source.name,
+                                  "insulinReason": reason]   // 1=basaal 2=bolus
+                      }
+                      call.resolve(["samples": results])
+                  }
+                  healthStore.execute(query)
+              }
           }
           SWIFT
 
@@ -297,6 +330,7 @@ jobs:
                   var glucoseMMOL: Double
                   var trend: String
                   var delta: String
+                  var iob: Double
                   var isHigh: Bool
                   var isLow: Bool
                   var updatedAt: Date
@@ -333,8 +367,9 @@ jobs:
                   let glucose = call.getDouble("glucose") ?? 0.0
                   let trend   = call.getString("trend") ?? "\u{2192}\u{FE0E}"
                   let delta   = call.getString("delta") ?? ""
+                  let iob     = call.getDouble("iob") ?? 0.0
                   let state   = GlucoDashAttributes.ContentState(
-                      glucoseMMOL: glucose, trend: trend, delta: delta,
+                      glucoseMMOL: glucose, trend: trend, delta: delta, iob: iob,
                       isHigh: glucose > 10.0, isLow: glucose < 3.9, updatedAt: Date()
                   )
                   let content = ActivityContent(state: state, staleDate: Date().addingTimeInterval(900))
@@ -373,8 +408,9 @@ jobs:
           @main
           struct GlucoDashWidgetBundle: WidgetBundle {
               var body: some Widget {
+                  GlucoDashHomeWidget()         // home screen widget (1x1, 2x2, 2x4)
                   if #available(iOS 16.2, *) {
-                      GlucoDashLiveActivityWidget()
+                      GlucoDashLiveActivityWidget()  // lock screen / Dynamic Island
                   }
               }
           }
@@ -392,8 +428,14 @@ jobs:
                                       .font(.system(size: 26, weight: .bold, design: .rounded))
                                       .foregroundColor(glucoseColor(context.state))
                                   Text(context.state.trend).font(.title2)
-                                  Text(context.state.delta).foregroundColor(.secondary)
+                                  if !context.state.delta.isEmpty {
+                                      Text(context.state.delta).foregroundColor(.secondary)
+                                  }
                                   Spacer()
+                                  if context.state.iob > 0 {
+                                      Text(String(format: "%.1fU", context.state.iob))
+                                          .font(.caption).foregroundColor(.blue)
+                                  }
                                   Text("mmol/L").font(.caption).foregroundColor(.secondary)
                               }
                           }
@@ -445,6 +487,10 @@ jobs:
                       Spacer()
                       VStack(alignment: .trailing, spacing: 4) {
                           Text(state.updatedAt, style: .time).font(.caption).foregroundColor(.secondary)
+                          if state.iob > 0 {
+                              Text(String(format: "IOB %.1fU", state.iob))
+                                  .font(.caption).foregroundColor(.blue)
+                          }
                           if state.isLow {
                               Text("LAAG ⚠️").font(.caption).bold().foregroundColor(.red)
                           } else if state.isHigh {
@@ -488,15 +534,266 @@ jobs:
           </plist>
           PLIST
 
-          # ---- File 6: Widget entitlements (met TEAMID) ----
-          cat > "ios/App/GlucoDashWidget/GlucoDashWidget.entitlements" << ENTITLEMENTS
+          # ---- File 6: Widget entitlements (AppGroup voor glucose.json lezen) ----
+          cat > "ios/App/GlucoDashWidget/GlucoDashWidget.entitlements" << 'ENTITLEMENTS'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
+            <key>com.apple.security.application-groups</key>
+            <array>
+              <string>group.com.9CGZ7BWVXT.loopkit.LoopGroup</string>
+            </array>
           </dict>
           </plist>
           ENTITLEMENTS
+
+          # ---- File 7: GlucoDashHomeWidget.swift (home screen widget 1x1/2x2/2x4) ----
+          cat > "ios/App/GlucoDashWidget/GlucoDashHomeWidget.swift" << 'SWIFT'
+          import WidgetKit
+          import SwiftUI
+
+          // ---- Data model ----
+          struct GlucoseHomeEntry: TimelineEntry {
+              let date: Date
+              let glucoseMMOL: Double
+              let trend: String
+              let delta: String
+              let iob: Double
+              let isHigh: Bool
+              let isLow: Bool
+              let isStale: Bool
+              let minutesAgo: Int
+          }
+
+          // ---- Timeline provider: leest uit iAPS AppGroup ----
+          struct GlucoseHomeProvider: TimelineProvider {
+              let appGroup = "group.com.9CGZ7BWVXT.loopkit.LoopGroup"
+
+              func placeholder(in context: Context) -> GlucoseHomeEntry {
+                  GlucoseHomeEntry(date: Date(), glucoseMMOL: 5.5, trend: "→", delta: "+0.1",
+                                   iob: 2.5, isHigh: false, isLow: false, isStale: false, minutesAgo: 5)
+              }
+
+              func getSnapshot(in context: Context, completion: @escaping (GlucoseHomeEntry) -> Void) {
+                  completion(loadEntry())
+              }
+
+              func getTimeline(in context: Context, completion: @escaping (Timeline<GlucoseHomeEntry>) -> Void) {
+                  let entry = loadEntry()
+                  let next  = Calendar.current.date(byAdding: .minute, value: 5, to: Date())!
+                  completion(Timeline(entries: [entry], policy: .after(next)))
+              }
+
+              private func loadEntry() -> GlucoseHomeEntry {
+                  let fallback = GlucoseHomeEntry(date: Date(), glucoseMMOL: 0, trend: "?", delta: "",
+                                                  iob: 0, isHigh: false, isLow: false, isStale: true, minutesAgo: 99)
+                  guard let base = FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: appGroup)
+                  else { return fallback }
+
+                  // ---- Glucose uit glucose.json ----
+                  var glucoseMMOL = 0.0
+                  var trend = "→"
+                  var delta = ""
+                  var isStale = true
+                  var minutesAgo = 99
+
+                  let gUrl = base.appendingPathComponent("glucose.json")
+                  if let data = try? Data(contentsOf: gUrl),
+                     let arr  = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+                     let first = arr.first {
+                      let sgv = (first["sgv"] as? Double) ?? ((first["sgv"] as? Int).map { Double($0) } ?? 0)
+                      glucoseMMOL = sgv / 18.018
+                      trend = dirToArrow(first["direction"] as? String ?? "Flat")
+                      if arr.count > 1 {
+                          let prev = (arr[1]["sgv"] as? Double) ?? ((arr[1]["sgv"] as? Int).map { Double($0) } ?? 0)
+                          let diff = (sgv - prev) / 18.018
+                          delta = diff >= 0 ? String(format: "+%.1f", diff) : String(format: "%.1f", diff)
+                      }
+                      if let ms = (first["date"] as? Double) ?? (first["date"] as? Int).map({ Double($0) }) {
+                          let age = Date().timeIntervalSince1970 - ms / 1000
+                          isStale   = age > 600
+                          minutesAgo = Int(age / 60)
+                      }
+                  }
+
+                  // ---- IOB uit openapssuggest.json ----
+                  var iob = 0.0
+                  let iobUrl = base.appendingPathComponent("openapssuggest.json")
+                  if let data = try? Data(contentsOf: iobUrl),
+                     let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                     let iobObj = json["iob"] as? [String: Any] {
+                      iob = (iobObj["iob"] as? Double) ?? 0.0
+                  }
+
+                  return GlucoseHomeEntry(
+                      date: Date(), glucoseMMOL: glucoseMMOL,
+                      trend: trend, delta: delta, iob: iob,
+                      isHigh: glucoseMMOL > 10.0, isLow: glucoseMMOL < 3.9,
+                      isStale: isStale, minutesAgo: minutesAgo
+                  )
+              }
+
+              private func dirToArrow(_ dir: String) -> String {
+                  switch dir {
+                  case "DoubleUp":      return "↑↑"
+                  case "SingleUp":      return "↑"
+                  case "FortyFiveUp":   return "↗"
+                  case "Flat":          return "→"
+                  case "FortyFiveDown": return "↘"
+                  case "SingleDown":    return "↓"
+                  case "DoubleDown":    return "↓↓"
+                  default:              return "→"
+                  }
+              }
+          }
+
+          // ---- Kleurhelper ----
+          private func homeGlucoseColor(_ e: GlucoseHomeEntry) -> Color {
+              e.isStale ? .gray : e.isLow ? .red : e.isHigh ? .orange : .green
+          }
+
+          // ---- Small widget (1×1) ----
+          struct GlucoseSmallView: View {
+              let entry: GlucoseHomeEntry
+              var body: some View {
+                  VStack(spacing: 2) {
+                      if entry.glucoseMMOL > 0 {
+                          Text(String(format: "%.1f", entry.glucoseMMOL))
+                              .font(.system(size: 36, weight: .bold, design: .rounded))
+                              .foregroundColor(homeGlucoseColor(entry))
+                          HStack(spacing: 2) {
+                              Text(entry.trend).font(.title3)
+                              if !entry.delta.isEmpty {
+                                  Text(entry.delta).font(.caption2).foregroundColor(.secondary)
+                              }
+                          }
+                          Text("\(entry.minutesAgo)m").font(.caption2).foregroundColor(.secondary)
+                      } else {
+                          Text("--").font(.title).foregroundColor(.gray)
+                          Text("Geen data").font(.caption2).foregroundColor(.secondary)
+                      }
+                  }
+                  .frame(maxWidth: .infinity, maxHeight: .infinity)
+                  .background(Color.black.opacity(0.05))
+              }
+          }
+
+          // ---- Medium widget (2×2) ----
+          struct GlucoseMediumView: View {
+              let entry: GlucoseHomeEntry
+              var body: some View {
+                  HStack(spacing: 12) {
+                      VStack(alignment: .leading, spacing: 4) {
+                          Text("GlucoDash").font(.caption2).foregroundColor(.secondary)
+                          HStack(alignment: .firstTextBaseline, spacing: 4) {
+                              if entry.glucoseMMOL > 0 {
+                                  Text(String(format: "%.1f", entry.glucoseMMOL))
+                                      .font(.system(size: 42, weight: .bold, design: .rounded))
+                                      .foregroundColor(homeGlucoseColor(entry))
+                                  VStack(alignment: .leading, spacing: 0) {
+                                      Text(entry.trend).font(.title2)
+                                      if !entry.delta.isEmpty {
+                                          Text(entry.delta).font(.caption).foregroundColor(.secondary)
+                                      }
+                                  }
+                              } else {
+                                  Text("--").font(.title).foregroundColor(.gray)
+                              }
+                          }
+                          Text("mmol/L").font(.caption2).foregroundColor(.secondary)
+                      }
+                      Spacer()
+                      VStack(alignment: .trailing, spacing: 6) {
+                          if entry.iob > 0 {
+                              VStack(alignment: .trailing, spacing: 1) {
+                                  Text(String(format: "%.1f U", entry.iob))
+                                      .font(.headline).bold().foregroundColor(.blue)
+                                  Text("IOB").font(.caption2).foregroundColor(.secondary)
+                              }
+                          }
+                          Text("\(entry.minutesAgo) min").font(.caption2).foregroundColor(.secondary)
+                          if entry.isLow  { Text("LAAG ⚠️").font(.caption).bold().foregroundColor(.red) }
+                          if entry.isHigh { Text("HOOG").font(.caption).bold().foregroundColor(.orange) }
+                      }
+                  }
+                  .padding(12)
+                  .frame(maxWidth: .infinity, maxHeight: .infinity)
+              }
+          }
+
+          // ---- Large widget (2×4) ----
+          struct GlucoseLargeView: View {
+              let entry: GlucoseHomeEntry
+              var body: some View {
+                  VStack(alignment: .leading, spacing: 10) {
+                      Text("GlucoDash").font(.caption).foregroundColor(.secondary)
+                      HStack(alignment: .firstTextBaseline, spacing: 6) {
+                          if entry.glucoseMMOL > 0 {
+                              Text(String(format: "%.1f", entry.glucoseMMOL))
+                                  .font(.system(size: 64, weight: .bold, design: .rounded))
+                                  .foregroundColor(homeGlucoseColor(entry))
+                              VStack(alignment: .leading) {
+                                  Text(entry.trend).font(.largeTitle)
+                                  Text("mmol/L").font(.caption).foregroundColor(.secondary)
+                              }
+                          } else {
+                              Text("--").font(.largeTitle).foregroundColor(.gray)
+                          }
+                          Spacer()
+                      }
+                      if !entry.delta.isEmpty {
+                          Text("Trend: \(entry.delta) mmol/L").font(.subheadline).foregroundColor(.secondary)
+                      }
+                      Divider()
+                      HStack {
+                          VStack(alignment: .leading) {
+                              Text("IOB").font(.caption2).foregroundColor(.secondary)
+                              Text(entry.iob > 0 ? String(format: "%.1f U", entry.iob) : "--")
+                                  .font(.title2).bold().foregroundColor(.blue)
+                          }
+                          Spacer()
+                          VStack(alignment: .trailing) {
+                              Text("Bijgewerkt").font(.caption2).foregroundColor(.secondary)
+                              Text("\(entry.minutesAgo) min geleden").font(.subheadline)
+                          }
+                      }
+                      if entry.isLow  { Text("⚠️ LAAG — behandel hypoglykemie").font(.caption).bold().foregroundColor(.red) }
+                      if entry.isHigh { Text("🔴 HOOG").font(.caption).bold().foregroundColor(.orange) }
+                      if entry.isStale { Text("⏱ Data verouderd").font(.caption2).foregroundColor(.gray) }
+                      Spacer()
+                  }
+                  .padding(14)
+                  .frame(maxWidth: .infinity, maxHeight: .infinity)
+              }
+          }
+
+          // ---- Widget definitie met alle 3 maten ----
+          struct GlucoDashHomeWidget: Widget {
+              let kind = "GlucoDashHomeWidget"
+              var body: some WidgetConfiguration {
+                  StaticConfiguration(kind: kind, provider: GlucoseHomeProvider()) { entry in
+                      GlucoDashHomeWidgetEntryView(entry: entry)
+                          .containerBackground(.fill.tertiary, for: .widget)
+                  }
+                  .configurationDisplayName("GlucoDash Glucose")
+                  .description("Toont actuele glucosewaarde, trend en actief insuline.")
+                  .supportedFamilies([.systemSmall, .systemMedium, .systemLarge])
+              }
+          }
+
+          struct GlucoDashHomeWidgetEntryView: View {
+              @Environment(\.widgetFamily) var family
+              let entry: GlucoseHomeEntry
+              var body: some View {
+                  switch family {
+                  case .systemSmall:  GlucoseSmallView(entry: entry)
+                  case .systemMedium: GlucoseMediumView(entry: entry)
+                  default:            GlucoseLargeView(entry: entry)
+                  }
+              }
+          }
+          SWIFT
 
           echo "Live Activity Swift bestanden aangemaakt"
 
@@ -628,7 +925,8 @@ jobs:
           # ---- Voeg widget Swift bestanden toe aan widget group + target ----
           widget_files = [
             'GlucoDashWidgetBundle.swift',
-            'GlucoDashLockScreenView.swift'
+            'GlucoDashLockScreenView.swift',
+            'GlucoDashHomeWidget.swift'
           ]
           widget_files.each do |wf|
             unless widget_group.files.any? { |f| f.path == wf }

@@ -93,29 +93,180 @@
         }
         .settings-btn:hover { opacity: 1; }
 
-        .datasource-options {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            margin: 16px 0;
+        /* ===== iOS INSTELLINGEN PAGINA ===== */
+        .settings-page {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: #f2f2f7;
+            z-index: 300;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
-        .datasource-option {
+        @media (prefers-color-scheme: dark) {
+            .settings-page { background: #1c1c1e; }
+        }
+        .settings-page.open { display: block; }
+
+        .settings-header {
+            position: sticky;
+            top: 0;
             display: flex;
-            flex-direction: column;
-            gap: 2px;
-            padding: 12px 16px;
-            border: 2px solid transparent;
-            border-radius: 12px;
+            align-items: center;
+            padding: env(safe-area-inset-top, 12px) 16px 12px;
+            background: rgba(242,242,247,0.92);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 0.5px solid rgba(60,60,67,0.2);
+            z-index: 10;
+            min-height: 44px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .settings-header {
+                background: rgba(28,28,30,0.92);
+                border-bottom-color: rgba(255,255,255,0.12);
+            }
+        }
+        .settings-back-btn {
+            color: #007aff;
+            background: none;
+            border: none;
+            font-size: 1.05rem;
             cursor: pointer;
-            background: var(--bg-color);
-            transition: border-color 0.2s;
+            padding: 6px 0;
+            min-width: 64px;
+            text-align: left;
+            display: flex;
+            align-items: center;
+            gap: 2px;
         }
-        .datasource-option:has(input:checked) {
-            border-color: var(--primary-color);
+        .settings-header-title {
+            flex: 1;
+            text-align: center;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--text-color);
+            margin: 0;
         }
-        .datasource-option input { display: none; }
-        .datasource-option span { font-weight: bold; font-size: 1rem; }
-        .datasource-option small { color: var(--subtext-color); font-size: 0.8rem; }
+        .settings-save-badge {
+            min-width: 64px;
+            text-align: right;
+            color: #007aff;
+            font-size: 1rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .settings-body { padding: 8px 0 40px; }
+
+        .settings-section-title {
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #6d6d72;
+            padding: 16px 20px 6px;
+        }
+        @media (prefers-color-scheme: dark) {
+            .settings-section-title { color: #8e8e93; }
+        }
+
+        .settings-group {
+            background: #fff;
+            border-radius: 12px;
+            margin: 0 16px 4px;
+            overflow: hidden;
+        }
+        @media (prefers-color-scheme: dark) {
+            .settings-group { background: #2c2c2e; }
+        }
+
+        .settings-row {
+            display: flex;
+            align-items: center;
+            min-height: 44px;
+            padding: 10px 16px;
+            border-bottom: 0.5px solid rgba(60,60,67,0.12);
+            gap: 10px;
+        }
+        .settings-row:last-child { border-bottom: none; }
+        @media (prefers-color-scheme: dark) {
+            .settings-row { border-bottom-color: rgba(255,255,255,0.08); }
+        }
+
+        .settings-row-label {
+            font-size: 1rem;
+            color: var(--text-color);
+            flex-shrink: 0;
+            min-width: 110px;
+        }
+        .settings-row-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 0.95rem;
+            background: transparent;
+            color: #3c3c43;
+            text-align: right;
+            min-width: 0;
+        }
+        @media (prefers-color-scheme: dark) {
+            .settings-row-input { color: #ebebf5; }
+        }
+        .settings-row-input::placeholder { color: #c7c7cc; }
+
+        .settings-row-info {
+            font-size: 0.9rem;
+            color: #6d6d72;
+            flex: 1;
+        }
+
+        .settings-row-select {
+            border: none;
+            outline: none;
+            font-size: 0.95rem;
+            background: transparent;
+            color: #007aff;
+            text-align: right;
+            cursor: pointer;
+        }
+
+        .settings-btn-row {
+            display: flex;
+            gap: 8px;
+            padding: 10px 16px;
+            background: transparent;
+            margin: 0 16px;
+        }
+        .settings-action-btn {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        .settings-action-btn.primary { background: #007aff; color: #fff; }
+        .settings-action-btn.secondary { background: #e5e5ea; color: var(--text-color); }
+        @media (prefers-color-scheme: dark) {
+            .settings-action-btn.secondary { background: #3a3a3c; }
+        }
+        .settings-action-btn.danger { background: #ff3b30; color: #fff; }
+
+        .settings-source-badge {
+            font-size: 0.75rem;
+            padding: 2px 8px;
+            border-radius: 20px;
+            background: #34c759;
+            color: #fff;
+            font-weight: 600;
+            margin-left: auto;
+        }
+        .settings-source-badge.ns { background: #007aff; }
+        .settings-source-badge.hk { background: #30d158; }
+        .settings-source-badge.hybrid { background: linear-gradient(90deg,#30d158,#007aff); }
 
         /* ===== HAMBURGER MENU ===== */
         .hamburger-btn {
@@ -696,42 +847,127 @@
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
                 Grafieken
             </button>
+            <button class="menu-nav-item" onclick="closeMenu(); openSettings();">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Instellingen
+            </button>
         </nav>
-        <div class="menu-datasource">
-            <h3>Databron</h3>
-            <div class="datasource-options">
-                <label class="datasource-option">
-                    <input type="radio" name="datasource" id="src-nightscout" value="nightscout" onchange="setDataSource('nightscout')">
-                    <span>🌐 Nightscout</span>
-                    <small>Live data via Nightscout</small>
-                </label>
-                <label class="datasource-option">
-                    <input type="radio" name="datasource" id="src-iaps" value="iaps" onchange="setDataSource('iaps')">
-                    <span>📲 iAPS</span>
-                    <small>Leest glucose via HealthKit</small>
-                </label>
+        <div class="menu-datasource" style="padding:16px 20px; flex:1; overflow-y:auto;">
+            <!-- Databron: altijd hybride (HealthKit + Nightscout) -->
+            <div style="background:var(--bg-color);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:0.85rem;">
+                <div style="font-weight:600;margin-bottom:4px;">🔄 Hybride modus</div>
+                <div style="color:var(--subtext-color);font-size:0.8rem;">HealthKit + Nightscout gecombineerd. Pas de instellingen aan via het tandwiel-icoon.</div>
+            </div>
+            <div id="menu-source-status" style="font-size:0.8rem;color:var(--subtext-color);margin-bottom:12px;"></div>
+            <button onclick="closeMenu(); fetchData();" style="width:100%;padding:11px;background:var(--primary-color);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
+                🔄 Ververs nu
+            </button>
+        </div>
+    </div>
+
+    <!-- ===== iOS INSTELLINGEN PAGINA ===== -->
+    <div class="settings-page" id="settings-page">
+        <div class="settings-header">
+            <button class="settings-back-btn" onclick="closeSettings()">
+                <svg width="10" height="16" viewBox="0 0 10 16" fill="none"><path d="M8.5 1L1.5 8L8.5 15" stroke="#007aff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                &nbsp;Terug
+            </button>
+            <span class="settings-header-title">Instellingen</span>
+            <button class="settings-save-badge" onclick="saveSettings()">Bewaar</button>
+        </div>
+        <div class="settings-body">
+
+            <!-- VERBINDING -->
+            <div class="settings-section-title">Verbinding</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label">Nightscout URL</span>
+                    <input class="settings-row-input" type="url" id="sett-ns-url"
+                           placeholder="https://mijn.nightscout.app"
+                           autocorrect="off" autocapitalize="none" spellcheck="false">
+                </div>
+                <div class="settings-row">
+                    <span class="settings-row-label">API Token</span>
+                    <input class="settings-row-input" type="text" id="sett-ns-token"
+                           placeholder="nsread-xxxxxxxxxxxx"
+                           autocorrect="off" autocapitalize="none" spellcheck="false">
+                </div>
+                <div class="settings-row">
+                    <span class="settings-row-label">Verversing</span>
+                    <select class="settings-row-select" id="sett-refresh">
+                        <option value="1">1 min</option>
+                        <option value="2">2 min</option>
+                        <option value="5">5 min</option>
+                        <option value="10">10 min</option>
+                    </select>
+                </div>
             </div>
 
-            <!-- HealthKit sectie -->
-            <h3 style="margin-top:20px;">HealthKit</h3>
-            <div id="hk-status-box" style="background:var(--card-bg);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:0.85rem;color:var(--subtext-color);">
-                <span id="hk-status-label">Controleren...</span>
+            <!-- DATABRON -->
+            <div class="settings-section-title">Databron</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label">Modus</span>
+                    <span class="settings-source-badge hybrid">Hybride</span>
+                </div>
+                <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
+                    <span style="font-size:0.9rem;color:var(--text-color);">HealthKit + Nightscout</span>
+                    <span class="settings-row-info" style="font-size:0.78rem;">Glucose uit HealthKit (CGM), sensordata en behandelingen uit Nightscout. Als HealthKit leeg is, valt alles terug op Nightscout.</span>
+                </div>
             </div>
-            <button onclick="menuRequestHKPermission()" style="width:100%;padding:11px;background:var(--primary-color);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
-                Vraag HealthKit toestemming
-            </button>
 
-            <!-- Live Activity sectie -->
-            <h3 style="margin-top:20px;">Live Activity</h3>
-            <div id="la-status-box" style="background:var(--card-bg);border-radius:10px;padding:12px 14px;margin-bottom:10px;font-size:0.85rem;color:var(--subtext-color);">
-                <span id="la-status-label">Niet gestart</span>
+            <!-- HEALTHKIT -->
+            <div class="settings-section-title">HealthKit</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label" style="min-width:unset;flex:1;" id="hk-status-label">Controleren...</span>
+                </div>
             </div>
-            <button onclick="menuStartLiveActivity()" style="width:100%;padding:11px;background:#30d158;color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
-                Start Live Activity
-            </button>
-            <button onclick="menuStopLiveActivity()" style="width:100%;padding:11px;background:var(--card-bg);color:var(--text-color);border:1px solid var(--border-color);border-radius:10px;font-size:0.95rem;cursor:pointer;">
-                Stop Live Activity
-            </button>
+            <div class="settings-btn-row" style="margin:4px 16px 0;">
+                <button class="settings-action-btn primary" onclick="menuRequestHKPermission()">
+                    Vraag toestemming
+                </button>
+            </div>
+
+            <!-- LIVE ACTIVITY -->
+            <div class="settings-section-title">Live Activity</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label" style="min-width:unset;flex:1;" id="la-status-label">Niet gestart</span>
+                </div>
+            </div>
+            <div class="settings-btn-row" style="margin:4px 16px 0;">
+                <button class="settings-action-btn primary" onclick="menuStartLiveActivity()">Start</button>
+                <button class="settings-action-btn secondary" onclick="menuStopLiveActivity()">Stop</button>
+            </div>
+
+            <!-- DOELWAARDEN -->
+            <div class="settings-section-title">Doelwaarden</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label">Laag (&lt;)</span>
+                    <input class="settings-row-input" type="number" id="sett-low" placeholder="3.9" step="0.1" min="2" max="6">
+                </div>
+                <div class="settings-row">
+                    <span class="settings-row-label">Hoog (&gt;)</span>
+                    <input class="settings-row-input" type="number" id="sett-high" placeholder="10.0" step="0.1" min="7" max="20">
+                </div>
+            </div>
+
+            <!-- INFO -->
+            <div class="settings-section-title">Over</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label">Versie</span>
+                    <span class="settings-row-info" style="text-align:right;">GlucoDash 1.0</span>
+                </div>
+                <div class="settings-row">
+                    <span class="settings-row-label">Modus</span>
+                    <span class="settings-row-info" style="text-align:right;" id="sett-runtime-mode">Web</span>
+                </div>
+            </div>
+
+            <div style="height:32px;"></div>
         </div>
     </div>
 
@@ -755,6 +991,10 @@
             <div class="stat-card insulin-card">
                 <h3>Insuline (vandaag)</h3>
                 <p><span id="total-insulin">--</span> <span class="small-unit">U</span></p>
+            </div>
+            <div class="stat-card insulin-card">
+                <h3>Actief insuline (IOB)</h3>
+                <p><span id="iob-val">--</span> <span class="small-unit">U</span></p>
             </div>
             <div class="stat-card insulin-card">
                 <h3>Sensor</h3>
@@ -797,9 +1037,9 @@
             </div>
         </div>
 
-        <!-- IAPS EXTRA DATA -->
+        <!-- HEALTHKIT EXTRA DATA (hartslag, stappen, etc.) -->
         <div id="hk-section" class="hk-section" style="display:none;">
-            <h2>📲 iAPS — extra data</h2>
+            <h2>📲 HealthKit — sensordata</h2>
             <div class="hk-grid" id="hk-grid"></div>
         </div>
 
@@ -899,6 +1139,7 @@
                     requestAuthorization: (o)   => cap.nativePromise('HealthKitPlugin', 'requestAuthorization', o || {}),
                     queryBloodGlucose:    (o)   => cap.nativePromise('HealthKitPlugin', 'queryBloodGlucose', o || {}),
                     queryCarbs:           (o)   => cap.nativePromise('HealthKitPlugin', 'queryCarbs', o || {}),
+                    queryInsulin:         (o)   => cap.nativePromise('HealthKitPlugin', 'queryInsulin', o || {}),
                 };
                 console.log('[Cap] HealthKitPlugin via nativePromise aangemaakt');
             }
@@ -919,13 +1160,66 @@
             return window.__glucodash_la;
         }
 
-        // ============= CONFIGURATIE =============
-        const NS_URL = "https://arinelis.10be.de";
-        const NS_TOKEN = "nsread-bf4271c2d5b495b4";
-        const REFRESH_INTERVAL_MIN = 2;
-        
-        // CORS Proxy - gebruik dit om CORS problemen te omzeilen
-        // Alternatieven: "https://corsproxy.io/?", "https://api.allorigins.win/raw?url="
+        // ============= CONFIGURATIE (vanuit instellingen) =============
+        // Standaardwaarden — worden overschreven door opgeslagen instellingen
+        const DEFAULTS = {
+            nsUrl:      'https://arinelis.10be.de',
+            nsToken:    'nsread-bf4271c2d5b495b4',
+            refreshMin: 2,
+            low:        3.9,
+            high:       10.0,
+        };
+        const CFG_KEY = 'glucodash_settings';
+
+        function getSettings() {
+            try {
+                const s = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
+                return {
+                    nsUrl:      (s.nsUrl      || DEFAULTS.nsUrl).trim(),
+                    nsToken:    (s.nsToken    || DEFAULTS.nsToken).trim(),
+                    refreshMin: parseInt(s.refreshMin) || DEFAULTS.refreshMin,
+                    low:        parseFloat(s.low)      || DEFAULTS.low,
+                    high:       parseFloat(s.high)     || DEFAULTS.high,
+                };
+            } catch { return { ...DEFAULTS }; }
+        }
+
+        // ---- Settings pagina openen/sluiten ----
+        function openSettings() {
+            const s = getSettings();
+            document.getElementById('sett-ns-url').value    = s.nsUrl;
+            document.getElementById('sett-ns-token').value  = s.nsToken;
+            document.getElementById('sett-refresh').value   = s.refreshMin;
+            document.getElementById('sett-low').value       = s.low;
+            document.getElementById('sett-high').value      = s.high;
+
+            const mode = window.Capacitor?.isNativePlatform?.() ? 'iOS app (TestFlight)' : 'Web / PWA';
+            const rtEl = document.getElementById('sett-runtime-mode');
+            if (rtEl) rtEl.textContent = mode;
+
+            checkHKStatusForMenu();   // actuele HK status tonen
+            document.getElementById('settings-page').classList.add('open');
+        }
+
+        function closeSettings() {
+            document.getElementById('settings-page').classList.remove('open');
+        }
+
+        function saveSettings() {
+            const s = {
+                nsUrl:      document.getElementById('sett-ns-url').value.trim(),
+                nsToken:    document.getElementById('sett-ns-token').value.trim(),
+                refreshMin: parseInt(document.getElementById('sett-refresh').value) || 2,
+                low:        parseFloat(document.getElementById('sett-low').value)   || 3.9,
+                high:       parseFloat(document.getElementById('sett-high').value)  || 10.0,
+            };
+            localStorage.setItem(CFG_KEY, JSON.stringify(s));
+            restartRefreshTimer();
+            closeSettings();
+            fetchData();   // meteen verversen met nieuwe instellingen
+        }
+
+        // CORS Proxy
         const CORS_PROXY = "https://corsproxy.io/?";
 
         // ============= HELPER FUNCTIONS =============
@@ -1019,25 +1313,10 @@
             return isNaN(parsed) ? 0 : parsed;
         }
 
-        // ============= DATABRON =============
-        const DATA_SOURCE_KEY = 'glucodash_datasource';
+        // ============= CACHE =============
         const CACHE_ENTRIES_KEY = 'glucodash_cached_entries';
         const CACHE_TREATMENTS_KEY = 'glucodash_cached_treatments';
         const CACHE_TIME_KEY = 'glucodash_cache_time';
-
-        function getDataSource() {
-            const src = localStorage.getItem(DATA_SOURCE_KEY) || 'nightscout';
-            // Migreer oude waarden
-            if (src === 'healthkit' || src === 'local') { localStorage.setItem(DATA_SOURCE_KEY, 'iaps'); return 'iaps'; }
-            return src;
-        }
-
-        function setDataSource(source) {
-            localStorage.setItem(DATA_SOURCE_KEY, source);
-            document.getElementById('src-' + source).checked = true;
-            closeMenu();
-            fetchData();
-        }
 
         function saveToCache(entries, treatments) {
             try {
@@ -1061,9 +1340,6 @@
 
         // ============= MENU =============
         function openMenu() {
-            const source = getDataSource();
-            const radio = document.getElementById('src-' + source);
-            if (radio) radio.checked = true;
             document.getElementById('menu-overlay').classList.add('open');
             document.getElementById('menu-panel').classList.add('open');
             updateMenuOnOpen();
@@ -1118,6 +1394,17 @@
         }
 
         // ============= LIVE ACTIVITY MENU FUNCTIES =============
+        // Haal een schone trend + delta op zonder dubbele pijlen.
+        // trend-arrow bevat bijv. "→" of "↑", delta.innerText is "↑ 0.1" (pijl + getal).
+        // We pakken alleen het cijfer-gedeelte van delta zodat de Live Activity niet "→ ↑ 0.1" toont.
+        function getCleanTrendDelta() {
+            const trend = (document.getElementById('trend-arrow')?.innerText || '→').trim().split(/\s/)[0];
+            const rawDelta = document.getElementById('delta')?.innerText || '';
+            // Strip alle leading pijl-tekens en witruimte; houd alleen het getal (+/-) over
+            const delta = rawDelta.trim().replace(/^[↑↓→←↗↘↙↖⬆⬇⬅➡\u2191\u2193\u2192\u2190]+\s*/, '').trim();
+            return { trend, delta };
+        }
+
         async function menuStartLiveActivity() {
             const LA = getLAPlugin();
             const lbl = document.getElementById('la-status-label');
@@ -1128,11 +1415,11 @@
             }
             // Gebruik de laatste bekende glucose waarde
             const currentBG = parseFloat(document.getElementById('current-bg')?.innerText) || 5.5;
-            const trend = document.getElementById('trend-arrow')?.innerText || '→';
-            const delta = document.getElementById('delta')?.innerText || '';
+            const { trend, delta } = getCleanTrendDelta();
+            const iob = window.__glucodash_iob || 0;
             lbl.textContent = '⏳ Starten...';
             try {
-                await LA.start({ glucose: currentBG, trend: trend, delta: delta });
+                await LA.start({ glucose: currentBG, trend: trend, delta: delta, iob: iob });
                 lbl.textContent = `✅ Actief — ${currentBG} mmol/L ${trend} ${delta}`;
             } catch(e) {
                 lbl.textContent = '❌ Fout: ' + (e?.message || e);
@@ -1157,80 +1444,136 @@
             checkHKStatusForMenu();
         }
 
-        // ============= MAIN FETCH =============
+        // ============= MAIN FETCH — altijd hybride (HealthKit + Nightscout) =============
         async function fetchData() {
-            console.log("[GlucoDash] Start fetch, bron:", getDataSource());
-
-            // ---- iAPS MODUS (via HealthKit) ----
-            if (getDataSource() === 'iaps') {
-                await fetchFromHealthKit();
-                return;
-            }
-
-            // ---- NIGHTSCOUT MODUS ----
-            const baseUrl = `${NS_URL}/api/v1`;
-            const GlucoDashUrl = `${baseUrl}/entries.json?token=${NS_TOKEN}&count=2000`;
-            const treatmentsUrl = `${baseUrl}/treatments.json?token=${NS_TOKEN}&count=500`;
-            const profileUrl = `${baseUrl}/profile.json?token=${NS_TOKEN}`;
-            const settingsUrl = `${baseUrl}/settings.json?token=${NS_TOKEN}`;
+            const cfg   = getSettings();
+            const HK    = getHKPlugin();
+            const hasHK = !!HK;
+            const hasNS = !!cfg.nsUrl;
 
             updateStatus("Data ophalen...", "neutral");
+            console.log(`[GlucoDash] Hybride fetch | HK:${hasHK} NS:${hasNS} url:${cfg.nsUrl}`);
 
-            try {
-                let GlucoDashData, treatmentsData;
+            const now     = new Date();
+            const start48 = new Date(now - 48 * 3600000).toISOString();
+            const nowIso  = now.toISOString();
 
-                try {
-                    console.log("[GlucoDash] Probeer directe verbinding...");
-                    const [g, t] = await Promise.all([
-                        fetch(GlucoDashUrl).then(r => r.json()),
-                        fetch(treatmentsUrl).then(r => r.json()),
-                        fetch(profileUrl).then(r => r.json()).catch(() => null),
-                        fetch(settingsUrl).then(r => r.json()).catch(() => null)
-                    ]);
-                    GlucoDashData = g;
-                    treatmentsData = t;
-                    console.log("[GlucoDash] Directe verbinding succesvol!");
-                } catch (directError) {
-                    console.log("[GlucoDash] Direct mislukt, probeer met proxy...", directError.message);
-                    updateStatus("CORS geblokkeerd, probeer proxy...", "neutral");
-                    const [g, t] = await Promise.all([
-                        fetchWithProxy(GlucoDashUrl),
-                        fetchWithProxy(treatmentsUrl),
-                        fetchWithProxy(profileUrl).catch(() => null),
-                        fetchWithProxy(settingsUrl).catch(() => null)
-                    ]);
-                    GlucoDashData = g;
-                    treatmentsData = t;
-                    console.log("[GlucoDash] Proxy verbinding succesvol!");
-                }
-
-                // Sla op in cache voor offline gebruik
-                saveToCache(GlucoDashData, treatmentsData);
-
-                processGlucoseData(GlucoDashData);
-                processInsulinData(treatmentsData);
-
-                const now = new Date();
-                document.getElementById('last-update').innerText = `Laatste update: ${now.toLocaleTimeString()}`;
-                updateStatus("Verbonden - data OK", "ok");
-
-            } catch (error) {
-                console.error("[GlucoDash] Fout:", error);
-                // ---- AUTOMATISCHE FALLBACK NAAR LOKALE CACHE ----
-                const cache = loadFromCache();
-                if (cache) {
-                    console.log("[GlucoDash] Geen internet, gebruik lokale cache");
-                    const d = new Date(cache.time);
-                    processGlucoseData(cache.entries);
-                    processInsulinData(cache.treatments);
-                    document.getElementById('last-update').innerText = `Cache: ${d.toLocaleTimeString()}`;
-                    updateStatus("📴 Offline — lokale data", "neutral");
-                } else {
-                    document.getElementById('current-bg').innerText = "Fout";
-                    document.getElementById('ai-tip').innerText = `Kon Nightscout niet bereiken: ${error.message}`;
-                    updateStatus("Verbindingsfout - geen cache", "error");
+            // ── Helperfunctie: Nightscout fetch met automatische proxy-fallback ──
+            async function nsFetch(path) {
+                if (!hasNS) return null;
+                const url = `${cfg.nsUrl}/api/v1/${path}`;
+                try { return await fetch(url).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); }); }
+                catch (_) {
+                    try { return await fetchWithProxy(url); }
+                    catch (e) { console.warn('[NS]', path, e.message); return null; }
                 }
             }
+
+            // ── Parallel alle bronnen ophalen ──
+            const tok = cfg.nsToken ? `token=${cfg.nsToken}&` : '';
+            const [hkGlucRes, hkInsuRes, nsEntries, nsTreats, nsDevstat] = await Promise.all([
+                hasHK ? HK.queryBloodGlucose({ startDate: start48, endDate: nowIso, limit: 2000 })
+                            .catch(e => { console.warn('[HK glucose]', e?.message); return null; }) : null,
+                hasHK ? HK.queryInsulin({ startDate: start48, endDate: nowIso, limit: 500 })
+                            .catch(e => { console.warn('[HK insulin]', e?.message); return null; }) : null,
+                nsFetch(`entries.json?${tok}count=2000`),
+                nsFetch(`treatments.json?${tok}count=500`),
+                nsFetch(`devicestatus.json?${tok}count=1`),
+            ]);
+
+            // ── Glucose: HealthKit primair, Nightscout als fallback ──
+            const hkGlucRaw = hkGlucRes?.samples || [];
+            let glucoseEntries = [];
+            let glucoseSource  = 'geen';
+
+            if (hkGlucRaw.length > 0) {
+                glucoseEntries = hkGlucRaw.map(s => ({
+                    sgv:        Math.round(s.value),
+                    date:       new Date(s.startDate).getTime(),
+                    dateString: s.startDate,
+                    direction:  'Flat',
+                    source:     s.sourceName || 'HealthKit',
+                })).sort((a, b) => b.date - a.date);
+                glucoseSource = 'HealthKit';
+                console.log(`[HK] ${glucoseEntries.length} glucose`);
+            } else if (Array.isArray(nsEntries) && nsEntries.length > 0) {
+                glucoseEntries = nsEntries;
+                glucoseSource  = 'Nightscout';
+                console.log(`[NS] ${glucoseEntries.length} glucose (HK leeg)`);
+            }
+
+            // ── IOB: Nightscout devicestatus primair, HealthKit berekend als fallback ──
+            let iobTotal = 0;
+            if (Array.isArray(nsDevstat) && nsDevstat[0]) {
+                const ds = nsDevstat[0];
+                iobTotal = ds?.openaps?.iob?.iob ?? ds?.loop?.iob?.iob ?? ds?.iob?.iob ?? 0;
+            }
+            if (!iobTotal) {
+                const hkInsuRaw = hkInsuRes?.samples || [];
+                const nowMs = now.getTime();
+                hkInsuRaw.forEach(s => {
+                    const ageMin = (nowMs - new Date(s.startDate).getTime()) / 60000;
+                    iobTotal += (parseFloat(s.value) || 0) * Math.max(0, 1 - ageMin / 240);
+                });
+                iobTotal = Math.round(iobTotal * 100) / 100;
+            }
+            window.__glucodash_iob = iobTotal;
+            const iobEl = document.getElementById('iob-val');
+            if (iobEl) iobEl.innerText = iobTotal > 0 ? iobTotal.toFixed(1) : '--';
+
+            // ── Behandelingen: Nightscout primair (pomp, sensor, carbs), HK als fallback ──
+            let treatments = [];
+            if (Array.isArray(nsTreats) && nsTreats.length > 0) {
+                treatments = nsTreats;
+                console.log(`[NS] ${treatments.length} behandelingen`);
+            } else {
+                const hkInsuRaw = hkInsuRes?.samples || [];
+                treatments = hkInsuRaw.map(s => ({
+                    eventType:  s.insulinReason === 1 ? 'Temp Basal' : 'Bolus',
+                    insulin:    parseFloat(s.value) || 0,
+                    created_at: s.startDate,
+                    date:       new Date(s.startDate).getTime(),
+                })).filter(t => t.insulin > 0);
+                console.log(`[HK] ${treatments.length} behandelingen (NS leeg)`);
+            }
+
+            // ── Display glucose ──
+            if (glucoseEntries.length > 0) {
+                processGlucoseData(glucoseEntries);
+                saveToCache(glucoseEntries, treatments);
+            } else {
+                // Laatste redmiddel: lokale cache
+                const cache = loadFromCache();
+                if (cache) {
+                    processGlucoseData(cache.entries);
+                    treatments = cache.treatments;
+                    document.getElementById('last-update').innerText = `Cache: ${new Date(cache.time).toLocaleTimeString()}`;
+                    updateStatus("📴 Offline — lokale cache", "neutral");
+                } else {
+                    document.getElementById('current-bg').innerText = "--";
+                    updateStatus("❌ Geen glucose beschikbaar (HK + NS leeg)", "error");
+                    return;
+                }
+            }
+
+            if (treatments.length > 0) processInsulinData(treatments);
+
+            // ── HealthKit extra (hartslag, stappen, etc.) ──
+            if (hasHK && hkGlucRaw.length > 0) {
+                renderHKCards({ bloodGlucose: hkGlucRaw });
+            }
+
+            // ── Status bijwerken ──
+            const nsTreatsLabel = Array.isArray(nsTreats) && nsTreats.length > 0
+                ? ` · ${nsTreats.length} beh. (NS)` : '';
+            const iobLabel = iobTotal > 0 ? ` · IOB ${iobTotal.toFixed(1)}U` : '';
+            const srcLabel = glucoseSource === 'HealthKit' ? '📲 HealthKit' : '🌐 Nightscout';
+            document.getElementById('last-update').innerText = `${srcLabel}: ${now.toLocaleTimeString()}`;
+            updateStatus(`✅ ${glucoseEntries.length} glucose (${glucoseSource})${iobLabel}${nsTreatsLabel}`, "ok");
+
+            const statusEl = document.getElementById('menu-source-status');
+            if (statusEl) statusEl.textContent =
+                `Glucose: ${glucoseSource} · Behandelingen: ${Array.isArray(nsTreats) && nsTreats.length > 0 ? 'Nightscout' : (treatments.length > 0 ? 'HealthKit' : 'geen')}`;
         }
 
         // ============= HEALTHKIT / iAPS — ALLE DATA =============
@@ -1391,7 +1734,26 @@
             }
 
             if (glucoseRaw.length === 0) {
-                updateStatus("⚠️ Geen glucose in HealthKit", "error");
+                console.warn("[HK] Geen glucose in HealthKit — probeer Nightscout als fallback");
+                updateStatus("⚠️ Geen glucose in HealthKit, Nightscout proberen...", "neutral");
+                // ---- Hybrid fallback: haal glucose op uit Nightscout als HealthKit leeg is ----
+                try {
+                    const _cfg = getSettings();
+                    const nsUrl = `${_cfg.nsUrl}/api/v1/entries.json?token=${_cfg.nsToken}&count=2000`;
+                    let nsData = null;
+                    try { nsData = await fetch(nsUrl).then(r => r.json()); }
+                    catch (_) { nsData = await fetchWithProxy(nsUrl); }
+                    if (Array.isArray(nsData) && nsData.length > 0) {
+                        console.log("[Hybrid] Nightscout glucose ontvangen:", nsData.length);
+                        processGlucoseData(nsData);
+                        document.getElementById('last-update').innerText = `Nightscout (fallback): ${new Date().toLocaleTimeString()}`;
+                        updateStatus(`✅ ${nsData.length} glucose uit Nightscout (HealthKit leeg)`, "ok");
+                        return;
+                    }
+                } catch (nsErr) {
+                    console.warn("[Hybrid] Nightscout fallback mislukt:", nsErr?.message);
+                }
+                updateStatus("⚠️ Geen glucose in HealthKit of Nightscout", "error");
                 document.getElementById('ai-tip').innerText =
                     "GlucoDash kan geen glucosedata vinden. Controleer:\n" +
                     "1. iPhone → Instellingen → Gezondheid → Gegevenstoegang → GlucoDash → sta 'Bloedsuiker lezen' toe.\n" +
@@ -1423,12 +1785,50 @@
                 console.warn("[HK] Carbs query fout:", e?.message || e);
             }
 
-            const treatments = carbsRaw.map(s => ({
-                eventType:  'Meal Bolus',
-                carbs:      parseFloat((s.value || 0).toFixed(0)),
-                created_at: s.startDate,
-                date:       new Date(s.startDate).getTime()
-            })).filter(t => t.carbs > 0);
+            // ---- Stap 5: insuline query ----
+            let insulinRaw = [];
+            try {
+                const ir = await HK.queryInsulin({
+                    startDate: start48h.toISOString(),
+                    endDate:   now.toISOString(),
+                    limit:     500
+                });
+                insulinRaw = ir.samples || [];
+                console.log("[HK] Insuline ontvangen:", insulinRaw.length);
+            } catch (e) {
+                console.warn("[HK] Insuline query fout:", e?.message || e);
+            }
+
+            // Bereken actief insuline (IOB) via lineaire decay met DIA=4u (240 min)
+            const nowMs = now.getTime();
+            let iobTotal = 0;
+            insulinRaw.forEach(s => {
+                const ageMin = (nowMs - new Date(s.startDate).getTime()) / 60000;
+                const fraction = Math.max(0, 1 - ageMin / 240);
+                iobTotal += (parseFloat(s.value) || 0) * fraction;
+            });
+            iobTotal = Math.round(iobTotal * 100) / 100;
+            window.__glucodash_iob = iobTotal;
+            console.log("[HK] IOB berekend:", iobTotal, "U");
+
+            // Zet IOB in de UI
+            const iobEl = document.getElementById('iob-val');
+            if (iobEl) iobEl.innerText = iobTotal.toFixed(1);
+
+            const treatments = [
+                ...carbsRaw.map(s => ({
+                    eventType:  'Meal Bolus',
+                    carbs:      parseFloat((s.value || 0).toFixed(0)),
+                    created_at: s.startDate,
+                    date:       new Date(s.startDate).getTime()
+                })).filter(t => t.carbs > 0),
+                ...insulinRaw.map(s => ({
+                    eventType:  s.insulinReason === 1 ? 'Temp Basal' : 'Bolus',
+                    insulin:    parseFloat(s.value) || 0,
+                    created_at: s.startDate,
+                    date:       new Date(s.startDate).getTime()
+                })).filter(t => t.insulin > 0)
+            ];
 
             if (treatments.length > 0) {
                 saveToCache(entries, treatments);
@@ -1442,7 +1842,7 @@
             renderHKCards(byType);
 
             document.getElementById('last-update').innerText = `HealthKit: ${now.toLocaleTimeString()}`;
-            updateStatus(`✅ ${entries.length} glucose + ${carbsRaw.length} carbs uit HealthKit`, "ok");
+            updateStatus(`✅ ${entries.length} glucose + ${insulinRaw.length} insuline + ${carbsRaw.length} carbs uit HealthKit`, "ok");
         }
 
         function renderHKCards(byType) {
@@ -1508,14 +1908,15 @@
 
         // ============= LIVE ACTIVITY =============
 
-        async function updateLiveActivity(glucose, trend, delta) {
+        async function updateLiveActivity(glucose, trend, delta, iob) {
             const LA = getLAPlugin();
             if (!LA) return;
             try {
                 await LA.start({
                     glucose: glucose,
-                    trend: trend,
-                    delta: delta || ''
+                    trend:   trend,
+                    delta:   delta || '',
+                    iob:     iob   || window.__glucodash_iob || 0
                 });
             } catch(e) {
                 console.warn('[LA]', e?.message || e);
@@ -1674,7 +2075,7 @@
                 }
                 return '';
             })();
-            updateLiveActivity(latestMmol, latestTrend, latestDelta);
+            updateLiveActivity(latestMmol, latestTrend, latestDelta, window.__glucodash_iob || 0);
 
             triggerAI();
         }
@@ -2468,11 +2869,6 @@
         }
 
         // ============= INIT =============
-        // Zet juiste radio button bij start
-        const _src = getDataSource();
-        const _radio = document.getElementById('src-' + _src);
-        if (_radio) _radio.checked = true;
-
         // Start — vraag HealthKit toestemming bij launch (iOS app).
         // Zorgt dat GlucoDash verschijnt in Gezondheid → Databronnen.
         // Gebruikt de eigen HealthKitPlugin (read-only, geen write-rechten).
@@ -2488,11 +2884,17 @@
             }
         })();
 
+        // ── Herstartbare refresh-timer (respecteert de interval uit instellingen) ──
+        let __refreshTimer = null;
+        function restartRefreshTimer() {
+            if (__refreshTimer) clearInterval(__refreshTimer);
+            const mins = getSettings().refreshMin || 2;
+            __refreshTimer = setInterval(() => fetchData(), mins * 60000);
+            console.log(`[GlucoDash] Refresh timer: elke ${mins} min`);
+        }
+
         fetchData();
-        // Ververs de hele pagina elke 2 minuten
-        setInterval(() => {
-            location.reload();
-        }, REFRESH_INTERVAL_MIN * 60000);
+        restartRefreshTimer();
 
         // ============= PWA SERVICE WORKER =============
         if ('serviceWorker' in navigator) {

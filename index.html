@@ -1549,20 +1549,7 @@
             const iobEl = document.getElementById('iob-val');
             if (iobEl) iobEl.innerText = iobTotal !== null ? iobTotal.toFixed(1) : '--';
 
-            // ── Insuline 24h: direct uit iAPS reason string (meest betrouwbaar) ──
-            window.__insuline24h = null;
-            if (Array.isArray(nsDevstat) && nsDevstat[0]) {
-                const ds = nsDevstat[0];
-                const reason = ds?.openaps?.suggested?.reason || ds?.openaps?.enacted?.reason || '';
-                const match = reason.match(/Insulin 24h:\s*([\d.]+)\s*U/i);
-                if (match) {
-                    window.__insuline24h = parseFloat(match[1]);
-                    console.log(`[Insuline] iAPS 24h totaal uit devicestatus: ${window.__insuline24h}U`);
-                    // Direct invullen — hoeft processInsulinData niet af te wachten
-                    const tiEl = document.getElementById('total-insulin');
-                    if (tiEl) tiEl.innerText = window.__insuline24h.toFixed(1);
-                }
-            }
+            // Insuline vandaag wordt berekend in processInsulinData via NS treatments (vanaf middernacht)
 
             // ── Schrijf glucose + IOB naar widget gedeelde opslag ──
             if (HK?.writeSharedData && glucoseEntries.length > 0) {
@@ -2179,9 +2166,7 @@
 
             console.log(`[GlucoDash] Totaal insuline: ${totalInsulin}U, SMBs: ${smbCount}`);
 
-            // Gebruik iAPS 24h waarde als die beschikbaar is, anders eigen berekening
-            const displayTotal = window.__insuline24h !== null ? window.__insuline24h.toFixed(1) : totalInsulin;
-            document.getElementById('total-insulin').innerText = displayTotal;
+            document.getElementById('total-insulin').innerText = totalInsulin;
             
             // Laatste bolus — alle handmatige bolus-types (Bolus, Meal Bolus, Correction Bolus, Bolus Wizard)
             const bolusTreatments = insulinTreatments

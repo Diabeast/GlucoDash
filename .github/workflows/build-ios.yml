@@ -576,6 +576,11 @@ jobs:
           import SwiftUI
 
           // ---- Data model ----
+          struct GlucosePoint {
+              let ts: Double   // Unix ms
+              let mmol: Double
+          }
+
           struct GlucoseHomeEntry: TimelineEntry {
               let date: Date
               let glucoseMMOL: Double
@@ -586,6 +591,7 @@ jobs:
               let isLow: Bool
               let isStale: Bool
               let minutesAgo: Int
+              let history: [GlucosePoint]  // laatste 3u voor grafiek
           }
 
           // ---- Timeline provider: leest uit GlucoDash eigen App Group (UserDefaults) ----
@@ -596,7 +602,7 @@ jobs:
 
               func placeholder(in context: Context) -> GlucoseHomeEntry {
                   GlucoseHomeEntry(date: Date(), glucoseMMOL: 5.5, trend: "→", delta: "+0.1",
-                                   iob: 0, isHigh: false, isLow: false, isStale: false, minutesAgo: 3)
+                                   iob: 0, isHigh: false, isLow: false, isStale: false, minutesAgo: 3, history: [])
               }
 
               func getSnapshot(in context: Context, completion: @escaping (GlucoseHomeEntry) -> Void) {
@@ -613,9 +619,10 @@ jobs:
 
               private func fetchEntry() async -> GlucoseHomeEntry {
                   let fallback = GlucoseHomeEntry(date: Date(), glucoseMMOL: 0, trend: "→", delta: "",
-                                                  iob: 0, isHigh: false, isLow: false, isStale: true, minutesAgo: 99)
+                                                  iob: 0, isHigh: false, isLow: false, isStale: true, minutesAgo: 99, history: [])
                   let tok = "token=\(nsToken)&"
-                  guard let eUrl = URL(string: "\(nsBase)/api/v1/entries.json?\(tok)count=3"),
+                  // count=40 = ~3u bij 5-min interval
+                  guard let eUrl = URL(string: "\(nsBase)/api/v1/entries.json?\(tok)count=40"),
                         let dUrl = URL(string: "\(nsBase)/api/v1/devicestatus.json?\(tok)count=1")
                   else { return fallback }
 
@@ -667,11 +674,20 @@ jobs:
                       }
                   }
 
+                  // Bouw history op uit alle entries (gesorteerd oud→nieuw)
+                  let history: [GlucosePoint] = entries.compactMap { e -> GlucosePoint? in
+                      let s = (e["sgv"] as? Double) ?? Double((e["sgv"] as? Int) ?? 0)
+                      let t = (e["date"] as? Double) ?? Double((e["date"] as? Int) ?? 0)
+                      guard s > 0, t > 0 else { return nil }
+                      return GlucosePoint(ts: t, mmol: s / 18.018)
+                  }.sorted { $0.ts < $1.ts }
+
                   return GlucoseHomeEntry(
                       date: Date(), glucoseMMOL: glucoseMMOL,
                       trend: trend, delta: delta, iob: iob,
                       isHigh: glucoseMMOL > 10.0, isLow: glucoseMMOL < 3.9,
-                      isStale: age > 600, minutesAgo: Int(age / 60)
+                      isStale: age > 600, minutesAgo: Int(age / 60),
+                      history: history
                   )
               }
           }
@@ -679,6 +695,61 @@ jobs:
           // ---- Kleurhelper ----
           private func homeGlucoseColor(_ e: GlucoseHomeEntry) -> Color {
               e.isStale ? .gray : e.isLow ? .red : e.isHigh ? .orange : .green
+          }
+
+          // ---- Glucose sparkline grafiek ----
+          struct GlucoseSparkline: View {
+              let points: [GlucosePoint]
+              private let minV: Double = 2.0
+              private let maxV: Double = 18.0
+              private let low:  Double = 3.9
+              private let high: Double = 10.0
+
+              var body: some View {
+                  GeometryReader { geo in
+                      let w = geo.size.width
+                      let h = geo.size.height
+                      let sorted = points.sorted { $0.ts < $1.ts }
+                      guard sorted.count > 1,
+                            let minT = sorted.first?.ts,
+                            let maxT = sorted.last?.ts,
+                            maxT > minT else { return AnyView(EmptyView()) }
+
+                      let xOf: (Double) -> CGFloat = { ts in
+                          CGFloat((ts - minT) / (maxT - minT)) * w
+                      }
+                      let yOf: (Double) -> CGFloat = { val in
+                          h - CGFloat((val - minV) / (maxV - minV)) * h
+                      }
+
+                      return AnyView(ZStack(alignment: .topLeading) {
+                          // Groen doelgebied (3.9–10.0)
+                          let yLow  = yOf(low)
+                          let yHigh = yOf(high)
+                          Rectangle()
+                              .fill(Color.green.opacity(0.12))
+                              .frame(width: w, height: max(0, yLow - yHigh))
+                              .offset(x: 0, y: yHigh)
+
+                          // Glucose lijn
+                          Path { path in
+                              for (i, pt) in sorted.enumerated() {
+                                  let p = CGPoint(x: xOf(pt.ts), y: yOf(pt.mmol))
+                                  if i == 0 { path.move(to: p) } else { path.addLine(to: p) }
+                              }
+                          }
+                          .stroke(Color.green, style: StrokeStyle(lineWidth: 2, lineCap: .round, lineJoin: .round))
+
+                          // Laatste punt (stip)
+                          if let last = sorted.last {
+                              Circle()
+                                  .fill(Color.green)
+                                  .frame(width: 6, height: 6)
+                                  .offset(x: xOf(last.ts) - 3, y: yOf(last.mmol) - 3)
+                          }
+                      })
+                  }
+              }
           }
 
           // ---- Small widget (1×1) ----
@@ -711,38 +782,40 @@ jobs:
           struct GlucoseMediumView: View {
               let entry: GlucoseHomeEntry
               var body: some View {
-                  HStack(spacing: 12) {
-                      VStack(alignment: .leading, spacing: 4) {
+                  HStack(spacing: 10) {
+                      // Links: waarde + trend + IOB
+                      VStack(alignment: .leading, spacing: 2) {
                           Text("GlucoDash").font(.caption2).foregroundColor(.secondary)
-                          HStack(alignment: .firstTextBaseline, spacing: 4) {
+                          HStack(alignment: .firstTextBaseline, spacing: 3) {
                               if entry.glucoseMMOL > 0 {
                                   Text(String(format: "%.1f", entry.glucoseMMOL))
-                                      .font(.system(size: 42, weight: .bold, design: .rounded))
+                                      .font(.system(size: 36, weight: .bold, design: .rounded))
                                       .foregroundColor(homeGlucoseColor(entry))
                                   VStack(alignment: .leading, spacing: 0) {
-                                      Text(entry.trend).font(.title2)
+                                      Text(entry.trend).font(.title3)
                                       if !entry.delta.isEmpty {
-                                          Text(entry.delta).font(.caption).foregroundColor(.secondary)
+                                          Text(entry.delta).font(.caption2).foregroundColor(.secondary)
                                       }
                                   }
                               } else {
                                   Text("--").font(.title).foregroundColor(.gray)
                               }
                           }
-                          Text("mmol/L").font(.caption2).foregroundColor(.secondary)
-                      }
-                      Spacer()
-                      VStack(alignment: .trailing, spacing: 6) {
                           if entry.iob > 0 {
-                              VStack(alignment: .trailing, spacing: 1) {
-                                  Text(String(format: "%.1f U", entry.iob))
-                                      .font(.headline).bold().foregroundColor(.blue)
-                                  Text("IOB").font(.caption2).foregroundColor(.secondary)
-                              }
+                              Text(String(format: "IOB %.1fU", entry.iob))
+                                  .font(.caption2).foregroundColor(.blue)
                           }
-                          Text("\(entry.minutesAgo) min").font(.caption2).foregroundColor(.secondary)
-                          if entry.isLow  { Text("LAAG ⚠️").font(.caption).bold().foregroundColor(.red) }
-                          if entry.isHigh { Text("HOOG").font(.caption).bold().foregroundColor(.orange) }
+                          Text("\(entry.minutesAgo)m").font(.caption2).foregroundColor(.secondary)
+                          if entry.isLow  { Text("LAAG ⚠️").font(.caption2).bold().foregroundColor(.red) }
+                          if entry.isHigh { Text("HOOG").font(.caption2).bold().foregroundColor(.orange) }
+                      }
+                      // Rechts: grafiek
+                      if !entry.history.isEmpty {
+                          GlucoseSparkline(points: entry.history)
+                              .frame(maxWidth: .infinity, maxHeight: .infinity)
+                              .padding(.vertical, 6)
+                      } else {
+                          Spacer()
                       }
                   }
                   .padding(12)
@@ -754,44 +827,58 @@ jobs:
           struct GlucoseLargeView: View {
               let entry: GlucoseHomeEntry
               var body: some View {
-                  VStack(alignment: .leading, spacing: 10) {
-                      Text("GlucoDash").font(.caption).foregroundColor(.secondary)
+                  VStack(alignment: .leading, spacing: 8) {
+                      // Header: waarde + trend
                       HStack(alignment: .firstTextBaseline, spacing: 6) {
                           if entry.glucoseMMOL > 0 {
                               Text(String(format: "%.1f", entry.glucoseMMOL))
-                                  .font(.system(size: 64, weight: .bold, design: .rounded))
+                                  .font(.system(size: 54, weight: .bold, design: .rounded))
                                   .foregroundColor(homeGlucoseColor(entry))
-                              VStack(alignment: .leading) {
-                                  Text(entry.trend).font(.largeTitle)
+                              VStack(alignment: .leading, spacing: 0) {
+                                  Text(entry.trend).font(.title)
                                   Text("mmol/L").font(.caption).foregroundColor(.secondary)
                               }
                           } else {
                               Text("--").font(.largeTitle).foregroundColor(.gray)
                           }
                           Spacer()
+                          VStack(alignment: .trailing, spacing: 2) {
+                              if !entry.delta.isEmpty {
+                                  Text(entry.delta).font(.headline).foregroundColor(.secondary)
+                              }
+                              Text("\(entry.minutesAgo)m").font(.caption2).foregroundColor(.secondary)
+                          }
                       }
-                      if !entry.delta.isEmpty {
-                          Text("Trend: \(entry.delta) mmol/L").font(.subheadline).foregroundColor(.secondary)
+
+                      // Grafiek
+                      if !entry.history.isEmpty {
+                          GlucoseSparkline(points: entry.history)
+                              .frame(maxWidth: .infinity)
+                              .frame(height: 70)
+                              .padding(.vertical, 2)
                       }
+
                       Divider()
+
+                      // IOB + status
                       HStack {
-                          VStack(alignment: .leading) {
+                          VStack(alignment: .leading, spacing: 1) {
                               Text("IOB").font(.caption2).foregroundColor(.secondary)
                               Text(entry.iob > 0 ? String(format: "%.1f U", entry.iob) : "--")
-                                  .font(.title2).bold().foregroundColor(.blue)
+                                  .font(.title3).bold().foregroundColor(.blue)
                           }
                           Spacer()
-                          VStack(alignment: .trailing) {
-                              Text("Bijgewerkt").font(.caption2).foregroundColor(.secondary)
-                              Text("\(entry.minutesAgo) min geleden").font(.subheadline)
+                          VStack(alignment: .trailing, spacing: 1) {
+                              Text("GlucoDash").font(.caption2).foregroundColor(.secondary)
+                              Text("\(entry.minutesAgo) min geleden").font(.caption2).foregroundColor(.secondary)
                           }
                       }
-                      if entry.isLow  { Text("⚠️ LAAG — behandel hypoglykemie").font(.caption).bold().foregroundColor(.red) }
-                      if entry.isHigh { Text("🔴 HOOG").font(.caption).bold().foregroundColor(.orange) }
-                      if entry.isStale { Text("⏱ Data verouderd").font(.caption2).foregroundColor(.gray) }
+                      if entry.isLow   { Text("⚠️ LAAG").font(.caption).bold().foregroundColor(.red) }
+                      if entry.isHigh  { Text("🔴 HOOG").font(.caption).bold().foregroundColor(.orange) }
+                      if entry.isStale { Text("⏱ Verouderd").font(.caption2).foregroundColor(.gray) }
                       Spacer()
                   }
-                  .padding(14)
+                  .padding(12)
                   .frame(maxWidth: .infinity, maxHeight: .infinity)
               }
           }

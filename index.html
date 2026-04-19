@@ -929,6 +929,19 @@
                 <button class="settings-action-btn secondary" onclick="menuStopLiveActivity()">Stop</button>
             </div>
 
+            <!-- SENSOR -->
+            <div class="settings-section-title">Sensor</div>
+            <div class="settings-group">
+                <div class="settings-row">
+                    <span class="settings-row-label">Startdatum sensor</span>
+                    <input class="settings-row-input" type="date" id="sett-sensor-start"
+                           style="text-align:right;min-width:130px;">
+                </div>
+                <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:2px;">
+                    <span class="settings-row-info" style="font-size:0.78rem;">Vul de datum in waarop je huidige sensor geplaatst is. Wordt gebruikt als Nightscout geen geldige sensor datum heeft.</span>
+                </div>
+            </div>
+
             <!-- DOELWAARDEN -->
             <div class="settings-section-title">Doelwaarden</div>
             <div class="settings-group">
@@ -1152,11 +1165,12 @@
         // ============= CONFIGURATIE (vanuit instellingen) =============
         // Standaardwaarden — worden overschreven door opgeslagen instellingen
         const DEFAULTS = {
-            nsUrl:      'https://arinelis.10be.de',
-            nsToken:    'nsread-bf4271c2d5b495b4',
-            refreshMin: 2,
-            low:        3.9,
-            high:       10.0,
+            nsUrl:          'https://arinelis.10be.de',
+            nsToken:        'nsread-bf4271c2d5b495b4',
+            refreshMin:     2,
+            low:            3.9,
+            high:           10.0,
+            sensorStartDate: '',   // handmatig ingestelde sensor startdatum (YYYY-MM-DD)
         };
         const CFG_KEY = 'glucodash_settings';
 
@@ -1164,11 +1178,12 @@
             try {
                 const s = JSON.parse(localStorage.getItem(CFG_KEY) || '{}');
                 return {
-                    nsUrl:      (s.nsUrl      || DEFAULTS.nsUrl).trim(),
-                    nsToken:    (s.nsToken    || DEFAULTS.nsToken).trim(),
-                    refreshMin: parseInt(s.refreshMin) || DEFAULTS.refreshMin,
-                    low:        parseFloat(s.low)      || DEFAULTS.low,
-                    high:       parseFloat(s.high)     || DEFAULTS.high,
+                    nsUrl:          (s.nsUrl      || DEFAULTS.nsUrl).trim(),
+                    nsToken:        (s.nsToken    || DEFAULTS.nsToken).trim(),
+                    refreshMin:     parseInt(s.refreshMin) || DEFAULTS.refreshMin,
+                    low:            parseFloat(s.low)      || DEFAULTS.low,
+                    high:           parseFloat(s.high)     || DEFAULTS.high,
+                    sensorStartDate: s.sensorStartDate || '',
                 };
             } catch { return { ...DEFAULTS }; }
         }
@@ -1176,11 +1191,12 @@
         // ---- Settings pagina openen/sluiten ----
         function openSettings() {
             const s = getSettings();
-            document.getElementById('sett-ns-url').value    = s.nsUrl;
-            document.getElementById('sett-ns-token').value  = s.nsToken;
-            document.getElementById('sett-refresh').value   = s.refreshMin;
-            document.getElementById('sett-low').value       = s.low;
-            document.getElementById('sett-high').value      = s.high;
+            document.getElementById('sett-ns-url').value         = s.nsUrl;
+            document.getElementById('sett-ns-token').value       = s.nsToken;
+            document.getElementById('sett-refresh').value        = s.refreshMin;
+            document.getElementById('sett-low').value            = s.low;
+            document.getElementById('sett-high').value           = s.high;
+            document.getElementById('sett-sensor-start').value   = s.sensorStartDate || '';
 
             const mode = window.Capacitor?.isNativePlatform?.() ? 'iOS app (TestFlight)' : 'Web / PWA';
             const rtEl = document.getElementById('sett-runtime-mode');
@@ -1196,11 +1212,12 @@
 
         function saveSettings() {
             const s = {
-                nsUrl:      document.getElementById('sett-ns-url').value.trim(),
-                nsToken:    document.getElementById('sett-ns-token').value.trim(),
-                refreshMin: parseInt(document.getElementById('sett-refresh').value) || 2,
-                low:        parseFloat(document.getElementById('sett-low').value)   || 3.9,
-                high:       parseFloat(document.getElementById('sett-high').value)  || 10.0,
+                nsUrl:           document.getElementById('sett-ns-url').value.trim(),
+                nsToken:         document.getElementById('sett-ns-token').value.trim(),
+                refreshMin:      parseInt(document.getElementById('sett-refresh').value) || 2,
+                low:             parseFloat(document.getElementById('sett-low').value)   || 3.9,
+                high:            parseFloat(document.getElementById('sett-high').value)  || 10.0,
+                sensorStartDate: document.getElementById('sett-sensor-start').value || '',
             };
             localStorage.setItem(CFG_KEY, JSON.stringify(s));
             restartRefreshTimer();
@@ -1531,6 +1548,21 @@
             window.__glucodash_iob = iobTotal ?? 0;
             const iobEl = document.getElementById('iob-val');
             if (iobEl) iobEl.innerText = iobTotal !== null ? iobTotal.toFixed(1) : '--';
+
+            // ── Insuline 24h: direct uit iAPS reason string (meest betrouwbaar) ──
+            window.__insuline24h = null;
+            if (Array.isArray(nsDevstat) && nsDevstat[0]) {
+                const ds = nsDevstat[0];
+                const reason = ds?.openaps?.suggested?.reason || ds?.openaps?.enacted?.reason || '';
+                const match = reason.match(/Insulin 24h:\s*([\d.]+)\s*U/i);
+                if (match) {
+                    window.__insuline24h = parseFloat(match[1]);
+                    console.log(`[Insuline] iAPS 24h totaal uit devicestatus: ${window.__insuline24h}U`);
+                    // Direct invullen — hoeft processInsulinData niet af te wachten
+                    const tiEl = document.getElementById('total-insulin');
+                    if (tiEl) tiEl.innerText = window.__insuline24h.toFixed(1);
+                }
+            }
 
             // ── Schrijf glucose + IOB naar widget gedeelde opslag ──
             if (HK?.writeSharedData && glucoseEntries.length > 0) {
@@ -2147,7 +2179,9 @@
 
             console.log(`[GlucoDash] Totaal insuline: ${totalInsulin}U, SMBs: ${smbCount}`);
 
-            document.getElementById('total-insulin').innerText = totalInsulin;
+            // Gebruik iAPS 24h waarde als die beschikbaar is, anders eigen berekening
+            const displayTotal = window.__insuline24h !== null ? window.__insuline24h.toFixed(1) : totalInsulin;
+            document.getElementById('total-insulin').innerText = displayTotal;
             
             // Laatste bolus — alle handmatige bolus-types (Bolus, Meal Bolus, Correction Bolus, Bolus Wizard)
             const bolusTreatments = insulinTreatments
@@ -2226,16 +2260,36 @@
                 sensorEvents.slice(0,3).map(t => `${t.eventType} @ ${new Date(t._ts).toLocaleDateString()}`));
 
             if (sensorEvents.length === 0) {
+                // Fallback: handmatig ingestelde startdatum uit instellingen
+                const cfg = getSettings();
+                if (cfg.sensorStartDate) {
+                    const manualStart = new Date(cfg.sensorStartDate + 'T00:00:00');
+                    if (!isNaN(manualStart.getTime()) && manualStart.getTime() <= Date.now()) {
+                        console.log(`[Sensor] Geen NS data, gebruik handmatige startdatum: ${cfg.sensorStartDate}`);
+                        showSensorAge(statusEl, manualStart);
+                        return;
+                    }
+                }
                 statusEl.innerText = '--';
                 statusEl.style.color = 'var(--subtext-color)';
                 return;
             }
 
-            const sensorStart = new Date(sensorEvents[0]._ts);
+            showSensorAge(statusEl, new Date(sensorEvents[0]._ts));
+        }
+
+        function showSensorAge(statusEl, sensorStart) {
             const now = new Date();
             const ageMs = now.getTime() - sensorStart.getTime();
             const ageDays  = Math.floor(ageMs / 86400000);
             const ageHours = Math.floor((ageMs % 86400000) / 3600000);
+
+            // Sanity check: sensor kan niet in de toekomst zijn
+            if (ageMs < 0) {
+                statusEl.innerText = '--';
+                statusEl.style.color = 'var(--subtext-color)';
+                return;
+            }
 
             // Dag-teller + resterende tijd (aanname 10-daagse sensor)
             const daysLeft  = Math.max(0, SENSOR_DAYS - ageDays);
@@ -2244,7 +2298,6 @@
             console.log(`[Sensor] Start: ${sensorStart.toLocaleDateString()}, Dag ${ageDays + 1} van ${SENSOR_DAYS}`);
 
             if (ageDays >= SENSOR_DAYS) {
-                // In grace periode of verlopen
                 statusEl.innerText = hoursLeft > 0 ? `Vervangen! (${hoursLeft}u grace)` : `Vervangen!`;
                 statusEl.style.color = 'var(--danger-color)';
             } else if (daysLeft <= 2) {

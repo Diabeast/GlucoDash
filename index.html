@@ -1599,7 +1599,9 @@
 
             if (treatments.length > 0) processInsulinData(treatments);
 
-            // ── Sensor dag-teller: gebruik dedicated sensor fetch (gaat verder terug dan vandaag) ──
+            // ── Sensor dag-teller ──
+            // 1. Probeer NS sensor treatments (dedicated fetch)
+            // 2. Als geen geldige NS entry → settings handmatige datum
             const sensorSource = (Array.isArray(nsSensorTreats) && nsSensorTreats.length > 0)
                 ? nsSensorTreats
                 : treatments;
@@ -2155,9 +2157,37 @@
             
             console.log(`[GlucoDash] Insulin treatments vandaag: ${insulinTreatments.length}`);
 
+            // Bolus + SMB insuline (direct veld)
             let totalVal = 0;
             insulinTreatments.forEach(t => { totalVal += parseFloat(t.insulin) || 0; });
-            const totalInsulin = totalVal.toFixed(1);
+
+            // Temp Basal insuline: rate (U/hr) × effectieve duur (met overlap-correctie)
+            // iAPS stuurt elke 5 min een nieuw commando met duration=30 → overlappen
+            // Oplossing: elke Temp Basal geldt tot de volgende start of zijn duur, wat eerder komt
+            const tempBasals = treatments.filter(t =>
+                (t.eventType || '').toLowerCase() === 'temp basal' &&
+                (parseFloat(t.rate) > 0 || parseFloat(t.absolute) > 0)
+            ).map(t => ({
+                ts:       getTimestamp(t, true),
+                rate:     parseFloat(t.absolute ?? t.rate) || 0,
+                durMs:    (parseFloat(t.duration) || 0) * 60000,
+            })).filter(t => t.ts >= last24h && t.ts > 0 && t.durMs > 0)
+              .sort((a, b) => a.ts - b.ts);
+
+            let basalVal = 0;
+            const nowMs = Date.now();
+            for (let i = 0; i < tempBasals.length; i++) {
+                const tb = tempBasals[i];
+                const maxEnd = tb.ts + tb.durMs;
+                // Effectief einde = de start van de volgende temp basal (als die eerder komt)
+                const nextStart = i + 1 < tempBasals.length ? tempBasals[i + 1].ts : Infinity;
+                const effectiveEnd = Math.min(maxEnd, nextStart, nowMs);
+                const effectiveHours = Math.max(0, effectiveEnd - tb.ts) / 3600000;
+                basalVal += tb.rate * effectiveHours;
+            }
+
+            const totalInsulin = (totalVal + basalVal).toFixed(1);
+            console.log(`[Insuline] Bolus+SMB: ${totalVal.toFixed(1)}U, Basaal (Temp): ${basalVal.toFixed(1)}U, Totaal: ${totalInsulin}U`);
 
             const smbTreatments = insulinTreatments.filter(t => t.eventType === 'SMB' || t.isSMB === true);
             const smbCount = smbTreatments.length;
@@ -2946,6 +2976,15 @@
             __refreshTimer = setInterval(() => fetchData(), mins * 60000);
             console.log(`[GlucoDash] Refresh timer: elke ${mins} min`);
         }
+
+        // Toon sensor startdatum direct vanuit settings (voordat NS fetch klaar is)
+        (function() {
+            const s = getSettings();
+            if (s.sensorStartDate) {
+                const el = document.getElementById('sensor-status');
+                if (el) showSensorAge(el, new Date(s.sensorStartDate + 'T00:00:00'));
+            }
+        })();
 
         fetchData();
         restartRefreshTimer();

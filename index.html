@@ -1483,14 +1483,13 @@
             if (Array.isArray(nsDevstat) && nsDevstat[0]) {
                 const ds = nsDevstat[0];
                 // Alle bekende paden: iAPS, Trio, OpenAPS, Loop, AndroidAPS
-                // bolusiob staat VOOR iob.iob: bolusiob = alleen bolus-IOB (>= 0)
-                // iob.iob = netto IOB incl. basaalsuppressie (kan negatief zijn)
+                // iob.iob = netto IOB (wat iAPS zelf toont op het hoofdscherm, kan negatief zijn)
+                // bolusiob = alleen bolus IOB (altijd >= 0), anders dan iAPS weergave
                 const candidates = [
-                    ds?.openaps?.iob?.bolusiob,       // iAPS: alleen bolus IOB (altijd >= 0)
+                    ds?.openaps?.iob?.iob,            // iAPS: netto IOB — dit is wat iAPS toont
                     ds?.openaps?.enacted?.IOB,
                     ds?.openaps?.suggested?.IOB,
-                    ds?.openaps?.iob?.iob,            // netto IOB (kan negatief zijn)
-                    ds?.openaps?.iob?.bolussnooze,
+                    ds?.openaps?.iob?.bolusiob,       // fallback: bolus-only IOB
                     ds?.loop?.iob?.iob,
                     ds?.loop?.iob?.value,
                     ds?.aaps?.iob,
@@ -1499,8 +1498,8 @@
                     ds?.iob,
                 ];
                 console.log('[IOB] NS devicestatus:', JSON.stringify({
-                    bolusiob:    ds?.openaps?.iob?.bolusiob,
                     iob_iob:     ds?.openaps?.iob?.iob,
+                    bolusiob:    ds?.openaps?.iob?.bolusiob,
                     enacted_IOB: ds?.openaps?.enacted?.IOB,
                     loop_iob:    ds?.loop?.iob,
                 }));
@@ -2095,16 +2094,20 @@
             const eventTypes = [...new Set(treatments.map(t => t.eventType))];
             console.log("[GlucoDash] Event types:", eventTypes);
 
-            // Filter en bereken insuline stats - LAATSTE 24 UUR
-            const now = Date.now();
-            const last24h = now - (24 * 60 * 60 * 1000);
-            
-            console.log("[GlucoDash] Insuline laatste 24u vanaf:", new Date(last24h).toISOString());
-            
+            // Filter en bereken insuline stats - VANAF MIDDERNACHT, alleen Bolus + SMB
+            const midnight = new Date(); midnight.setHours(0, 0, 0, 0);
+            const midnightTs = midnight.getTime();
+
+            console.log("[GlucoDash] Insuline vandaag vanaf middernacht:", midnight.toISOString());
+
             const insulinTreatments = treatments.filter(t => {
                 if (!t.insulin || parseFloat(t.insulin) <= 0) return false;
+                // Sluit Temp Basal ALTIJD uit: iAPS stuurt elke 5 min een commando met
+                // duration=30 → massale overlap. Sommige iAPS versies zetten ook insulin veld.
+                const et = (t.eventType || '').toLowerCase();
+                if (et === 'temp basal' || et === 'basal' || et.includes('temp basal')) return false;
                 const ts = getTimestamp(t, true); // prefer created_at voor iAPS/NS treatments
-                return ts >= last24h;
+                return ts >= midnightTs;
             });
 
             // Debug: toon alle insuline behandelingen
@@ -2112,12 +2115,10 @@
                 const d = new Date(getTimestamp(t, true));
                 console.log(`[GlucoDash] Insuline ${i+1}:`, t.insulin, "type:", t.eventType, "tijd:", d.toISOString());
             });
-            
-            console.log(`[GlucoDash] Insulin treatments vandaag: ${insulinTreatments.length}`);
 
-            // Insuline vandaag = som van Bolus + SMB uit NS treatments
-            // (Temp Basal wordt NIET meegeteld: iAPS stuurt elke 5 min een nieuw commando
-            //  met duration=30 waardoor ze zwaar overlappen, plus profielbasaal staat nooit in NS)
+            console.log(`[GlucoDash] Insulin treatments vandaag (Bolus+SMB, geen TempBasal): ${insulinTreatments.length}`);
+
+            // Insuline vandaag = som van alleen Bolus + SMB
             let totalVal = 0;
             insulinTreatments.forEach(t => { totalVal += parseFloat(t.insulin) || 0; });
             const totalInsulin = totalVal.toFixed(1);

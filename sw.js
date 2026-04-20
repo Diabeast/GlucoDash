@@ -1,5 +1,5 @@
 // GlucoDash Service Worker
-const CACHE_NAME = 'glucodash-v3';
+const CACHE_NAME = 'glucodash-v5';
 
 self.addEventListener('install', event => {
   console.log('[SW] Installing...');

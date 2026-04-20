@@ -1506,27 +1506,31 @@
             if (Array.isArray(nsDevstat) && nsDevstat[0]) {
                 const ds = nsDevstat[0];
                 // Alle bekende paden: iAPS, Trio, OpenAPS, Loop, AndroidAPS
+                // bolusiob staat VOOR iob.iob: bolusiob = alleen bolus-IOB (>= 0)
+                // iob.iob = netto IOB incl. basaalsuppressie (kan negatief zijn)
                 const candidates = [
-                    ds?.openaps?.iob?.iob,
+                    ds?.openaps?.iob?.bolusiob,       // iAPS: alleen bolus IOB (altijd >= 0)
                     ds?.openaps?.enacted?.IOB,
                     ds?.openaps?.suggested?.IOB,
-                    ds?.openaps?.iob?.bolussnooze,   // soms anders genaamd
+                    ds?.openaps?.iob?.iob,            // netto IOB (kan negatief zijn)
+                    ds?.openaps?.iob?.bolussnooze,
                     ds?.loop?.iob?.iob,
                     ds?.loop?.iob?.value,
                     ds?.aaps?.iob,
                     ds?.iob?.iob,
                     ds?.iob?.IOB,
-                    ds?.iob,                          // soms direct als getal
+                    ds?.iob,
                 ];
-                console.log('[IOB] NS devicestatus paden:', JSON.stringify({
-                    openaps_iob: ds?.openaps?.iob,
-                    loop_iob: ds?.loop?.iob,
-                    iob: ds?.iob
+                console.log('[IOB] NS devicestatus:', JSON.stringify({
+                    bolusiob:    ds?.openaps?.iob?.bolusiob,
+                    iob_iob:     ds?.openaps?.iob?.iob,
+                    enacted_IOB: ds?.openaps?.enacted?.IOB,
+                    loop_iob:    ds?.loop?.iob,
                 }));
                 for (const v of candidates) {
                     const n = parseFloat(v);
                     if (!isNaN(n) && v !== null && v !== undefined && typeof v !== 'object') {
-                        iobTotal = Math.max(0, n);
+                        iobTotal = n;   // toon echte waarde, ook negatief
                         console.log(`[IOB] Gevonden: ${iobTotal.toFixed(2)}U`);
                         break;
                     }

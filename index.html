@@ -891,19 +891,6 @@
                 </div>
             </div>
 
-            <!-- DATABRON -->
-            <div class="settings-section-title">Databron</div>
-            <div class="settings-group">
-                <div class="settings-row">
-                    <span class="settings-row-label">Modus</span>
-                    <span class="settings-source-badge hybrid">Hybride</span>
-                </div>
-                <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:4px;">
-                    <span style="font-size:0.9rem;color:var(--text-color);">HealthKit + Nightscout</span>
-                    <span class="settings-row-info" style="font-size:0.78rem;">Glucose uit HealthKit (CGM), sensordata en behandelingen uit Nightscout. Als HealthKit leeg is, valt alles terug op Nightscout.</span>
-                </div>
-            </div>
-
             <!-- HEALTHKIT -->
             <div class="settings-section-title">HealthKit</div>
             <div class="settings-group">
@@ -933,12 +920,12 @@
             <div class="settings-section-title">Sensor</div>
             <div class="settings-group">
                 <div class="settings-row">
-                    <span class="settings-row-label">Startdatum sensor</span>
-                    <input class="settings-row-input" type="date" id="sett-sensor-start"
-                           style="text-align:right;min-width:130px;">
+                    <span class="settings-row-label">Start datum &amp; tijd</span>
+                    <input class="settings-row-input" type="datetime-local" id="sett-sensor-start"
+                           style="text-align:right;min-width:170px;">
                 </div>
                 <div class="settings-row" style="flex-direction:column;align-items:flex-start;gap:2px;">
-                    <span class="settings-row-info" style="font-size:0.78rem;">Vul de datum in waarop je huidige sensor geplaatst is. Wordt gebruikt als Nightscout geen geldige sensor datum heeft.</span>
+                    <span class="settings-row-info" style="font-size:0.78rem;">Datum en tijd waarop je huidige sensor geplaatst is. Wordt gebruikt als Nightscout geen geldige sensorstart heeft.</span>
                 </div>
             </div>
 
@@ -1170,7 +1157,7 @@
             refreshMin:     2,
             low:            3.9,
             high:           10.0,
-            sensorStartDate: '',   // handmatig ingestelde sensor startdatum (YYYY-MM-DD)
+            sensorStartDate: '',   // handmatig ingestelde sensor start (YYYY-MM-DDTHH:MM)
         };
         const CFG_KEY = 'glucodash_settings';
 
@@ -2162,26 +2149,28 @@
             insulinTreatments.forEach(t => { totalVal += parseFloat(t.insulin) || 0; });
 
             // Temp Basal insuline: rate (U/hr) × effectieve duur (met overlap-correctie)
-            // iAPS stuurt elke 5 min een nieuw commando met duration=30 → overlappen
-            // Oplossing: elke Temp Basal geldt tot de volgende start of zijn duur, wat eerder komt
-            const tempBasals = treatments.filter(t =>
-                (t.eventType || '').toLowerCase() === 'temp basal' &&
-                (parseFloat(t.rate) > 0 || parseFloat(t.absolute) > 0)
+            // iAPS stuurt elke 5 min een nieuw commando met duration=30 → overlappen zwaar
+            // Cruciale fix: gebruik ALLE temp basals (ook rate=0) voor de nextStart-berekening,
+            // maar tel alleen rate>0 op voor insuline. Zonder dit loopt een rate=3.75 entry
+            // door tot de volgende niet-nul entry in plaats van de eerstvolgende TB-start.
+            const allTempBasals = treatments.filter(t =>
+                (t.eventType || '').toLowerCase() === 'temp basal'
             ).map(t => ({
-                ts:       getTimestamp(t, true),
-                rate:     parseFloat(t.absolute ?? t.rate) || 0,
-                durMs:    (parseFloat(t.duration) || 0) * 60000,
+                ts:    getTimestamp(t, true),
+                rate:  parseFloat(t.absolute ?? t.rate) || 0,
+                durMs: (parseFloat(t.duration) || 0) * 60000,
             })).filter(t => t.ts >= last24h && t.ts > 0 && t.durMs > 0)
               .sort((a, b) => a.ts - b.ts);
 
             let basalVal = 0;
             const nowMs = Date.now();
-            for (let i = 0; i < tempBasals.length; i++) {
-                const tb = tempBasals[i];
-                const maxEnd = tb.ts + tb.durMs;
-                // Effectief einde = de start van de volgende temp basal (als die eerder komt)
-                const nextStart = i + 1 < tempBasals.length ? tempBasals[i + 1].ts : Infinity;
-                const effectiveEnd = Math.min(maxEnd, nextStart, nowMs);
+            for (let i = 0; i < allTempBasals.length; i++) {
+                const tb = allTempBasals[i];
+                if (tb.rate <= 0) continue;   // rate=0 = pompstop = geen insuline
+                const maxEnd     = tb.ts + tb.durMs;
+                // Effectief einde = eerstvolgende TB (ook rate=0), eigen duur of nu
+                const nextTbTs   = i + 1 < allTempBasals.length ? allTempBasals[i + 1].ts : Infinity;
+                const effectiveEnd   = Math.min(maxEnd, nextTbTs, nowMs);
                 const effectiveHours = Math.max(0, effectiveEnd - tb.ts) / 3600000;
                 basalVal += tb.rate * effectiveHours;
             }
@@ -2278,7 +2267,7 @@
                 // Fallback: handmatig ingestelde startdatum uit instellingen
                 const cfg = getSettings();
                 if (cfg.sensorStartDate) {
-                    const manualStart = new Date(cfg.sensorStartDate + 'T00:00:00');
+                    const manualStart = new Date(cfg.sensorStartDate);
                     if (!isNaN(manualStart.getTime()) && manualStart.getTime() <= Date.now()) {
                         console.log(`[Sensor] Geen NS data, gebruik handmatige startdatum: ${cfg.sensorStartDate}`);
                         showSensorAge(statusEl, manualStart);

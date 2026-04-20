@@ -1530,20 +1530,13 @@
                 }
             }
 
-            // ── Behandelingen: Nightscout primair (pomp, sensor, carbs), HK als fallback ──
+            // ── Behandelingen: uitsluitend Nightscout (geen HK fallback) ──
             let treatments = [];
             if (Array.isArray(nsTreats) && nsTreats.length > 0) {
                 treatments = nsTreats;
                 console.log(`[NS] ${treatments.length} behandelingen`);
             } else {
-                const hkInsuRaw = hkInsuRes?.samples || [];
-                treatments = hkInsuRaw.map(s => ({
-                    eventType:  s.insulinReason === 1 ? 'Temp Basal' : 'Bolus',
-                    insulin:    parseFloat(s.value) || 0,
-                    created_at: s.startDate,
-                    date:       new Date(s.startDate).getTime(),
-                })).filter(t => t.insulin > 0);
-                console.log(`[HK] ${treatments.length} behandelingen (NS leeg)`);
+                console.log('[NS] Geen behandelingen beschikbaar – insuline toont --');
             }
 
             // ── Display glucose ──

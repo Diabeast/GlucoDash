@@ -370,18 +370,6 @@
         .menu-nav-item.active { color: var(--primary-color); font-weight: 600; }
         .menu-nav-item svg { width: 22px; height: 22px; flex-shrink: 0; }
 
-        .menu-datasource {
-            padding: 16px 20px;
-            flex: 1;
-            overflow-y: auto;
-        }
-        .menu-datasource h3 {
-            margin: 0 0 12px;
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            opacity: 0.5;
-        }
 
         /* ===== HEALTHKIT SECTIE ===== */
         .hk-section { margin-bottom: 30px; }
@@ -840,12 +828,6 @@
                 Instellingen
             </button>
         </nav>
-        <div class="menu-datasource" style="padding:16px 20px; flex:1; overflow-y:auto;">
-            <div id="menu-source-status" style="font-size:0.8rem;color:var(--subtext-color);margin-bottom:12px;"></div>
-            <button onclick="closeMenu(); fetchData();" style="width:100%;padding:11px;background:var(--primary-color);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
-                🔄 Ververs nu
-            </button>
-        </div>
     </div>
 
     <!-- ===== iOS INSTELLINGEN PAGINA ===== -->
@@ -1602,9 +1584,6 @@
             const srcLabel = glucoseSource === 'HealthKit' ? '📲 HealthKit' : '🌐 Nightscout';
             document.getElementById('last-update').innerText = `${srcLabel}: ${now.toLocaleTimeString()}`;
 
-            const statusEl = document.getElementById('menu-source-status');
-            if (statusEl) statusEl.textContent =
-                `Glucose: ${glucoseSource} · Behandelingen: ${Array.isArray(nsTreats) && nsTreats.length > 0 ? 'Nightscout' : (treatments.length > 0 ? 'HealthKit' : 'geen')}`;
         }
 
         // ============= HEALTHKIT / iAPS — ALLE DATA =============
@@ -2258,30 +2237,52 @@
         function showSensorAge(statusEl, sensorStart) {
             const now = new Date();
             const ageMs = now.getTime() - sensorStart.getTime();
-            const ageDays  = Math.floor(ageMs / 86400000);
-            const ageHours = Math.floor((ageMs % 86400000) / 3600000);
 
             // Sanity check: sensor kan niet in de toekomst zijn
             if (ageMs < 0) {
-                statusEl.innerText = '--';
+                statusEl.innerHTML = '--';
                 statusEl.style.color = 'var(--subtext-color)';
                 return;
             }
 
-            // Dag-teller + resterende tijd (aanname 10-daagse sensor)
-            const daysLeft  = Math.max(0, SENSOR_DAYS - ageDays);
-            const hoursLeft = daysLeft === 0 ? Math.max(0, SENSOR_GRACE_HOURS - ageHours) : 0;
+            const ageDays  = Math.floor(ageMs / 86400000);
+            const ageHours = Math.floor((ageMs % 86400000) / 3600000);
+            const ageMins  = Math.floor((ageMs % 3600000) / 60000);
 
-            console.log(`[Sensor] Start: ${sensorStart.toLocaleDateString()}, Dag ${ageDays + 1} van ${SENSOR_DAYS}`);
+            // Vervaldatum berekenen
+            const expireMs   = sensorStart.getTime() + SENSOR_DAYS * 86400000;
+            const expireDate = new Date(expireMs);
+            const msLeft     = expireMs - now.getTime();
+            const daysLeft   = Math.max(0, Math.floor(msLeft / 86400000));
+            const hoursLeft  = Math.max(0, Math.floor((msLeft % 86400000) / 3600000));
+            const minsLeft   = Math.max(0, Math.floor((msLeft % 3600000) / 60000));
 
-            if (ageDays >= SENSOR_DAYS) {
-                statusEl.innerText = hoursLeft > 0 ? `Vervangen! (${hoursLeft}u grace)` : `Vervangen!`;
+            const expireStr  = expireDate.toLocaleDateString('nl-NL', { day:'numeric', month:'short' })
+                             + ' ' + expireDate.toLocaleTimeString('nl-NL', { hour:'2-digit', minute:'2-digit' });
+
+            console.log(`[Sensor] Start: ${sensorStart.toLocaleString()}, Dag ${ageDays + 1} van ${SENSOR_DAYS}`);
+
+            if (msLeft <= 0) {
+                // Verlopen
+                const graceMs   = sensorStart.getTime() + (SENSOR_DAYS * 86400000) + (SENSOR_GRACE_HOURS * 3600000);
+                const inGrace   = now.getTime() < graceMs;
+                statusEl.innerHTML = inGrace
+                    ? `⚠️ Vervangen! · Grace nog ${Math.floor((graceMs - now.getTime()) / 3600000)}u`
+                    : `🔴 Verlopen — vervang sensor`;
                 statusEl.style.color = 'var(--danger-color)';
             } else if (daysLeft <= 2) {
-                statusEl.innerText = `Dag ${ageDays + 1} · Nog ${daysLeft}d ${ageHours}u`;
+                // Bijna verlopen
+                statusEl.innerHTML =
+                    `<b>Dag ${ageDays + 1}</b> van ${SENSOR_DAYS} · ${ageHours}u actief<br>` +
+                    `⚠️ Verloopt over ${daysLeft}d ${hoursLeft}u ${minsLeft}m<br>` +
+                    `<span style="font-size:0.8em;opacity:0.7;">Vervalt: ${expireStr}</span>`;
                 statusEl.style.color = 'var(--warning-color)';
             } else {
-                statusEl.innerText = `Dag ${ageDays + 1} van ${SENSOR_DAYS}`;
+                // Normaal
+                statusEl.innerHTML =
+                    `<b>Dag ${ageDays + 1}</b> van ${SENSOR_DAYS} · ${ageHours}u actief<br>` +
+                    `Nog ${daysLeft}d ${hoursLeft}u over<br>` +
+                    `<span style="font-size:0.8em;opacity:0.7;">Vervalt: ${expireStr}</span>`;
                 statusEl.style.color = 'var(--accent-color)';
             }
         }

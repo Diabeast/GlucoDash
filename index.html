@@ -841,11 +841,6 @@
             </button>
         </nav>
         <div class="menu-datasource" style="padding:16px 20px; flex:1; overflow-y:auto;">
-            <!-- Databron: altijd hybride (HealthKit + Nightscout) -->
-            <div style="background:var(--bg-color);border-radius:10px;padding:12px 14px;margin-bottom:12px;font-size:0.85rem;">
-                <div style="font-weight:600;margin-bottom:4px;">🔄 Hybride modus</div>
-                <div style="color:var(--subtext-color);font-size:0.8rem;">HealthKit + Nightscout gecombineerd. Pas de instellingen aan via het tandwiel-icoon.</div>
-            </div>
             <div id="menu-source-status" style="font-size:0.8rem;color:var(--subtext-color);margin-bottom:12px;"></div>
             <button onclick="closeMenu(); fetchData();" style="width:100%;padding:11px;background:var(--primary-color);color:#fff;border:none;border-radius:10px;font-size:0.95rem;font-weight:600;cursor:pointer;margin-bottom:6px;">
                 🔄 Ververs nu
@@ -2148,39 +2143,13 @@
             
             console.log(`[GlucoDash] Insulin treatments vandaag: ${insulinTreatments.length}`);
 
-            // Bolus + SMB insuline (direct veld)
+            // Insuline vandaag = som van Bolus + SMB uit NS treatments
+            // (Temp Basal wordt NIET meegeteld: iAPS stuurt elke 5 min een nieuw commando
+            //  met duration=30 waardoor ze zwaar overlappen, plus profielbasaal staat nooit in NS)
             let totalVal = 0;
             insulinTreatments.forEach(t => { totalVal += parseFloat(t.insulin) || 0; });
-
-            // Temp Basal insuline: rate (U/hr) × effectieve duur (met overlap-correctie)
-            // iAPS stuurt elke 5 min een nieuw commando met duration=30 → overlappen zwaar
-            // Cruciale fix: gebruik ALLE temp basals (ook rate=0) voor de nextStart-berekening,
-            // maar tel alleen rate>0 op voor insuline. Zonder dit loopt een rate=3.75 entry
-            // door tot de volgende niet-nul entry in plaats van de eerstvolgende TB-start.
-            const allTempBasals = treatments.filter(t =>
-                (t.eventType || '').toLowerCase() === 'temp basal'
-            ).map(t => ({
-                ts:    getTimestamp(t, true),
-                rate:  parseFloat(t.absolute ?? t.rate) || 0,
-                durMs: (parseFloat(t.duration) || 0) * 60000,
-            })).filter(t => t.ts >= last24h && t.ts > 0 && t.durMs > 0)
-              .sort((a, b) => a.ts - b.ts);
-
-            let basalVal = 0;
-            const nowMs = Date.now();
-            for (let i = 0; i < allTempBasals.length; i++) {
-                const tb = allTempBasals[i];
-                if (tb.rate <= 0) continue;   // rate=0 = pompstop = geen insuline
-                const maxEnd     = tb.ts + tb.durMs;
-                // Effectief einde = eerstvolgende TB (ook rate=0), eigen duur of nu
-                const nextTbTs   = i + 1 < allTempBasals.length ? allTempBasals[i + 1].ts : Infinity;
-                const effectiveEnd   = Math.min(maxEnd, nextTbTs, nowMs);
-                const effectiveHours = Math.max(0, effectiveEnd - tb.ts) / 3600000;
-                basalVal += tb.rate * effectiveHours;
-            }
-
-            const totalInsulin = (totalVal + basalVal).toFixed(1);
-            console.log(`[Insuline] Bolus+SMB: ${totalVal.toFixed(1)}U, Basaal (Temp): ${basalVal.toFixed(1)}U, Totaal: ${totalInsulin}U`);
+            const totalInsulin = totalVal.toFixed(1);
+            console.log(`[Insuline] Bolus+SMB vandaag: ${totalInsulin}U (${insulinTreatments.length} entries)`);
 
             const smbTreatments = insulinTreatments.filter(t => t.eventType === 'SMB' || t.isSMB === true);
             const smbCount = smbTreatments.length;

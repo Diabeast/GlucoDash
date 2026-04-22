@@ -534,15 +534,15 @@
             margin-right: auto;
             box-sizing: border-box;
         }
-        
+
         @media (max-width: 600px) {
             .insulin-grid {
                 grid-template-columns: 1fr;
             }
         }
-        
+
         @media (max-width: 600px) {
-            .stats-grid, .insulin-grid {
+            .stats-grid {
                 grid-template-columns: 1fr;
             }
             
@@ -628,11 +628,6 @@
             font-size: 0.7rem;
         }
         
-        #last-bolus {
-            font-size: 1.3rem;
-            font-weight: bold;
-            margin: 10px 0 0 0;
-        }
 
         .info-icon {
             cursor: pointer;
@@ -646,13 +641,6 @@
             font-size: 0.8rem;
             border: 1px solid var(--text-color);
             color: var(--text-color);
-        }
-
-        .insulin-section h2 {
-            margin-top: 40px;
-            margin-bottom: 20px;
-            color: var(--info-color);
-            text-align: center;
         }
 
         .insulin-card { border-left: 4px solid var(--info-color); }
@@ -954,10 +942,6 @@
 
         <div class="insulin-grid">
             <div class="stat-card insulin-card">
-                <h3>Insuline (vandaag)</h3>
-                <p><span id="total-insulin">--</span> <span class="small-unit">U</span></p>
-            </div>
-            <div class="stat-card insulin-card">
                 <h3>Actief insuline (IOB)</h3>
                 <p><span id="iob-val">--</span> <span class="small-unit">U</span></p>
             </div>
@@ -979,10 +963,6 @@
             <div class="stat-card">
                 <h3>Variatie (CV) <span class="info-icon" onclick="openModal('cv-modal')">i</span></h3>
                 <p id="cv-val">--<span class="val-unit">%</span></p>
-            </div>
-            <div class="stat-card desktop-only">
-                <h3>Manuele bolus</h3>
-                <p id="last-bolus">--</p>
             </div>
             <div class="stat-card small-card">
                 <h3>Gemiddeld</h3>
@@ -1021,12 +1001,6 @@
             <h3>📈 Glucose — laatste 24 uur</h3>
             <div class="chart-wrapper">
                 <canvas id="chart-glucose"></canvas>
-            </div>
-        </div>
-        <div class="chart-section">
-            <h3>💉 Insuline — laatste 24 uur</h3>
-            <div class="chart-wrapper">
-                <canvas id="chart-insulin"></canvas>
             </div>
         </div>
     </div>
@@ -1444,15 +1418,11 @@
 
             // ── Parallel alle bronnen ophalen ──
             const tok = cfg.nsToken ? `token=${cfg.nsToken}&` : '';
-            // nsTreats  = alleen vandaag (voor insuline totaal) — tot 1000 om iAPS SMBs op te vangen
             // nsSensorTreats = sensor-specifieke events (breed, laatste 50) voor sensor dag-teller
-            const [hkGlucRes, hkInsuRes, nsEntries, nsTreats, nsDevstat, nsSensorTreats] = await Promise.all([
+            const [hkGlucRes, nsEntries, nsDevstat, nsSensorTreats] = await Promise.all([
                 hasHK ? HK.queryBloodGlucose({ startDate: start48, endDate: nowIso, limit: 2000 })
                             .catch(e => { console.warn('[HK glucose]', e?.message); return null; }) : null,
-                hasHK ? HK.queryInsulin({ startDate: start48, endDate: nowIso, limit: 500 })
-                            .catch(e => { console.warn('[HK insulin]', e?.message); return null; }) : null,
                 nsFetch(`entries.json?${tok}count=2000`),
-                nsFetch(`treatments.json?${tok}count=1000&find[created_at][$gte]=${midnightIso}`),
                 nsFetch(`devicestatus.json?${tok}count=1`),
                 nsFetch(`treatments.json?${tok}count=50&find[eventType][$regex]=ensor`),
             ]);
@@ -1529,25 +1499,15 @@
                 }
             }
 
-            // ── Behandelingen: uitsluitend Nightscout (geen HK fallback) ──
-            let treatments = [];
-            if (Array.isArray(nsTreats) && nsTreats.length > 0) {
-                treatments = nsTreats;
-                console.log(`[NS] ${treatments.length} behandelingen`);
-            } else {
-                console.log('[NS] Geen behandelingen beschikbaar – insuline toont --');
-            }
-
             // ── Display glucose ──
             if (glucoseEntries.length > 0) {
                 processGlucoseData(glucoseEntries);
-                saveToCache(glucoseEntries, treatments);
+                saveToCache(glucoseEntries, []);
             } else {
                 // Laatste redmiddel: lokale cache
                 const cache = loadFromCache();
                 if (cache) {
                     processGlucoseData(cache.entries);
-                    treatments = cache.treatments;
                     document.getElementById('last-update').innerText = `Cache: ${new Date(cache.time).toLocaleTimeString()}`;
                     updateStatus("📴 Offline — lokale cache", "neutral");
                 } else {
@@ -1557,14 +1517,9 @@
                 }
             }
 
-            if (treatments.length > 0) processInsulinData(treatments);
-
             // ── Sensor dag-teller ──
-            // 1. Probeer NS sensor treatments (dedicated fetch)
-            // 2. Als geen geldige NS entry → settings handmatige datum
             const sensorSource = (Array.isArray(nsSensorTreats) && nsSensorTreats.length > 0)
-                ? nsSensorTreats
-                : treatments;
+                ? nsSensorTreats : [];
             processSensorData(sensorSource, [...new Set(sensorSource.map(t => t.eventType))]);
 
             // ── HealthKit extra (hartslag, stappen, etc.) ──
@@ -2082,13 +2037,9 @@
             triggerAI();
         }
 
-        function processInsulinData(treatments) {
-            if (!treatments || !Array.isArray(treatments)) {
-                console.log("[GlucoDash] Geen treatments data");
-                return;
-            }
+        // processInsulinData verwijderd — insuline niet meer weergegeven
 
-            console.log(`[GlucoDash] ${treatments.length} treatments ontvangen`);
+        function _unused_processInsulinData_stub() {
             
             // Debug: toon alle eventTypes
             const eventTypes = [...new Set(treatments.map(t => t.eventType))];
@@ -2152,9 +2103,6 @@
                 document.getElementById('last-bolus').innerText = "Geen bolus";
             }
 
-            window.latestInsulinStats = { totalInsulin, avgSmb };
-            window.latestTreatments = treatments;
-            triggerAI();
         }
 
         // ============= SENSOR =============
@@ -2285,20 +2233,19 @@
         const STORAGE_KEY = 'glucodash_history';
         const MAX_DAYS = 14; // Bewaar 14 dagen data
 
-        function saveDailyData(GlucoDashStats, insulinStats) {
+        function saveDailyData(GlucoDashStats) {
             const today = new Date().toISOString().split('T')[0];
-            
+
             let history = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-            
+
             // Verwijder oude data van vandaag als die er al is
             history = history.filter(d => d.date !== today);
-            
+
             // Voeg nieuwe data toe
             history.push({
                 date: today,
                 timestamp: Date.now(),
-                glucose: GlucoDashStats,  // lowercase 'glucose', met juiste parameter
-                insulin: insulinStats
+                glucose: GlucoDashStats,
             });
             
             // Bewaar alleen laatste MAX_DAYS
@@ -2395,55 +2342,30 @@
 
         // ============= AI =============
         function triggerAI() {
-            if (!window.latestGlucoseStats || !window.latestInsulinStats) return;
-            
+            if (!window.latestGlucoseStats) return;
+
             const g = window.latestGlucoseStats;
-            const i = window.latestInsulinStats;
             const periodStats = g.periodStats || {};
-            
+
             // Sla data op
-            const history = saveDailyData(g, i);
-            
+            const history = saveDailyData(g);
+
             // Bereken trends
             const trends = calculateTrends(history);
-            
-            // Update UI met basis info
-            // GMI berekening
-            const gmiPct = parseFloat(g.gmi);
-            const gmiMmol = (gmiPct * 10.929 - 23.5).toFixed(0);
-            
-            let tip = `📊 Vandaag: ${g.avgMmol} mmol/L | HbA1c: ${gmiMmol} mmol | CV: ${g.cv}%`;
-            
-            // Toon ook 3d en 7d stats als beschikbaar
-            if (periodStats['3d']) {
-                const gmi3d = parseFloat(periodStats['3d'].gmi);
-                const gmi3dMmol = (gmi3d * 10.929 - 23.5).toFixed(0);
-                tip += `\n📅 3 dagen: ${periodStats['3d'].avgMmol} mmol/L | HbA1c: ${gmi3dMmol} mmol | CV: ${periodStats['3d'].cv}%`;
-            }
-            if (periodStats['7d']) {
-                const gmi7d = parseFloat(periodStats['7d'].gmi);
-                const gmi7dMmol = (gmi7d * 10.929 - 23.5).toFixed(0);
-                tip += `\n📅 7 dagen: ${periodStats['7d'].avgMmol} mmol/L | HbA1c: ${gmi7dMmol} mmol | CV: ${periodStats['7d'].cv}%`;
-            }
-            
-            if (trends && trends.daysOfData >= 2) {
-                tip += `\n📈 Trend: Glucose ${trends.GlucoDashTrend}, variatie ${trends.cvTrend}`;
-            }
-            
+
             // Roep AI aan met uitgebreide data
-            getAdvancedAI(g, i, trends, history);
-            
+            getAdvancedAI(g, trends, history);
+
             // Also run enhanced AI with pattern analysis
-            enhanceAI(g, i, trends, history, periodStats);
+            enhanceAI(g, trends, history, periodStats);
         }
 
         // Lokale AI analyse (geen externe API)
-        function getAdvancedAI(g, i, trends, history) {
+        function getAdvancedAI(g, trends, history) {
             const gmiMmol = (parseFloat(g.gmi) * 10.929 - 23.5).toFixed(0);
-            
+
             let tip = `📊 Vandaag: ${g.avgMmol} mmol/L | HbA1c: ${gmiMmol} mmol | CV: ${g.cv}%\n`;
-            tip += `💉 Insuline: ${i.totalInsulin}U | Gem. SMB: ${i.avgSmb}U\n`;
-            
+
             // Glucose analyse
             if (parseFloat(g.cv) > 36) {
                 tip += `⚠️ Hoge variatie (${g.cv}%) - let op timing bolus\n`;
@@ -2452,13 +2374,13 @@
             } else {
                 tip += `📈 Variatie is redelijk (${g.cv}%)\n`;
             }
-            
+
             // Hypo/Hyper
             if (g.hypos > 0) {
-                tip += `⚠️ ${g.hypos}x hypo gehad - check avondbolus\n`;
+                tip += `⚠️ ${g.hypos}x hypo gehad\n`;
             }
             if (g.hypers > 3) {
-                tip += `⚠️ ${g.hypers}x hoog - overweeg meer insuline bij maaltijd\n`;
+                tip += `⚠️ ${g.hypers}x hoog\n`;
             }
             
             // Trends
@@ -2681,16 +2603,15 @@
             return { rise, fall, steepRise, steepFall, patterns };
         }
 
-        function enhanceAI(g, i, trends, history, periodStats) {
+        function enhanceAI(g, trends, history, periodStats) {
             // Analyze patterns
             const data = window.GlucoDashData || GlucoDashData;
             const patternAnalysis = analyzePatterns(data, 7);
-            
+
             const gmiMmol = (parseFloat(g.gmi) * 10.929 - 23.5).toFixed(0);
-            
+
             let tip = `📊 Vandaag: ${g.avgMmol} mmol/L | HbA1c: ${gmiMmol} mmol | CV: ${g.cv}%\n`;
-            tip += `💉 Insuline: ${i.totalInsulin}U | Gem. SMB: ${i.avgSmb}U\n`;
-            
+
             // Stijl stijgen/dalen
             if (patternAnalysis.steepRise > 3) {
                 tip += `\n🔥 ${patternAnalysis.steepRise}x stijl gestegen (>0.2 mmol/min)\n`;
@@ -2698,44 +2619,30 @@
             if (patternAnalysis.steepFall > 3) {
                 tip += `\n💧 ${patternAnalysis.steepFall}x stijl gedaald (<-0.2 mmol/min)\n`;
             }
-            
+
             // 7-dagen patronen
-            if (patternAnalysis.patterns.ochtendpiek) {
-                tip += `\n🌅 Ochtendpiek gedetecteerd\n`;
-            }
-            if (patternAnalysis.patterns.avondpiek) {
-                tip += `\n🌙 Avondpiek gedetecteerd\n`;
-            }
-            if (patternAnalysis.patterns.nachtlaag) {
-                tip += `\n⚠️ Nachtelijke lows gedetecteerd\n`;
-            }
-            if (patternAnalysis.patterns["dawn phenomenon"]) {
-                tip += `\n⏰ Dawn phenomenon (ochtendstijging 5-7u)\n`;
-            }
-            if (patternAnalysis.patterns.variabiliteit) {
-                tip += `\n📊 Hoge dag-tot-dag variabiliteit\n`;
-            }
-            
+            if (patternAnalysis.patterns.ochtendpiek)      tip += `\n🌅 Ochtendpiek gedetecteerd\n`;
+            if (patternAnalysis.patterns.avondpiek)        tip += `\n🌙 Avondpiek gedetecteerd\n`;
+            if (patternAnalysis.patterns.nachtlaag)        tip += `\n⚠️ Nachtelijke lows gedetecteerd\n`;
+            if (patternAnalysis.patterns["dawn phenomenon"]) tip += `\n⏰ Dawn phenomenon (ochtendstijging 5-7u)\n`;
+            if (patternAnalysis.patterns.variabiliteit)    tip += `\n📊 Hoge dag-tot-dag variabiliteit\n`;
+
             // Glucose analyse
             if (parseFloat(g.cv) > 36) {
                 tip += `\n⚠️ Hoge variatie (${g.cv}%) - let op timing bolus\n`;
             } else if (parseFloat(g.cv) < 25) {
                 tip += `\n✅ Goede stabiliteit (CV ${g.cv}%)\n`;
             }
-            
+
             // Hypo/Hyper
-            if (g.hypos > 0) {
-                tip += `\n⚠️ ${g.hypos}x hypo gehad - check avondbolus\n`;
-            }
-            if (g.hypers > 3) {
-                tip += `\n⚠️ ${g.hypers}x hoog - overweeg meer insuline bij maaltijd\n`;
-            }
-            
+            if (g.hypos > 0)   tip += `\n⚠️ ${g.hypos}x hypo gehad\n`;
+            if (g.hypers > 3)  tip += `\n⚠️ ${g.hypers}x hoog\n`;
+
             // Trends
             if (trends && trends.daysOfData >= 2) {
                 tip += `\n📈 Trend (3d vs 7d): ${trends.GlucoDashTrend}, variatie ${trends.cvTrend}\n`;
             }
-            
+
             // Tips
             if (parseFloat(g.avgMmol) > 10) {
                 tip += `\n💡 Tip: Glucose hoog - wacht met eten tot GlucoDash daalt`;
@@ -2744,7 +2651,7 @@
             } else {
                 tip += `\n💡 Tip: Mooi in bereik - houd zo vol!`;
             }
-            
+
             document.getElementById('ai-tip').innerText = tip;
         }
 
@@ -2773,7 +2680,6 @@
 
         function renderChartsView() {
             const entries = window.GlucoDashData || [];
-            const treatments = window.latestTreatments || [];
             const now = Date.now();
             const ago24 = now - 24 * 60 * 60 * 1000;
 
@@ -2848,65 +2754,6 @@
                 }
             });
 
-            // --- Insuline data ---
-            // Gebruik zowel window.latestTreatments als de meegegeven treatments parameter
-            const allTreatments = (window.latestTreatments && window.latestTreatments.length > 0)
-                ? window.latestTreatments
-                : treatments;
-
-            const insulinData = allTreatments
-                .filter(t => getTimestamp(t) >= ago24 && t.insulin && parseFloat(t.insulin) > 0)
-                .sort((a, b) => getTimestamp(a) - getTimestamp(b));
-
-            const insulinLabels = insulinData.map(d =>
-                new Date(getTimestamp(d)).toLocaleTimeString('nl-NL', { hour: '2-digit', minute: '2-digit' })
-            );
-            const insulinValues = insulinData.map(d => parseFloat(parseFloat(d.insulin).toFixed(2)));
-
-            // --- Insuline chart ---
-            const ctxInsulin = document.getElementById('chart-insulin');
-            if (window._chartInsulin) window._chartInsulin.destroy();
-
-            if (insulinData.length === 0) {
-                // Geen data — toon melding in canvas
-                const ctx2d = ctxInsulin.getContext('2d');
-                ctx2d.clearRect(0, 0, ctxInsulin.width, ctxInsulin.height);
-                ctx2d.fillStyle = getComputedStyle(document.documentElement).getPropertyValue('--subtext-color') || '#888';
-                ctx2d.font = '14px Arial';
-                ctx2d.textAlign = 'center';
-                ctx2d.fillText('Geen insuline data beschikbaar', ctxInsulin.width / 2, ctxInsulin.height / 2);
-            } else {
-                window._chartInsulin = new Chart(ctxInsulin, {
-                    type: 'bar',
-                    data: {
-                        labels: insulinLabels,
-                        datasets: [
-                            {
-                                label: 'Insuline (U)',
-                                data: insulinValues,
-                                backgroundColor: 'rgba(155,89,182,0.60)',
-                                borderColor: 'rgba(155,89,182,0.85)',
-                                borderWidth: 1
-                            }
-                        ]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: false,
-                        interaction: { mode: 'index', intersect: false },
-                        plugins: {
-                            legend: { display: true, labels: { font: { size: 11 } } }
-                        },
-                        scales: {
-                            x: { ticks: { maxTicksLimit: 8, font: { size: 10 } } },
-                            y: {
-                                beginAtZero: true,
-                                ticks: { font: { size: 10 }, callback: v => v + ' U' }
-                            }
-                        }
-                    }
-                });
-            }
         }
 
         // ============= INIT =============
